@@ -7,11 +7,15 @@ Path::Path(Vec3f startMarioPos, Vec3f startNormal, BoundaryDistance* boundaryDis
 	BestMarioPos = StartMarioPos = CurrentMarioPos = startMarioPos;
 	BestNormal = StartNormal = startNormal;
 
-	platform = Platform(-1945.0f, -3225.0f, -715.0f, startNormal);
 	this->boundaryDistance = boundaryDistance;
+
+	platform = Platform(-1945.0f, -3225.0f, -715.0f, startNormal);
+	platform.platform_logic(startMarioPos);
 
 	float floor_height = 0.0;
 	Surface const* floor = find_floor(startMarioPos, platform.triangles, &floor_height);
+
+	platform = Platform(-1945.0f, -3225.0f, -715.0f, startNormal);
 
 	if (floor && floor_height > -3071.0f)
 	{

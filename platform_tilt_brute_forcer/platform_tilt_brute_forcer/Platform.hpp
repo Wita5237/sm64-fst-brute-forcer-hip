@@ -16,7 +16,9 @@ public:
 	Vec3f normal = { 0, 1, 0 };
 	Mat4 transform = { {} };
 	bool oTiltingPyramidMarioOnPlatform = false;
-	Vec2S triangles = { Surface(true), Surface(false) };
+	bool onPlatform = false;
+	Vec2S triangles = { Surface(0), Surface(1) };
+	std::array<Surface, 4> ceilings = { Surface(2), Surface(3), Surface(4), Surface(5) };
 
 	Platform() { };
 
@@ -30,6 +32,11 @@ public:
 
 		triangles[0].rotate(transform);
 		triangles[1].rotate(transform);
+
+		ceilings[0].rotate(transform);
+		ceilings[1].rotate(transform);
+		ceilings[2].rotate(transform);
+		ceilings[3].rotate(transform);
 	}
 
 	void create_transform_from_normals();

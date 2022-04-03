@@ -18,10 +18,10 @@ public:
 	Vec3f normal;
 	float originOffset;
 	int plat_idx;
-	bool top;
+	int idx;
 
-	Surface(bool top) {
-		this->top = top;
+	Surface(int idx) {
+		this->idx = idx;
 
 		reset_vectors();
 
@@ -33,11 +33,10 @@ public:
 	}
 
 	void reset_vectors() {
-		vectors[0][0] = 307;
-		vectors[0][1] = 307;
-		vectors[0][2] = -306;
-
-		if (top) {
+		if (idx == 0) {
+			vectors[0][0] = 307;
+			vectors[0][1] = 307;
+			vectors[0][2] = -306;
 			vectors[1][0] = -306;
 			vectors[1][1] = 307;
 			vectors[1][2] = -306;
@@ -45,13 +44,63 @@ public:
 			vectors[2][1] = 307;
 			vectors[2][2] = 307;
 		}
-		else {
+		else if (idx == 1) {
+			vectors[0][0] = 307;
+			vectors[0][1] = 307;
+			vectors[0][2] = -306;
 			vectors[1][0] = -306;
 			vectors[1][1] = 307;
 			vectors[1][2] = 307;
 			vectors[2][0] = 307;
 			vectors[2][1] = 307;
 			vectors[2][2] = 307;
+		}
+		else if (idx == 2) {
+			vectors[0][0] = -306;
+			vectors[0][1] = 307;
+			vectors[0][2] = 307;
+			vectors[1][0] = -306;
+			vectors[1][1] = 307;
+			vectors[1][2] = -306;
+			vectors[2][0] = 0;
+			vectors[2][1] = 0;
+			vectors[2][2] = 0;
+		}
+		else if (idx == 3) {
+			vectors[0][0] = 0;
+			vectors[0][1] = 0;
+			vectors[0][2] = 0;
+			vectors[1][0] = 307;
+			vectors[1][1] = 307;
+			vectors[1][2] = 307;
+			vectors[2][0] = -306;
+			vectors[2][1] = 307;
+			vectors[2][2] = 307;
+		}
+		else if (idx == 4) {
+			vectors[0][0] = 307;
+			vectors[0][1] = 307;
+			vectors[0][2] = -306;
+			vectors[1][0] = 0;
+			vectors[1][1] = 0;
+			vectors[1][2] = 0;
+			vectors[2][0] = -306;
+			vectors[2][1] = 307;
+			vectors[2][2] = -306;
+		}
+		else if (idx == 5) {
+			vectors[0][0] = 0;
+			vectors[0][1] = 0;
+			vectors[0][2] = 0;
+			vectors[1][0] = 307;
+			vectors[1][1] = 307;
+			vectors[1][2] = -306;
+			vectors[2][0] = 307;
+			vectors[2][1] = 307;
+			vectors[2][2] = 307;
+		}
+		else {
+			throw "Unsupported surface " + idx;
 		}
 	}
 

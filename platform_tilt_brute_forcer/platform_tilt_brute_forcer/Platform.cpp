@@ -54,11 +54,9 @@ void Platform::platform_logic(Vec3f& marioPos) {
 	int marioOnPlatform = 0;
 
 	// pretty sure you can always assume if here, then mario is on the floor
-	float floor_height = 0.0;
-	Surface const* floor = find_floor(marioPos, triangles, &floor_height);
 	create_transform_from_normals();
 
-	if (floor && fabsf(marioPos[1] - floor_height) <= 4.0)
+	if (onPlatform)
 	{
 		mx = marioPos[0];
 		my = marioPos[1];
@@ -110,6 +108,11 @@ void Platform::platform_logic(Vec3f& marioPos) {
 	triangles[0].rotate(transform);
 	triangles[1].rotate(transform);
 
+	ceilings[0].rotate(transform);
+	ceilings[1].rotate(transform);
+	ceilings[2].rotate(transform);
+	ceilings[3].rotate(transform);
+
 	// If Mario is on the platform, adjust his position for the platform tilt.
 	if (marioOnPlatform) {
 		linear_mtxf_mul_vec3f(posAfterRotation, transform, dist);
@@ -120,4 +123,8 @@ void Platform::platform_logic(Vec3f& marioPos) {
 		marioPos[1] = my;
 		marioPos[2] = mz;
 	}
+
+	float floor_height = 0.0;
+	Surface const* floor = find_floor(marioPos, triangles, &floor_height);
+	onPlatform = floor && fabsf(marioPos[1] - floor_height) <= 4.0;
 }
