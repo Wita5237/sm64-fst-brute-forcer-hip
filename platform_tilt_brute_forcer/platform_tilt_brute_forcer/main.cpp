@@ -136,7 +136,7 @@ __global__ void cudaFunc(bool* out, const float minX, const float deltaX, const 
         break;
     }
 
-    if (floor_idx != -1 && floor_height > -3071.0f)
+    if (floor_idx != -1 && floor_height - 100.0f > -3071.0f)
     {
         marioPos[1] = floor_height;
 
@@ -205,7 +205,7 @@ __global__ void cudaFunc(bool* out, const float minX, const float deltaX, const 
         bool oTiltingPyramidMarioOnPlatform = false;
         bool onPlatform = false;
 
-        for (int i = 0; i < frames; i++) {
+        for (int f = 0; f < frames; f++) {
             float dx;
             float dy;
             float dz;
@@ -498,7 +498,7 @@ int main() {
             if (squishTest) { 
                 Vec3f position = { 0.0f, 0.0f, 0.0f };
 
-                for (int i = 0; i <= nPUFrames; i++) {
+                for (int k = 0; k <= nPUFrames; k++) {
                     platform.platform_logic(position);
                 }
 
@@ -507,11 +507,11 @@ int main() {
                 float minZ = INT16_MAX;
                 float maxZ = INT16_MIN;
 
-                for (int i = 0; i < platform.triangles.size(); i++) {
-                    minX = fminf(fminf(fminf(minX, platform.triangles[i].vectors[0][0]), platform.triangles[i].vectors[1][0]), platform.triangles[i].vectors[2][0]);
-                    maxX = fmaxf(fmaxf(fmaxf(maxX, platform.triangles[i].vectors[0][0]), platform.triangles[i].vectors[1][0]), platform.triangles[i].vectors[2][0]);
-                    minZ = fminf(fminf(fminf(minZ, platform.triangles[i].vectors[0][2]), platform.triangles[i].vectors[1][2]), platform.triangles[i].vectors[2][2]);
-                    maxZ = fmaxf(fmaxf(fmaxf(maxZ, platform.triangles[i].vectors[0][2]), platform.triangles[i].vectors[1][2]), platform.triangles[i].vectors[2][2]);
+                for (int k = 0; k < platform.triangles.size(); k++) {
+                    minX = fminf(fminf(fminf(minX, platform.triangles[k].vectors[0][0]), platform.triangles[k].vectors[1][0]), platform.triangles[k].vectors[2][0]);
+                    maxX = fmaxf(fmaxf(fmaxf(maxX, platform.triangles[k].vectors[0][0]), platform.triangles[k].vectors[1][0]), platform.triangles[k].vectors[2][0]);
+                    minZ = fminf(fminf(fminf(minZ, platform.triangles[k].vectors[0][2]), platform.triangles[k].vectors[1][2]), platform.triangles[k].vectors[2][2]);
+                    maxZ = fmaxf(fmaxf(fmaxf(maxZ, platform.triangles[k].vectors[0][2]), platform.triangles[k].vectors[1][2]), platform.triangles[k].vectors[2][2]);
                 }
 
                 int nX = round((maxX - minX) / deltaX) + 1;
