@@ -3158,7 +3158,7 @@ int main(int argc, char* argv[]) {
     unordered_map<uint64_t, PUSolution> puSolutionLookup;
 
     for (int h = 0; h < nSamplesNY; h++) {
-        for (int i = 61; i < nSamplesNX; i++) {
+        for (int i = 0; i < nSamplesNX; i++) {
             for (int j = 0; j < nSamplesNZ; j++) {
                 float normX = minNX + i * deltaNX;
                 float normZ = minNZ + j * deltaNZ;
