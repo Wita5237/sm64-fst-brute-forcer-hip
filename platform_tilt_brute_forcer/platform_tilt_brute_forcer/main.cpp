@@ -16,7 +16,7 @@
 # define M_PI               3.14159265358979323846  /* pi */
 # define MAX_10K_SOLUTIONS   50000
 # define MAX_PU_SOLUTIONS   50000000
-# define MAX_PLAT_SOLUTIONS 50000
+# define MAX_PLAT_SOLUTIONS 200000
 
 std::ofstream out_stream;
 
@@ -1133,7 +1133,7 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
 
                             }
                             else if (idx == MAX_10K_SOLUTIONS) {
-                                printf("Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.");
+                                printf("Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
                             }
                         }
                     }
@@ -1628,7 +1628,7 @@ __device__ void find_pu_slide_setup(struct PlatformSolution *sol, int solIdx) {
                                 puSolutions[idx] = solution;
                             }
                             else if (idx == MAX_PU_SOLUTIONS) {
-                                printf("Warning: Number of PU solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.");
+                                printf("Warning: Number of PU solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
                             }
                         }
                     }
@@ -1862,7 +1862,7 @@ __device__ bool try_pu_xz(float* normal, float* position, short (&current_triang
                         platSolutions[solIdx] = solution;
                     }
                     else if (solIdx == MAX_PLAT_SOLUTIONS) {
-                        printf("Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.");
+                        printf("Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
                     }
 
                     break;
@@ -3308,6 +3308,8 @@ int main(int argc, char* argv[]) {
 
                     cudaMemcpyFromSymbol(&nPlatSolutionsCPU, nPlatSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
+                    nPlatSolutionsCPU = min(nPlatSolutionsCPU, MAX_PLAT_SOLUTIONS);
+
                     bool goodPositions = (nPlatSolutionsCPU > 0);
 
                     if (goodPositions) {
@@ -3323,11 +3325,12 @@ int main(int argc, char* argv[]) {
 
                         cudaMemcpyFromSymbol(&nPUSolutionsCPU, nPUSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
+                        nPUSolutionsCPU = min(nPUSolutionsCPU, MAX_PU_SOLUTIONS);
+
                         if (nPUSolutionsCPU > 0) {
                             puSolutionLookup.clear();
 
                             cudaMemcpyFromSymbol(puSolutionsCPU, puSolutions, nPUSolutionsCPU * sizeof(struct PUSolution), 0, cudaMemcpyDeviceToHost);
-
 
                             for (int l = 0; l < nPUSolutionsCPU; l++) {
                                 uint64_t key = (((uint64_t)puSolutionsCPU[l].platformSolutionIdx) << 32) | (reinterpret_cast<uint32_t&>(puSolutionsCPU[l].returnSpeed));
@@ -3357,6 +3360,8 @@ int main(int argc, char* argv[]) {
                             cudaDeviceSynchronize();
 
                             cudaMemcpyFromSymbol(&n10KSolutionsCPU, n10KSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+
+                            n10KSolutionsCPU = min(n10KSolutionsCPU, MAX_10K_SOLUTIONS);
 
                             if (n10KSolutionsCPU > 0) {
                                 cudaMemcpyFromSymbol(tenKSolutionsCPU, tenKSolutions, n10KSolutionsCPU * sizeof(struct TenKSolution), 0, cudaMemcpyDeviceToHost);
