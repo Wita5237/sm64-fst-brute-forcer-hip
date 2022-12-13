@@ -14,10 +14,26 @@
 #include "vmath.hpp"
 
 # define M_PI               3.14159265358979323846  /* pi */
+# define MAX_10K_SOLUTIONS   50000
 # define MAX_PU_SOLUTIONS   50000000
 # define MAX_PLAT_SOLUTIONS 50000
 
 std::ofstream out_stream;
+
+struct TenKSolution {
+    int puSolutionIdx;
+    int startFloorIdx;
+    float startPosition[3];
+    float frame1Position[3];
+    float frame2Position[3];
+    int frame2QSteps;
+    float pre10Kspeed;
+    float pre10KVel[2];
+    float returnVel[2];
+    int stick10K[2];
+    int cameraYaw10K;
+    float startPositionLimits[2][3];
+};
 
 struct PUSolution {
     int platformSolutionIdx;
@@ -33,6 +49,8 @@ struct PlatformSolution {
     float endNormal[3];
     short endTriangles[2][3][3];
     float endTriangleNormals[2][3];
+    float penultimateFloorNormalY;
+    float penultimatePosition[3];
     int pux;
     int puz;
     int nFrames;
@@ -148,6 +166,9 @@ __device__ int nPlatSolutions;
 
 __device__ struct PUSolution puSolutions[MAX_PU_SOLUTIONS];
 __device__ int nPUSolutions;
+
+__device__ struct TenKSolution tenKSolutions[MAX_10K_SOLUTIONS];
+__device__ int n10KSolutions;
 
 __device__ const int total_floorsG = 350;
 __device__ SurfaceG floorsG[total_floorsG];
@@ -503,6 +524,14 @@ __global__ void initialise_floors() {
     floorsG[347] = SurfaceG(-7065, -3071, 322, -6553, -2866, 307, -7065, -2866, 307);
     floorsG[348] = SurfaceG(-8191, -3071, 8192, 8192, -3071, -8191, -8191, -3071, -8191);
     floorsG[349] = SurfaceG(-8191, -3071, 8192, 8192, -3071, 8192, 8192, -3071, -8191);
+}
+
+__device__ bool check_inbounds(const float* mario_pos) {
+    short x_mod = (short)(int)mario_pos[0];
+    short y_mod = (short)(int)mario_pos[1];
+    short z_mod = (short)(int)mario_pos[2];
+
+    return (abs(x_mod) < 8192 & abs(y_mod) < 8192 & abs(z_mod) < 8192);
 }
 
 __global__ void init_reverse_atan() {
@@ -903,7 +932,7 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
                         testFrame1Position[0] = testFrame1Position[0] - (xVel1 / 4.0f);
                         testFrame1Position[2] = testFrame1Position[2] - (zVel1 / 4.0f);
 
-                        if (abs((short)(int)testFrame1Position[0]) >= 8192 || abs((short)(int)testFrame1Position[2]) >= 8192) {
+                        if (!check_inbounds(testFrame1Position)) {
                             inBoundsTest = false;
                             break;
                         }
@@ -920,7 +949,7 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
                         testStartPosition[0] = testFrame1Position[0] + (targetDist / newDist) * (testStartPosition[0] - testFrame1Position[0]);
                         testStartPosition[2] = testFrame1Position[2] + (targetDist / newDist) * (testStartPosition[2] - testFrame1Position[2]);
 
-                        if (!(fabsf(testStartPosition[0]) < 8192 && fabsf(testStartPosition[2]) < 8192)) {
+                        if (!check_inbounds(testStartPosition)) {
                             speedTest = false;
                         }
 
@@ -960,145 +989,152 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
 
             float marioMinY = fmaxf(-2971.0f, testOneUpPlatformPosition[1] - 78.0f);
 
-            float floorHeight;
+            float intersectionPoints[2][3];
+            int intersections = 0;
 
-            int floorIdx = find_floor(testStartPosition, startTriangles, startNormals, &floorHeight);
+            double px = testStartPosition[0];
+            double pz = testStartPosition[2];
+            double qx = testFrame1Position[0];
+            double qz = testFrame1Position[2];
 
-            if (floorIdx == f && floorHeight > marioMinY && floorHeight < testOneUpPlatformPosition[1]) {
-                testStartPosition[1] = floorHeight;
+            for (int i = 0; i < 3; i++) {
+                double ax = startTriangles[f][i][0];
+                double az = startTriangles[f][i][2];
+                double bx = startTriangles[f][(i + 1) % 3][0];
+                double bz = startTriangles[f][(i + 1) % 3][2];
 
-                predictedReturnPosition[0] = testOneUpPlatformPosition[0] + (oneUpPlatformNormalY * xVel2a / 4.0f);
-                predictedReturnPosition[2] = testOneUpPlatformPosition[2] + (oneUpPlatformNormalY * zVel2a / 4.0f);
+                double t = ((pz - qz) * (pz - az) + (px - qx) * (px - ax)) / ((pz - qz) * (bz - az) + (px - qx) * (bx - ax));
 
-                if (predictedReturnPosition[0] == returnPosition[0] && predictedReturnPosition[2] == returnPosition[2]) {
-                    testFrame1Position[0] = testFrame1Position[0] - xShift;
-                    testFrame1Position[1] = testStartPosition[1];
-                    testFrame1Position[2] = testFrame1Position[2] - zShift;
-                    foundSolution = true;
-                    struct PUSolution puSol = puSolutions[solIdx];
-                    struct PlatformSolution platSol = platSolutions[puSol.platformSolutionIdx];
-                    printf("---------------------------------------\nFound Solution:\n---------------------------------------\n    Start Position: %.10g, %.10g, %.10g\n    Frame 1 Position: %.10g, %.10g, %.10g\n    Frame 2 Position: %.10g, %.10g, %.10g\n    Return Position: %.10g, %.10g. %.10g\n    PU Route Speed: %.10g (x=%.10g, z=%.10g)\n    PU Return Speed: %.10g (x=%.10g, z=%.10g)\n    Frame 2 Q-steps: %d\n    10k Stick X: %d\n    10k Stick Y: %d\n    10k Camera Yaw: %d\n    Start Floor Normal: %.10g, %.10g, %.10g\n", testStartPosition[0], testStartPosition[1], testStartPosition[2], testFrame1Position[0], testFrame1Position[1], testFrame1Position[2], testOneUpPlatformPosition[0], testOneUpPlatformPosition[1], testOneUpPlatformPosition[2], returnPosition[0], returnPosition[1], returnPosition[2], vel1, xVel1, zVel1, endSpeed, xVel2a, zVel2a, q, trueX, trueY, cameraYaw, startNormals[f][0], startNormals[f][1], startNormals[f][2]);
-                    printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Indented DYaw: %d\n---------------------------------------\n\n\n", platSol.nFrames, platSol.endNormal[0], platSol.endNormal[1], platSol.endNormal[2], platSol.endPosition[0], platSol.endPosition[1], platSol.endPosition[2], platSol.pux, platSol.puz, puSol.angle, puSol.stickMag, puSol.intendedDYaw);
-                }
-                else {
-                    //printf("     %.10g %.10g %.10g %d : %d %g : (%.10g, %.10g), (%g, %g) (XXXX)\n", vel1, endSpeed, vel2a, q, intendedDYaw, intendedMag, predictedReturnPosition[0], predictedReturnPosition[2], returnPosition[0], returnPosition[2]);
+                if (t >= 0.0 && t <= 1.0) {
+                    intersectionPoints[intersections][0] = ax + (bx - ax) * t;
+                    intersectionPoints[intersections][2] = az + (bz - az) * t;
+                    intersections++;
                 }
             }
-            else {
-                float intersectionPoints[2][3];
-                int intersections = 0;
 
-                double px = testStartPosition[0];
-                double pz = testStartPosition[2];
-                double qx = testFrame1Position[0];
-                double qz = testFrame1Position[2];
+            double cutPoints[2];
 
-                for (int i = 0; i < 3; i++) {
-                    double ax = startTriangles[f][i][0];
-                    double az = startTriangles[f][i][2];
-                    double bx = startTriangles[f][(i + 1) % 3][0];
-                    double bz = startTriangles[f][(i + 1) % 3][2];
+            double ax = intersectionPoints[0][0];
+            double az = intersectionPoints[0][2];
+            double bx = intersectionPoints[1][0];
+            double bz = intersectionPoints[1][2];
 
-                    double t = ((pz - qz) * (pz - az) + (px - qx) * (px - ax)) / ((pz - qz) * (bz - az) + (px - qx) * (bx - ax));
+            px = testFrame1Position[0];
+            pz = testFrame1Position[2];
 
-                    if (t >= 0.0 && t <= 1.0) {
-                        intersectionPoints[intersections][0] = ax + (bx - ax) * t;
-                        intersectionPoints[intersections][2] = az + (bz - az) * t;
-                        intersections++;
+            int angleIdx = gReverseArctanTable[angle];
+            int prevAngle = (65536 + gArctanTableG[(angleIdx + 8191) % 8192]) % 65536;
+            int nextAngle = (65536 + gArctanTableG[(angleIdx + 1) % 8192]) % 65536;
+
+            double m = (gSineTableG[nextAngle >> 4] + gSineTableG[angle >> 4]) / 2.0;
+            double n = (gCosineTableG[nextAngle >> 4] + gCosineTableG[angle >> 4]) / 2.0;
+
+            cutPoints[0] = ((pz - az) + (n / m) * (ax - px)) / ((bz - az) - (n / m) * (bx - ax));
+
+            m = (gSineTableG[prevAngle >> 4] + gSineTableG[angle >> 4]) / 2.0;
+            n = (gCosineTableG[prevAngle >> 4] + gCosineTableG[angle >> 4]) / 2.0;
+
+            cutPoints[1] = ((pz - az) + (n / m) * (ax - px)) / ((bz - az) - (n / m) * (bx - ax));
+
+            if (cutPoints[0] > cutPoints[1]) {
+                double temp = cutPoints[0];
+                cutPoints[0] = cutPoints[1];
+                cutPoints[1] = temp;
+            }
+
+            cutPoints[0] = fmax(cutPoints[0], 0.0) + 0.001;
+            cutPoints[1] = fmin(cutPoints[1], 1.0) - 0.001;
+
+            if (cutPoints[0] <= cutPoints[1]) {
+                intersectionPoints[0][0] = ax + (bx - ax) * cutPoints[0];
+                intersectionPoints[0][2] = az + (bz - az) * cutPoints[0];
+                intersectionPoints[1][0] = ax + (bx - ax) * cutPoints[1];
+                intersectionPoints[1][2] = az + (bz - az) * cutPoints[1];
+
+                find_floor(intersectionPoints[0], startTriangles, startNormals, &intersectionPoints[0][1]);
+                find_floor(intersectionPoints[1], startTriangles, startNormals, &intersectionPoints[1][1]);
+
+                if (fmaxf(intersectionPoints[0][1], intersectionPoints[1][1]) > marioMinY && fminf(intersectionPoints[0][1], intersectionPoints[1][1]) < testOneUpPlatformPosition[1]) {
+                    if (intersectionPoints[0][1] < marioMinY) {
+                        intersectionPoints[0][0] = intersectionPoints[0][0] + (intersectionPoints[1][0] - intersectionPoints[0][0]) * (-2971.0f - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
+                        intersectionPoints[0][2] = intersectionPoints[0][2] + (intersectionPoints[1][2] - intersectionPoints[0][2]) * (-2971.0f - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
+                        intersectionPoints[0][1] = marioMinY;
                     }
-                }
+                    else if (intersectionPoints[1][1] < marioMinY) {
+                        intersectionPoints[1][0] = intersectionPoints[1][0] + (intersectionPoints[0][0] - intersectionPoints[1][0]) * (-2971.0f - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
+                        intersectionPoints[1][2] = intersectionPoints[1][2] + (intersectionPoints[0][2] - intersectionPoints[1][2]) * (-2971.0f - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
+                        intersectionPoints[1][1] = marioMinY;
+                    }
 
-                double cutPoints[2];
+                    if (intersectionPoints[0][1] > testOneUpPlatformPosition[1]) {
+                        intersectionPoints[0][0] = intersectionPoints[0][0] + (intersectionPoints[1][0] - intersectionPoints[0][0]) * (testOneUpPlatformPosition[1] - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
+                        intersectionPoints[0][2] = intersectionPoints[0][2] + (intersectionPoints[1][2] - intersectionPoints[0][2]) * (testOneUpPlatformPosition[1] - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
+                        intersectionPoints[0][1] = testOneUpPlatformPosition[1];
+                    }
+                    else if (intersectionPoints[1][1] < testOneUpPlatformPosition[1]) {
+                        intersectionPoints[1][0] = intersectionPoints[1][0] + (intersectionPoints[0][0] - intersectionPoints[1][0]) * (testOneUpPlatformPosition[1] - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
+                        intersectionPoints[1][2] = intersectionPoints[1][2] + (intersectionPoints[0][2] - intersectionPoints[1][2]) * (testOneUpPlatformPosition[1] - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
+                        intersectionPoints[1][1] = testOneUpPlatformPosition[1];
+                    }
 
-                double ax = intersectionPoints[0][0];
-                double az = intersectionPoints[0][2];
-                double bx = intersectionPoints[1][0];
-                double bz = intersectionPoints[1][2];
+                    testStartPosition[0] = (intersectionPoints[0][0] + intersectionPoints[1][0]) / 2.0f;
+                    testStartPosition[2] = (intersectionPoints[0][2] + intersectionPoints[1][2]) / 2.0f;
 
-                px = testFrame1Position[0];
-                pz = testFrame1Position[2];
+                    float floorHeight;
 
-                int angleIdx = gReverseArctanTable[angle];
-                int prevAngle = (65536 + gArctanTableG[(angleIdx + 8191) % 8192]) % 65536;
-                int nextAngle = (65536 + gArctanTableG[(angleIdx + 1) % 8192]) % 65536;
+                    int floorIdx = find_floor(testStartPosition, startTriangles, startNormals, &floorHeight);
 
-                double m = (gSineTableG[nextAngle >> 4] + gSineTableG[angle >> 4]) / 2.0;
-                double n = (gCosineTableG[nextAngle >> 4] + gCosineTableG[angle >> 4]) / 2.0;
+                    if (floorIdx == f && floorHeight > marioMinY && floorHeight < testOneUpPlatformPosition[1]) {
+                        testStartPosition[1] = floorHeight;
+                        predictedReturnPosition[0] = testOneUpPlatformPosition[0] + (oneUpPlatformNormalY * xVel2a / 4.0f);
+                        predictedReturnPosition[2] = testOneUpPlatformPosition[2] + (oneUpPlatformNormalY * zVel2a / 4.0f);
 
-                cutPoints[0] = ((pz - az) + (n / m) * (ax - px)) / ((bz - az) - (n / m) * (bx - ax));
+                        if (predictedReturnPosition[0] == returnPosition[0] && predictedReturnPosition[2] == returnPosition[2]) {
+                            testFrame1Position[0] = testFrame1Position[0] - xShift;
+                            testFrame1Position[1] = testStartPosition[1];
+                            testFrame1Position[2] = testFrame1Position[2] - zShift;
+                            foundSolution = true;
+                            struct PUSolution puSol = puSolutions[solIdx];
+                            struct PlatformSolution platSol = platSolutions[puSol.platformSolutionIdx];
+                            printf("---------------------------------------\nFound Solution:\n---------------------------------------\n    Start Position: %.10g, %.10g, %.10g\n    Frame 1 Position: %.10g, %.10g, %.10g\n    Frame 2 Position: %.10g, %.10g, %.10g\n    Return Position: %.10g, %.10g, %.10g\n    PU Route Speed: %.10g (x=%.10g, z=%.10g)\n    PU Return Speed: %.10g (x=%.10g, z=%.10g)\n    Frame 2 Q-steps: %d\n    10k Stick X: %d\n    10k Stick Y: %d\n    10k Camera Yaw: %d\n    Start Floor Normal: %.10g, %.10g, %.10g\n    Start Position Limit 1: %.10g %.10g %.10g\n    Start Position Limit 2: %.10g %.10g %.10g\n", testStartPosition[0], testStartPosition[1], testStartPosition[2], testFrame1Position[0], testFrame1Position[1], testFrame1Position[2], testOneUpPlatformPosition[0], testOneUpPlatformPosition[1], testOneUpPlatformPosition[2], returnPosition[0], returnPosition[1], returnPosition[2], vel1, xVel1, zVel1, endSpeed, xVel2a, zVel2a, q, trueX, trueY, cameraYaw, startNormals[f][0], startNormals[f][1], startNormals[f][2], intersectionPoints[0][0], intersectionPoints[0][1], intersectionPoints[0][2], intersectionPoints[1][0], intersectionPoints[1][1], intersectionPoints[1][2]);
+                            printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Indented DYaw: %d\n---------------------------------------\n\n\n", platSol.nFrames, platSol.endNormal[0], platSol.endNormal[1], platSol.endNormal[2], platSol.endPosition[0], platSol.endPosition[1], platSol.endPosition[2], platSol.pux, platSol.puz, puSol.angle, puSol.stickMag, puSol.intendedDYaw);
 
-                m = (gSineTableG[prevAngle >> 4] + gSineTableG[angle >> 4]) / 2.0;
-                n = (gCosineTableG[prevAngle >> 4] + gCosineTableG[angle >> 4]) / 2.0;
+                            int idx = atomicAdd(&n10KSolutions, 1);
 
-                cutPoints[1] = ((pz - az) + (n / m) * (ax - px)) / ((bz - az) - (n / m) * (bx - ax));
+                            if (idx < MAX_10K_SOLUTIONS) {
+                                struct TenKSolution solution;
+                                solution.puSolutionIdx = solIdx;
+                                solution.startFloorIdx = f;
+                                solution.startPosition[0] = testStartPosition[0];
+                                solution.startPosition[1] = testStartPosition[1];
+                                solution.startPosition[2] = testStartPosition[2];
+                                solution.startPositionLimits[0][0] = intersectionPoints[0][0];
+                                solution.startPositionLimits[0][1] = intersectionPoints[0][1];
+                                solution.startPositionLimits[0][2] = intersectionPoints[0][2];
+                                solution.startPositionLimits[1][0] = intersectionPoints[1][0];
+                                solution.startPositionLimits[1][1] = intersectionPoints[1][1];
+                                solution.startPositionLimits[1][2] = intersectionPoints[1][2];
+                                solution.frame1Position[0] = testFrame1Position[0];
+                                solution.frame1Position[1] = testFrame1Position[1];
+                                solution.frame1Position[2] = testFrame1Position[2];
+                                solution.frame2Position[0] = testOneUpPlatformPosition[0];
+                                solution.frame2Position[1] = testOneUpPlatformPosition[1];
+                                solution.frame2Position[2] = testOneUpPlatformPosition[2];
+                                solution.frame2QSteps = q;
+                                solution.pre10Kspeed = vel1;
+                                solution.pre10KVel[0] = xVel1;
+                                solution.pre10KVel[1] = zVel1;
+                                solution.returnVel[0] = xVel2a;
+                                solution.returnVel[1] = zVel2a;
+                                solution.stick10K[0] = trueX;
+                                solution.stick10K[1] = trueY;
+                                solution.cameraYaw10K = cameraYaw;
+                                tenKSolutions[idx] = solution;
 
-                if (cutPoints[0] > cutPoints[1]) {
-                    double temp = cutPoints[0];
-                    cutPoints[0] = cutPoints[1];
-                    cutPoints[1] = temp;
-                }
-
-                cutPoints[0] = fmax(cutPoints[0], 0.0) + 0.001;
-                cutPoints[1] = fmin(cutPoints[1], 1.0) - 0.001;
-
-                if (cutPoints[0] <= cutPoints[1]) {
-                    intersectionPoints[0][0] = ax + (bx - ax) * cutPoints[0];
-                    intersectionPoints[0][2] = az + (bz - az) * cutPoints[0];
-                    intersectionPoints[1][0] = ax + (bx - ax) * cutPoints[1];
-                    intersectionPoints[1][2] = az + (bz - az) * cutPoints[1];
-
-                    find_floor(intersectionPoints[0], startTriangles, startNormals, &intersectionPoints[0][1]);
-                    find_floor(intersectionPoints[1], startTriangles, startNormals, &intersectionPoints[1][1]);
-
-                    if (fmaxf(intersectionPoints[0][1], intersectionPoints[1][1]) > marioMinY && fminf(intersectionPoints[0][1], intersectionPoints[1][1]) < testOneUpPlatformPosition[1]) {
-                        if (intersectionPoints[0][1] < marioMinY) {
-                            intersectionPoints[0][0] = intersectionPoints[0][0] + (intersectionPoints[1][0] - intersectionPoints[0][0]) * (-2971.0f - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
-                            intersectionPoints[0][2] = intersectionPoints[0][2] + (intersectionPoints[1][2] - intersectionPoints[0][2]) * (-2971.0f - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
-                            intersectionPoints[0][1] = marioMinY;
-                        }
-                        else if (intersectionPoints[1][1] < marioMinY) {
-                            intersectionPoints[1][0] = intersectionPoints[1][0] + (intersectionPoints[0][0] - intersectionPoints[1][0]) * (-2971.0f - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
-                            intersectionPoints[1][2] = intersectionPoints[1][2] + (intersectionPoints[0][2] - intersectionPoints[1][2]) * (-2971.0f - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
-                            intersectionPoints[1][1] = marioMinY;
-                        }
-
-                        if (intersectionPoints[0][1] > testOneUpPlatformPosition[1]) {
-                            intersectionPoints[0][0] = intersectionPoints[0][0] + (intersectionPoints[1][0] - intersectionPoints[0][0]) * (testOneUpPlatformPosition[1] - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
-                            intersectionPoints[0][2] = intersectionPoints[0][2] + (intersectionPoints[1][2] - intersectionPoints[0][2]) * (testOneUpPlatformPosition[1] - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
-                            intersectionPoints[0][1] = testOneUpPlatformPosition[1];
-                        }
-                        else if (intersectionPoints[1][1] < testOneUpPlatformPosition[1]) {
-                            intersectionPoints[1][0] = intersectionPoints[1][0] + (intersectionPoints[0][0] - intersectionPoints[1][0]) * (testOneUpPlatformPosition[1] - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
-                            intersectionPoints[1][2] = intersectionPoints[1][2] + (intersectionPoints[0][2] - intersectionPoints[1][2]) * (testOneUpPlatformPosition[1] - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
-                            intersectionPoints[1][1] = testOneUpPlatformPosition[1];
-                        }
-
-                        testStartPosition[0] = (intersectionPoints[0][0] + intersectionPoints[1][0]) / 2.0f;
-                        testStartPosition[2] = (intersectionPoints[0][2] + intersectionPoints[1][2]) / 2.0f;
-
-                        floorIdx = find_floor(testStartPosition, startTriangles, startNormals, &floorHeight);
-
-                        if (floorIdx == f && floorHeight > marioMinY && floorHeight < testOneUpPlatformPosition[1]) {
-                            testStartPosition[1] = floorHeight;
-                            predictedReturnPosition[0] = testOneUpPlatformPosition[0] + (oneUpPlatformNormalY * xVel2a / 4.0f);
-                            predictedReturnPosition[2] = testOneUpPlatformPosition[2] + (oneUpPlatformNormalY * zVel2a / 4.0f);
-
-                            if (predictedReturnPosition[0] == returnPosition[0] && predictedReturnPosition[2] == returnPosition[2]) {
-                                testFrame1Position[0] = testFrame1Position[0] - xShift;
-                                testFrame1Position[1] = testStartPosition[1];
-                                testFrame1Position[2] = testFrame1Position[2] - zShift;
-                                foundSolution = true;
-                                struct PUSolution puSol = puSolutions[solIdx];
-                                struct PlatformSolution platSol = platSolutions[puSol.platformSolutionIdx];
-                                printf("---------------------------------------\nFound Solution:\n---------------------------------------\n    Start Position: %.10g, %.10g, %.10g\n    Frame 1 Position: %.10g, %.10g, %.10g\n    Frame 2 Position: %.10g, %.10g, %.10g\n    Return Position: %.10g, %.10g. %.10g\n    PU Route Speed: %.10g (x=%.10g, z=%.10g)\n    PU Return Speed: %.10g (x=%.10g, z=%.10g)\n    Frame 2 Q-steps: %d\n    10k Stick X: %d\n    10k Stick Y: %d\n    10k Camera Yaw: %d\n    Start Floor Normal: %.10g, %.10g, %.10g\n", testStartPosition[0], testStartPosition[1], testStartPosition[2], testFrame1Position[0], testFrame1Position[1], testFrame1Position[2], testOneUpPlatformPosition[0], testOneUpPlatformPosition[1], testOneUpPlatformPosition[2], returnPosition[0], returnPosition[1], returnPosition[2], vel1, xVel1, zVel1, endSpeed, xVel2a, zVel2a, q, trueX, trueY, cameraYaw, startNormals[f][0], startNormals[f][1], startNormals[f][2]);
-                                printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Indented DYaw: %d\n---------------------------------------\n\n\n", platSol.nFrames, platSol.endNormal[0], platSol.endNormal[1], platSol.endNormal[2], platSol.endPosition[0], platSol.endPosition[1], platSol.endPosition[2], platSol.pux, platSol.puz, puSol.angle, puSol.stickMag, puSol.intendedDYaw);
                             }
-                            else {
-                                //printf("     %.10g %.10g %.10g %d : %d %g : (%.10g, %.10g), (%g, %g) (XXXXXX)\n", vel1, endSpeed, vel2a, q, intendedDYaw, intendedMag, predictedReturnPosition[0], predictedReturnPosition[2], returnPosition[0], returnPosition[2]);
+                            else if (idx == MAX_10K_SOLUTIONS) {
+                                printf("Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.");
                             }
-                        }
-                        else {
-                            //printf("     %.10g %.10g %.10g %d : %d %g : (%g, %g), (%.10g, %.10g), (%g, %g) %g (XXX)\n", vel1, endSpeed, vel2a, q, intendedDYaw, intendedMag, testStartPosition[0], testStartPosition[2], testOneUpPlatformPosition[0], testOneUpPlatformPosition[2], returnPosition[0], returnPosition[2], floorHeight);
                         }
                     }
                 }
@@ -1239,7 +1275,7 @@ __device__ bool test_one_up_position(int solIdx, float* oneUpPlatformPosition, f
                 frame1Position[0] = frame1Position[0] - (xVel1 / 4.0f);
                 frame1Position[2] = frame1Position[2] - (zVel1 / 4.0f);
 
-                if (abs((short)(int)frame1Position[0]) >= 8192 || abs((short)(int)frame1Position[2]) >= 8192) {
+                if (!check_inbounds(frame1Position)) {
                     inBoundsTest = false;
                     break;
                 }
@@ -1514,9 +1550,6 @@ __device__ void find_pu_slide_setup(struct PlatformSolution *sol, int solIdx) {
     float floorHeight;
     int floorIdx = find_floor(sol->endPosition, sol->endTriangles, sol->endTriangleNormals, &floorHeight);
 
-    float goodSpeeds[10000];
-    int nSpeeds = 0;
-
     if (floorIdx != -1) {
         double s = (double)sol->pux / (double)sol->puz;
 
@@ -1581,14 +1614,23 @@ __device__ void find_pu_slide_setup(struct PlatformSolution *sol, int solIdx) {
                     int floorIdx1 = find_floor(positionTest, sol->endTriangles, sol->endTriangleNormals, &floorHeight);
 
                     if (floorIdx1 != -1 && fabs(positionTest[1] - floorHeight) < 4.0f) {
-                        int idx = atomicAdd(&nPUSolutions, 1);
-                        PUSolution solution;
-                        solution.platformSolutionIdx = solIdx;
-                        solution.returnSpeed = vel0;
-                        solution.angle = angle;
-                        solution.intendedDYaw = j1;
-                        solution.stickMag = mag;
-                        puSolutions[idx] = solution;
+                        float prePositionTest[3] = { sol->penultimatePosition[0] + sol->penultimateFloorNormalY * xVel0 / 4.0f, sol->penultimatePosition[1], sol->penultimatePosition[2] + sol->penultimateFloorNormalY * zVel0 / 4.0f };
+
+                        if (!check_inbounds(prePositionTest)) {
+                            int idx = atomicAdd(&nPUSolutions, 1);
+                            if (idx < MAX_PU_SOLUTIONS) {
+                                PUSolution solution;
+                                solution.platformSolutionIdx = solIdx;
+                                solution.returnSpeed = vel0;
+                                solution.angle = angle;
+                                solution.intendedDYaw = j1;
+                                solution.stickMag = mag;
+                                puSolutions[idx] = solution;
+                            }
+                            else if (idx == MAX_PU_SOLUTIONS) {
+                                printf("Warning: Number of PU solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.");
+                            }
+                        }
                     }
                 }
             }
@@ -1732,13 +1774,6 @@ __device__ void platform_logic(float* platform_normal, float* mario_pos, short (
 	mario_pos[2] = mz;
 }
 
-__device__ bool check_inbounds(const float* mario_pos) {
-	short x_mod = (short)(int)mario_pos[0];
-	short y_mod = (short)(int)mario_pos[1];
-	short z_mod = (short)(int)mario_pos[2];
-
-	return (abs(x_mod) < 8192 & abs(y_mod) < 8192 & abs(z_mod) < 8192);
-}
 __device__ bool try_pu_xz(float* normal, float* position, short (&current_triangles)[2][3][3], float (&triangle_normals)[2][3], double x, double z, double nx, double ny, double nz, int tilt_idx, int q_steps, double max_speed, struct PlatformSolution partialSolution) {
 	// For current (x, z) PU position, find range of yaws that
 	// allow you to reach the PU platform from the original universe.
@@ -1794,32 +1829,42 @@ __device__ bool try_pu_xz(float* normal, float* position, short (&current_triang
                 
 				//if (good_solution && mario_pos[1] >= 400 && mario_pos[1] <= 450) {
 				if (good_solution) {
-                    //if (find_pu_slide_setup(startPos, position, x / 65536.0f, z / 65536.0f, startNormalY, current_triangles, triangle_normals)) {
-                    PlatformSolution solution;
-                    solution.endNormal[0] = normal[0];
-                    solution.endNormal[1] = normal[1];
-                    solution.endNormal[2] = normal[2];
-                    solution.endPosition[0] = position[0];
-                    solution.endPosition[1] = position[1];
-                    solution.endPosition[2] = position[2];
-                    for (int j = 0; j < 2; j++) {
-                        solution.endTriangleNormals[j][0] = triangle_normals[j][0];
-                        solution.endTriangleNormals[j][1] = triangle_normals[j][1];
-                        solution.endTriangleNormals[j][2] = triangle_normals[j][2];
+                    int solIdx = atomicAdd(&nPlatSolutions, 1);
+                    if (solIdx < MAX_PLAT_SOLUTIONS) {
+                        PlatformSolution solution;
+                        solution.endNormal[0] = normal[0];
+                        solution.endNormal[1] = normal[1];
+                        solution.endNormal[2] = normal[2];
+                        solution.endPosition[0] = position[0];
+                        solution.endPosition[1] = position[1];
+                        solution.endPosition[2] = position[2];
+                        for (int j = 0; j < 2; j++) {
+                            solution.endTriangleNormals[j][0] = triangle_normals[j][0];
+                            solution.endTriangleNormals[j][1] = triangle_normals[j][1];
+                            solution.endTriangleNormals[j][2] = triangle_normals[j][2];
 
-                        for (int k = 0; k < 3; k++) {
-                            solution.endTriangles[j][k][0] = current_triangles[j][k][0];
-                            solution.endTriangles[j][k][1] = current_triangles[j][k][1];
-                            solution.endTriangles[j][k][2] = current_triangles[j][k][2];
+                            for (int k = 0; k < 3; k++) {
+                                solution.endTriangles[j][k][0] = current_triangles[j][k][0];
+                                solution.endTriangles[j][k][1] = current_triangles[j][k][1];
+                                solution.endTriangles[j][k][2] = current_triangles[j][k][2];
+                            }
                         }
+                        solution.pux = (int)roundf(x / 65536.0f);
+                        solution.puz = (int)roundf(z / 65536.0f);
+                        solution.nFrames = partialSolution.nFrames;
+                        solution.returnPosition[0] = partialSolution.returnPosition[0];
+                        solution.returnPosition[1] = partialSolution.returnPosition[1];
+                        solution.returnPosition[2] = partialSolution.returnPosition[2];
+                        solution.penultimateFloorNormalY = partialSolution.penultimateFloorNormalY;
+                        solution.penultimatePosition[0] = partialSolution.penultimatePosition[0];
+                        solution.penultimatePosition[1] = partialSolution.penultimatePosition[1];
+                        solution.penultimatePosition[2] = partialSolution.penultimatePosition[2];
+                        platSolutions[solIdx] = solution;
                     }
-                    solution.pux = (int)roundf(x / 65536.0f);
-                    solution.puz = (int)roundf(z / 65536.0f);
-                    solution.nFrames = partialSolution.nFrames;
-                    solution.returnPosition[0] = partialSolution.returnPosition[0];
-                    solution.returnPosition[1] = partialSolution.returnPosition[1];
-                    solution.returnPosition[2] = partialSolution.returnPosition[2];
-                    platSolutions[atomicAdd(&nPlatSolutions, 1)] = solution;
+                    else if (solIdx == MAX_PLAT_SOLUTIONS) {
+                        printf("Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.");
+                    }
+
                     break;
                 }
             }
@@ -2710,6 +2755,9 @@ __global__ void cudaFunc(const float minX, const float deltaX, const float minZ,
             bool oTiltingPyramidMarioOnPlatform = false;
             bool onPlatform = false;
 
+            float lastYNormal = triangleNormals[floor_idx][1];
+            float lastPos[3] = { marioPos[0], marioPos[1], marioPos[2] };
+
             for (int f = 0; f < maxFrames; f++) {
                 float dx;
                 float dy;
@@ -2956,10 +3004,19 @@ __global__ void cudaFunc(const float minX, const float deltaX, const float minZ,
                         partialSolution.returnPosition[1] = returnPos[1];
                         partialSolution.returnPosition[2] = returnPos[2];
                         partialSolution.nFrames = f;
+                        partialSolution.penultimateFloorNormalY = lastYNormal;
+                        partialSolution.penultimatePosition[0] = lastPos[0];
+                        partialSolution.penultimatePosition[1] = lastPos[1];
+                        partialSolution.penultimatePosition[2] = lastPos[2];
 
                         try_normal(normal, marioPos, partialSolution);
                     }
                 }
+
+                lastYNormal = triangleNormals[floor_idx][1];
+                lastPos[0] = marioPos[0];
+                lastPos[1] = marioPos[1];
+                lastPos[2] = marioPos[2];
             }
         }
     }
@@ -2971,7 +3028,7 @@ int main(int argc, char* argv[]) {
 
     int nPUFrames = 3;
     int maxFrames = 100;
-    
+
     float minNX = -0.20f;
     float maxNX = -0.22f;
     float minNZ = 0.39f;
@@ -2987,16 +3044,16 @@ int main(int argc, char* argv[]) {
     nSamplesNY = minNY == maxNY ? 1 : nSamplesNY;
     nSamplesNZ = minNZ == maxNZ ? 1 : nSamplesNZ;
 
-    float deltaX = 1.0f;
+    float deltaX = 0.5f;
     float deltaZ = 0.5f;
 
     Vec3f platformPos = {-1945.0f, -3225.0f, -715.0f};
     Vec3f startPos = { -1776.0, -2964.339111328125, -456.0 };
     Vec3f lakituPos = { -5585.9072265625, -2071.520263671875, -387.76226806640625 };
 
-	string outFile = "outData.bin";
+    string outFile = "outData.csv";
 
-	bool verbose = false;
+    bool verbose = false;
 	
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
@@ -3004,7 +3061,7 @@ int main(int argc, char* argv[]) {
             printf("This program accepts the following options:\n\n");
             printf("-f <frames>: Maximum frames of platform tilt considered.\n");
             printf("             Default: %d\n", maxFrames);
-            printf("-p <frames>: Number of frames of off-platform movement (PU movement, etc.)\n");
+            printf("-p <frames>: Number of frames of PU movement for 10k glitch\n");
             printf("             Default: %d\n", nPUFrames);
             printf("-nx <min_nx> <max_nx> <n_samples>: Inclusive range of x normals to be considered, and the number of normals to sample.\n");
             printf("                                   If min_nx==max_nx then n_samples will be set to 1.\n");
@@ -3056,11 +3113,11 @@ int main(int argc, char* argv[]) {
             minNX = std::stof(argv[i + 1]);
             maxNX = std::stof(argv[i + 2]);
 
-			if (minNX == maxNX) {
+            if (minNX == maxNX) {
                 nSamplesNX = 1;
             }
             else {
-				nSamplesNX = std::stoi(argv[i + 3]);
+                nSamplesNX = std::stoi(argv[i + 3]);
             }
 
             i += 3;
@@ -3114,6 +3171,11 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    if (nPUFrames != 3) {
+        fprintf(stderr, "Error: This brute forcer currently only supports 3 frame 10k routes. Value selected: %d.", nPUFrames);
+        return 1;
+    }
+
     if (verbose) {
         printf("Max Frames: %d\n", maxFrames);
         printf("Off Platform Frames: %d\n", nPUFrames);
@@ -3123,8 +3185,8 @@ int main(int argc, char* argv[]) {
         printf("X Normal Samples: %d\n", nSamplesNX);
         printf("Z Normal Samples: %d\n", nSamplesNZ);
         printf("Y Normal Samples: %d\n", nSamplesNY);
-        printf("X Spacing: %d\n", deltaX);
-        printf("Z Spacing: %d\n", deltaZ);
+        printf("X Spacing: %g\n", deltaX);
+        printf("Z Spacing: %g\n", deltaZ);
         printf("Platform Position: (%g, %g, %g)\n", platformPos[0], platformPos[1], platformPos[2]);
         printf("\n");
     }
@@ -3134,10 +3196,10 @@ int main(int argc, char* argv[]) {
     initialise_floors<<<1, 1>>>();
     set_start_position<<<1, 1>>>(startPos[0], startPos[1], startPos[2]);
     set_lakitu_position<<<1, 1>>>(lakituPos[0], lakituPos[1], lakituPos[2]);
-	
-    char* data = (char*) std::malloc(nSamplesNY * nSamplesNX * nSamplesNZ * sizeof(char));
 
+    struct PlatformSolution* platSolutionsCPU = (struct PlatformSolution*)std::malloc(MAX_PLAT_SOLUTIONS * sizeof(struct PlatformSolution));
     struct PUSolution* puSolutionsCPU = (struct PUSolution*)std::malloc(MAX_PU_SOLUTIONS * sizeof(struct PUSolution));
+    struct TenKSolution* tenKSolutionsCPU = (struct TenKSolution*)std::malloc(MAX_10K_SOLUTIONS * sizeof(struct TenKSolution));
 
     short* dev_tris;
     float* dev_norms;
@@ -3151,9 +3213,27 @@ int main(int argc, char* argv[]) {
     const float deltaNZ = (nSamplesNZ > 1) ? (maxNZ - minNZ) / (nSamplesNZ - 1) : 0;
     const float deltaNY = (nSamplesNY > 1) ? (maxNY - minNY) / (nSamplesNY - 1) : 0;
 
-    ofstream wf(outFile, ios::out | ios::binary);
+    ofstream wf(outFile);
+    wf << std::fixed;
 
-    int idx = 0;
+    wf << "Start Normal X, Start Normal Y, Start Normal Z, ";
+    wf << "Start Position X, Start Position Y, Start Position Z, ";
+    wf << "Frame 1 Position X, Frame 1 Position Y, Frame 1 Position Z, ";
+    wf << "1-up Platform Position X, 1-up Platform Position Y, 1-up Platform Position Z, ";
+    wf << "Return Position X, Return Position Y, Return Position Z, ";
+    wf << "Pre-10K Speed, Pre-10K X Velocity, Pre-10K Z Velocity, ";
+    wf << "Return Speed, Return X Velocity, Return Z Velocity, ";
+    wf << "Frame 2 Q-steps, ";
+    wf << "10K Stick X, 10K Stick Y, ";
+    wf << "10K Camera Yaw, ";
+    wf << "Start Floor Normal X, Start Floor Normal Y, Start Floor Normal Z, ";
+    wf << "Start Position Limit 1 X, Start Position Limit 1 Y, Start Position Limit 1 Z, ";
+    wf << "Start Position Limit 2 X, Start Position Limit 2 Y, Start Position Limit 2 Z, ";
+    wf << "Number of Tilt Frames, ";
+    wf << "Post-Tilt Platform Normal X, Post-Tilt Platform Normal Y, Post-Tilt Platform Normal Z, ";
+    wf << "Post-Tilt Position X, Post-Tilt Position Y, Post-Tilt Position Z, ";
+    wf << "Upwarp PU X, Upwarp PU Z, ";
+    wf << "Upwarp Slide Facing Angle, Upwarp Slide IntendedMag, Upwarp Slide IntendedDYaw" << endl;
 
     unordered_map<uint64_t, PUSolution> puSolutionLookup;
 
@@ -3231,8 +3311,6 @@ int main(int argc, char* argv[]) {
                     bool goodPositions = (nPlatSolutionsCPU > 0);
 
                     if (goodPositions) {
-                        data[idx] = 255;
-
                         nBlocks = (nPlatSolutionsCPU + nThreads - 1) / nThreads;
 
                         int nPUSolutionsCPU = 0;
@@ -3255,7 +3333,7 @@ int main(int argc, char* argv[]) {
                                 uint64_t key = (((uint64_t)puSolutionsCPU[l].platformSolutionIdx) << 32) | (reinterpret_cast<uint32_t&>(puSolutionsCPU[l].returnSpeed));
                                 puSolutionLookup[key] = puSolutionsCPU[l];
                             }
-                                                                
+
                             nPUSolutionsCPU = 0;
 
                             for (std::pair<const uint64_t, PUSolution> p : puSolutionLookup) {
@@ -3270,24 +3348,50 @@ int main(int argc, char* argv[]) {
 
                             printf("---------------------------------------\nTesting Normal: %g, %g, %g\n        Index: %d, %d, %d\n        # Platform Solutions: %d\n        # PU Solutions: %d\n", normX, normY, normZ, h, i, j, nPlatSolutionsCPU, nPUSolutionsCPU);
 
+                            int n10KSolutionsCPU = 0;
+
+                            cudaMemcpyToSymbol(n10KSolutions, &n10KSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
+
                             test_pu_solution<<<nBlocks, nThreads>>>();
 
                             cudaDeviceSynchronize();
+
+                            cudaMemcpyFromSymbol(&n10KSolutionsCPU, n10KSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+
+                            if (n10KSolutionsCPU > 0) {
+                                cudaMemcpyFromSymbol(tenKSolutionsCPU, tenKSolutions, n10KSolutionsCPU * sizeof(struct TenKSolution), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(platSolutionsCPU, platSolutions, nPlatSolutionsCPU * sizeof(struct PlatformSolution), 0, cudaMemcpyDeviceToHost);
+
+                                for (int l = 0; l < n10KSolutionsCPU; l++) {
+                                    int puSolIdx = tenKSolutionsCPU[l].puSolutionIdx;
+                                    int platSolIdx = puSolutionsCPU[puSolIdx].platformSolutionIdx;
+
+                                    wf << normX << ", " << normY << ", " << normZ << ", ";
+                                    wf << tenKSolutionsCPU[l].startPosition[0] << ", " << tenKSolutionsCPU[l].startPosition[1] << ", " << tenKSolutionsCPU[l].startPosition[2] << ", ";
+                                    wf << tenKSolutionsCPU[l].frame1Position[0] << ", " << tenKSolutionsCPU[l].frame1Position[1] << ", " << tenKSolutionsCPU[l].frame1Position[2] << ", ";
+                                    wf << tenKSolutionsCPU[l].frame2Position[0] << ", " << tenKSolutionsCPU[l].frame2Position[1] << ", " << tenKSolutionsCPU[l].frame2Position[2] << ", ";
+                                    wf << platSolutionsCPU[platSolIdx].returnPosition[0] << ", " << platSolutionsCPU[platSolIdx].returnPosition[1] << ", " << platSolutionsCPU[platSolIdx].returnPosition[2] << ", ";
+                                    wf << tenKSolutionsCPU[l].pre10Kspeed << ", " << tenKSolutionsCPU[l].pre10KVel[0] << ", " << tenKSolutionsCPU[l].pre10KVel[1] << ", ";
+                                    wf << puSolutionsCPU[puSolIdx].returnSpeed << ", " << tenKSolutionsCPU[l].returnVel[0] << ", " << tenKSolutionsCPU[l].returnVel[1] << ", ";
+                                    wf << tenKSolutionsCPU[l].frame2QSteps << ", ";
+                                    wf << tenKSolutionsCPU[l].stick10K[0] << ", " << tenKSolutionsCPU[l].stick10K[1] << ", ";
+                                    wf << tenKSolutionsCPU[l].cameraYaw10K << ", ";
+                                    wf << host_norms[3 * tenKSolutionsCPU[l].startFloorIdx] << ", " << host_norms[3 * tenKSolutionsCPU[l].startFloorIdx + 1] << ", " << host_norms[3 * tenKSolutionsCPU[l].startFloorIdx + 2] << ", ";
+                                    wf << tenKSolutionsCPU[l].startPositionLimits[0][0] << ", " << tenKSolutionsCPU[l].startPositionLimits[0][1] << ", " << tenKSolutionsCPU[l].startPositionLimits[0][2] << ", ";
+                                    wf << tenKSolutionsCPU[l].startPositionLimits[1][0] << ", " << tenKSolutionsCPU[l].startPositionLimits[1][1] << ", " << tenKSolutionsCPU[l].startPositionLimits[1][2] << ", ";
+                                    wf << platSolutionsCPU[platSolIdx].nFrames << ", ";
+                                    wf << platSolutionsCPU[platSolIdx].endNormal[0] << ", " << platSolutionsCPU[platSolIdx].endNormal[1] << ", " << platSolutionsCPU[platSolIdx].endNormal[2] << ", ";
+                                    wf << platSolutionsCPU[platSolIdx].endPosition[0] << ", " << platSolutionsCPU[platSolIdx].endPosition[1] << ", " << platSolutionsCPU[platSolIdx].endPosition[2] << ", ";
+                                    wf << platSolutionsCPU[platSolIdx].pux << ", " << platSolutionsCPU[platSolIdx].puz << ", ";
+                                    wf << puSolutionsCPU[puSolIdx].angle << ", " << puSolutionsCPU[puSolIdx].stickMag << ", " << puSolutionsCPU[puSolIdx].intendedDYaw << endl;
+                                }
+                            }
                         }
                     }
-                    else {
-                        data[idx] = 0;
-                    }
                 }
-                else {
-                    data[idx] = 0;
-                }
-
-                idx++;
             }
         }
     }
 
-    wf.write(data, nSamplesNY * nSamplesNX * nSamplesNZ);
-    free(data);
+    wf.close();
 }
