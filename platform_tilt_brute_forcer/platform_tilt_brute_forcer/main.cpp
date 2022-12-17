@@ -1290,8 +1290,19 @@ __device__ bool test_one_up_position(int solIdx, float* oneUpPlatformPosition, f
                     double m1 = 32.0 * ((m - 0.92) / 0.02) / (double)(0.5f + (0.5f * vel1 / 100.0f));
 
                     double t = (double)xVel1 / (double)zVel1;
-                    double n = (-((double)s * (double)t) - 1.0 + sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
-                    double n1 = 32.0 * n / 0.05;
+		    double n;
+
+                    if (zVel2 == 0) {
+                        n = zVel1 / xVel2;
+                    }
+                    else if (zVel1 == 0) {
+                        n = -zVel2 / xVel1;
+                    }
+                    else {
+                        n = (-((double)s * (double)t) - 1.0 + sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
+                    }
+
+		    double n1 = 32.0 * n / 0.05;
 
                     double targetDYaw = 65536.0 * (atan2(n1, m1) / (2.0 * M_PI));
                     double targetMag = sqrtf(m1 * m1 + n1 * n1);
