@@ -1474,9 +1474,9 @@ __device__ bool find_10k_route(int solIdx) {
 
             double r = fabs((double)returnSpeed * (double)oneUpPlatformNormalY) / 4.0;
 
-            int maxXPU = (int)floor((sol->returnPosition[0] + r + 32768.0) / 65536.0);
+            int maxXPU = (int)floor((sol->returnPosition[0] + r - oneUpPlatformXMin) / 65536.0);
             maxXPU = (d == 0) ? min(0, maxXPU) : maxXPU;
-            int minXPU = (int)floor((sol->returnPosition[0] - r + 32768.0) / 65536.0);
+            int minXPU = (int)ceil((sol->returnPosition[0] - r - oneUpPlatformXMax) / 65536.0);
             minXPU = (d == 0) ? minXPU : max(1, minXPU);
 
             for (int i = minXPU; i <= maxXPU; i++) {
@@ -1497,12 +1497,12 @@ __device__ bool find_10k_route(int solIdx) {
                         double minX = fmax(fmin(x0, x1), i * 65536.0 + (oneUpPlatformXMin - oneUpPlatformBuffer));
                         double maxX = fmin(fmax(x0, x1), i * 65536.0 + (oneUpPlatformXMax + oneUpPlatformBuffer));
 
-                        double minXY = sqrt(r * r - (minX - sol->returnPosition[0]) * (minX - sol->returnPosition[0])) + sol->returnPosition[2];
-                        double maxXY = sqrt(r * r - (maxX - sol->returnPosition[0]) * (maxX - sol->returnPosition[0])) + sol->returnPosition[2];
+                        double minXY = (double)(oneUpPlatformYMax - oneUpPlatformYMin) * (minX - (65536.0 * i) - oneUpPlatformXMin) / (double)(oneUpPlatformXMax - oneUpPlatformXMin) + oneUpPlatformYMin;
+                        double maxXY = (double)(oneUpPlatformYMax - oneUpPlatformYMin) * (maxX - (65536.0 * i) - oneUpPlatformXMin) / (double)(oneUpPlatformXMax - oneUpPlatformXMin) + oneUpPlatformYMin;
 
-                        double minXZ = sqrt(r * r - (minX - sol->returnPosition[0]) * (minX - sol->returnPosition[0])) + sol->returnPosition[2];
-                        double maxXZ = sqrt(r * r - (maxX - sol->returnPosition[0]) * (maxX - sol->returnPosition[0])) + sol->returnPosition[2];
-
+                        double minXZ = signZ * sqrt(r * r - (minX - sol->returnPosition[0]) * (minX - sol->returnPosition[0])) + sol->returnPosition[2];
+                        double maxXZ = signZ * sqrt(r * r - (maxX - sol->returnPosition[0]) * (maxX - sol->returnPosition[0])) + sol->returnPosition[2];
+                        
                         if (fabs(minX - maxX) < fabs(minXZ - maxXZ)) {
                             for (float ouX = (float)minX; ouX <= maxX; ouX = fmaxf(ouX + 0.5f, nextafterf(ouX, INFINITY))) {
                                 float signZ = j > 0 ? 1.0 : -1.0;
