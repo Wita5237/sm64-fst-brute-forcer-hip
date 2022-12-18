@@ -1263,7 +1263,7 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
         int angle = atan2sG(-zVel2, -xVel2);
         angle = (65536 + angle) % 65536;
 
-        for (int q = 1; q <= 4 && !foundSolution; q++) {
+        for (int q = 1; q <= 4; q++) {
             double eqA = 1.0 - (((double)startNormals[f][1] * (double)startNormals[f][1]) / ((double)q * (double)q));
             double eqB = 2.0 * ((startPosition[0] - oneUpPlatformPosition[0]) * gSineTableG[angle >> 4] + (startPosition[2] - oneUpPlatformPosition[2]) * gCosineTableG[angle >> 4]);
             double eqC = ((startPosition[0] - oneUpPlatformPosition[0]) * (startPosition[0] - oneUpPlatformPosition[0]) + (startPosition[2] - oneUpPlatformPosition[2]) * (startPosition[2] - oneUpPlatformPosition[2]));
@@ -1473,70 +1473,63 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
     return foundSolution;
 }
 
-__device__ bool find_10k_route(int solIdx) {
-    float cameraPositions[4][3] = { {-8192, -2918, -8192}, {-8192, -2918, 8191}, {8191, -2918, -8192}, {8191, -2918, 8191} };
+__device__ bool find_10k_route(int solIdx, int f, int d, int h) {
     struct PlatformSolution* sol = &(platSolutions[puSolutions[solIdx].platformSolutionIdx]);
     float returnSpeed = puSolutions[solIdx].returnSpeed;
     float oneUpPlatformBuffer = 0.0f;
 
     bool foundSolution = false;
 
-    for (int f = 0; f < 2; f++) {
-        float startPosition[3];
-        startPosition[0] = ((float)startTriangles[f][0][0] + (float)startTriangles[f][1][0] + (float)startTriangles[f][2][0]) / 3.0;
-        startPosition[1] = ((float)startTriangles[f][0][1] + (float)startTriangles[f][1][1] + (float)startTriangles[f][2][1]) / 3.0;
-        startPosition[2] = ((float)startTriangles[f][0][2] + (float)startTriangles[f][1][2] + (float)startTriangles[f][2][2]) / 3.0;
+    float startPosition[3];
+    startPosition[0] = ((float)startTriangles[f][0][0] + (float)startTriangles[f][1][0] + (float)startTriangles[f][2][0]) / 3.0;
+    startPosition[1] = ((float)startTriangles[f][0][1] + (float)startTriangles[f][1][1] + (float)startTriangles[f][2][1]) / 3.0;
+    startPosition[2] = ((float)startTriangles[f][0][2] + (float)startTriangles[f][1][2] + (float)startTriangles[f][2][2]) / 3.0;
 
-        for (int d = 0; d < 2; d++) {
-            float oneUpPlatformNormalY = (d == 0) ? oneUpPlatformNormalYRight : oneUpPlatformNormalYLeft;
-            float oneUpPlatformNormalX = (d == 0) ? oneUpPlatformNormalXRight : oneUpPlatformNormalXLeft;
-            float oneUpPlatformXMin = (d == 0) ? oneUpPlatformXMinRight : oneUpPlatformXMinLeft;
-            float oneUpPlatformXMax = (d == 0) ? oneUpPlatformXMaxRight : oneUpPlatformXMaxLeft;
-            float oneUpPlatformYMin = (d == 0) ? oneUpPlatformYMinRight : oneUpPlatformYMinLeft;
-            float oneUpPlatformYMax = (d == 0) ? oneUpPlatformYMaxRight : oneUpPlatformYMaxLeft;
-            float oneUpPlatformZMin = (d == 0) ? oneUpPlatformZMinRight : oneUpPlatformZMinLeft;
-            float oneUpPlatformZMax = (d == 0) ? oneUpPlatformZMaxRight : oneUpPlatformZMaxLeft;
+    float oneUpPlatformNormalY = (d == 0) ? oneUpPlatformNormalYRight : oneUpPlatformNormalYLeft;
+    float oneUpPlatformNormalX = (d == 0) ? oneUpPlatformNormalXRight : oneUpPlatformNormalXLeft;
+    float oneUpPlatformXMin = (d == 0) ? oneUpPlatformXMinRight : oneUpPlatformXMinLeft;
+    float oneUpPlatformXMax = (d == 0) ? oneUpPlatformXMaxRight : oneUpPlatformXMaxLeft;
+    float oneUpPlatformYMin = (d == 0) ? oneUpPlatformYMinRight : oneUpPlatformYMinLeft;
+    float oneUpPlatformYMax = (d == 0) ? oneUpPlatformYMaxRight : oneUpPlatformYMaxLeft;
+    float oneUpPlatformZMin = (d == 0) ? oneUpPlatformZMinRight : oneUpPlatformZMinLeft;
+    float oneUpPlatformZMax = (d == 0) ? oneUpPlatformZMaxRight : oneUpPlatformZMaxLeft;
 
-            double r = fabs((double)returnSpeed * (double)oneUpPlatformNormalY) / 4.0;
+    double r = fabs((double)returnSpeed * (double)oneUpPlatformNormalY) / 4.0;
 
-            int maxXPU = (int)floor((sol->returnPosition[0] + r - oneUpPlatformXMin) / 65536.0);
-            maxXPU = (d == 0) ? min(0, maxXPU) : maxXPU;
-            int minXPU = (int)ceil((sol->returnPosition[0] - r - oneUpPlatformXMax) / 65536.0);
-            minXPU = (d == 0) ? minXPU : max(1, minXPU);
+    int maxXPU = (int)floor((sol->returnPosition[0] + r - oneUpPlatformXMin) / 65536.0);
+    maxXPU = (d == 0) ? min(0, maxXPU) : maxXPU;
+    int minXPU = (int)ceil((sol->returnPosition[0] - r - oneUpPlatformXMax) / 65536.0);
+    minXPU = (d == 0) ? minXPU : max(1, minXPU);
 
-            for (int i = minXPU; i <= maxXPU; i++) {
-                for (int h = 0; h < 2; h++) {
-                    double signZ = h == 0 ? 1.0 : -1.0;
-                    double z0 = signZ * sqrt(r * r - (i * 65536.0 + (oneUpPlatformXMin - oneUpPlatformBuffer) - sol->returnPosition[0]) * (i * 65536.0 + (oneUpPlatformXMin - oneUpPlatformBuffer) - sol->returnPosition[0])) + sol->returnPosition[2];
-                    double z1 = signZ * sqrt(r * r - (i * 65536.0 + (oneUpPlatformXMax + oneUpPlatformBuffer) - sol->returnPosition[0]) * (i * 65536.0 + (oneUpPlatformXMax + oneUpPlatformBuffer) - sol->returnPosition[0])) + sol->returnPosition[2];
+    for (int i = minXPU; i <= maxXPU; i++) {
+            double signZ = h == 0 ? 1.0 : -1.0;
+            double z0 = signZ * sqrt(r * r - (i * 65536.0 + (oneUpPlatformXMin - oneUpPlatformBuffer) - sol->returnPosition[0]) * (i * 65536.0 + (oneUpPlatformXMin - oneUpPlatformBuffer) - sol->returnPosition[0])) + sol->returnPosition[2];
+            double z1 = signZ * sqrt(r * r - (i * 65536.0 + (oneUpPlatformXMax + oneUpPlatformBuffer) - sol->returnPosition[0]) * (i * 65536.0 + (oneUpPlatformXMax + oneUpPlatformBuffer) - sol->returnPosition[0])) + sol->returnPosition[2];
 
-                    int minZPU = (int)ceil((fmin(z0, z1) - (oneUpPlatformZMax + oneUpPlatformBuffer)) / 65536.0);
-                    int maxZPU = (int)floor((fmax(z0, z1) - (oneUpPlatformZMin - oneUpPlatformBuffer)) / 65536.0);
+            int minZPU = (int)ceil((fmin(z0, z1) - (oneUpPlatformZMax + oneUpPlatformBuffer)) / 65536.0);
+            int maxZPU = (int)floor((fmax(z0, z1) - (oneUpPlatformZMin - oneUpPlatformBuffer)) / 65536.0);
 
-                    for (int j = minZPU; j <= maxZPU; j++) {
-                        double signX = i > 0 ? 1.0 : -1.0;
+            for (int j = minZPU; j <= maxZPU; j++) {
+                double signX = i > 0 ? 1.0 : -1.0;
 
-                        double x0 = signX * sqrt(r * r - (j * 65536.0 + (oneUpPlatformZMin - oneUpPlatformBuffer) - sol->returnPosition[2]) * (j * 65536.0 + (oneUpPlatformZMin - oneUpPlatformBuffer) - sol->returnPosition[2])) + sol->returnPosition[0];
-                        double x1 = signX * sqrt(r * r - (j * 65536.0 + (oneUpPlatformZMax + oneUpPlatformBuffer) - sol->returnPosition[2]) * (j * 65536.0 + (oneUpPlatformZMax + oneUpPlatformBuffer) - sol->returnPosition[2])) + sol->returnPosition[0];
+                double x0 = signX * sqrt(r * r - (j * 65536.0 + (oneUpPlatformZMin - oneUpPlatformBuffer) - sol->returnPosition[2]) * (j * 65536.0 + (oneUpPlatformZMin - oneUpPlatformBuffer) - sol->returnPosition[2])) + sol->returnPosition[0];
+                double x1 = signX * sqrt(r * r - (j * 65536.0 + (oneUpPlatformZMax + oneUpPlatformBuffer) - sol->returnPosition[2]) * (j * 65536.0 + (oneUpPlatformZMax + oneUpPlatformBuffer) - sol->returnPosition[2])) + sol->returnPosition[0];
 
-                        double minX = fmax(fmin(x0, x1), i * 65536.0 + (oneUpPlatformXMin - oneUpPlatformBuffer));
-                        double maxX = fmin(fmax(x0, x1), i * 65536.0 + (oneUpPlatformXMax + oneUpPlatformBuffer));
+                double minX = fmax(fmin(x0, x1), i * 65536.0 + (oneUpPlatformXMin - oneUpPlatformBuffer));
+                double maxX = fmin(fmax(x0, x1), i * 65536.0 + (oneUpPlatformXMax + oneUpPlatformBuffer));
 
-                        double minXY = (double)(oneUpPlatformYMax - oneUpPlatformYMin) * (minX - (65536.0 * i) - oneUpPlatformXMin) / (double)(oneUpPlatformXMax - oneUpPlatformXMin) + oneUpPlatformYMin;
-                        double maxXY = (double)(oneUpPlatformYMax - oneUpPlatformYMin) * (maxX - (65536.0 * i) - oneUpPlatformXMin) / (double)(oneUpPlatformXMax - oneUpPlatformXMin) + oneUpPlatformYMin;
+                double minXY = (double)(oneUpPlatformYMax - oneUpPlatformYMin) * (minX - (65536.0 * i) - oneUpPlatformXMin) / (double)(oneUpPlatformXMax - oneUpPlatformXMin) + oneUpPlatformYMin;
+                double maxXY = (double)(oneUpPlatformYMax - oneUpPlatformYMin) * (maxX - (65536.0 * i) - oneUpPlatformXMin) / (double)(oneUpPlatformXMax - oneUpPlatformXMin) + oneUpPlatformYMin;
 
-                        double minXZ = signZ * sqrt(r * r - (minX - sol->returnPosition[0]) * (minX - sol->returnPosition[0])) + sol->returnPosition[2];
-                        double maxXZ = signZ * sqrt(r * r - (maxX - sol->returnPosition[0]) * (maxX - sol->returnPosition[0])) + sol->returnPosition[2];
-                        
-                        float oneUpPlatformPosition[3] = { (maxX + minX) / 2.0, (maxXY + minXY) / 2.0, (maxXZ + minXZ) / 2.0 };
+                double minXZ = signZ * sqrt(r * r - (minX - sol->returnPosition[0]) * (minX - sol->returnPosition[0])) + sol->returnPosition[2];
+                double maxXZ = signZ * sqrt(r * r - (maxX - sol->returnPosition[0]) * (maxX - sol->returnPosition[0])) + sol->returnPosition[2];
 
-                        if (test_one_up_position(solIdx, startPosition, oneUpPlatformPosition, sol->returnPosition, returnSpeed, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, d, sol->endTriangles, sol->endTriangleNormals)) {
-                            foundSolution = true;
-                        }
-                    }
+                float oneUpPlatformPosition[3] = { (maxX + minX) / 2.0, (maxXY + minXY) / 2.0, (maxXZ + minXZ) / 2.0 };
+
+                if (test_one_up_position(solIdx, startPosition, oneUpPlatformPosition, sol->returnPosition, returnSpeed, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, d, sol->endTriangles, sol->endTriangleNormals)) {
+                    foundSolution = true;
                 }
             }
-        }
     }
 
     return foundSolution;
@@ -1545,8 +1538,15 @@ __device__ bool find_10k_route(int solIdx) {
 __global__ void test_pu_solution() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < nPUSolutions) {
-        find_10k_route(idx);
+    if (idx < 8 * nPUSolutions) {
+        int solIdx = idx % nPUSolutions;
+        idx = idx / nPUSolutions;
+        int f = idx % 2;
+        idx = idx / 2;
+        int d = idx % 2;
+        idx = idx / 2;
+        int h = idx;
+        find_10k_route(solIdx, f, d, h);
     }
 }
 
@@ -3039,7 +3039,7 @@ int main(int argc, char* argv[]) {
     float maxNZ = 0.41f;
     float minNY = 0.80f;
     float maxNY = 0.80f;
-
+    
     int nSamplesNX = 101;
     int nSamplesNZ = 101;
     int nSamplesNY = 31;
@@ -3347,7 +3347,7 @@ int main(int argc, char* argv[]) {
                             cudaMemcpyToSymbol(nPUSolutions, &nPUSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
                             cudaMemcpyToSymbol(puSolutions, puSolutionsCPU, nPUSolutionsCPU * sizeof(PUSolution), 0, cudaMemcpyHostToDevice);
 
-                            nBlocks = (nPUSolutionsCPU + nThreads - 1) / nThreads;
+                            nBlocks = (8 * nPUSolutionsCPU + nThreads - 1) / nThreads;
 
                             printf("---------------------------------------\nTesting Normal: %g, %g, %g\n        Index: %d, %d, %d\n        # Platform Solutions: %d\n        # PU Solutions: %d\n", normX, normY, normZ, h, i, j, nPlatSolutionsCPU, nPUSolutionsCPU);
 
