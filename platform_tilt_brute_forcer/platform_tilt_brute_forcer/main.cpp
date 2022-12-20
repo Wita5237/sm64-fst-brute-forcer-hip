@@ -988,16 +988,24 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
             double qx = testFrame1Position[0];
             double qz = testFrame1Position[2];
 
+            bool intOnEdge[2] = { false, false };
+
             for (int i = 0; i < 3; i++) {
                 double ax = startTriangles[f][i][0];
+                double ay = startTriangles[f][i][1];
                 double az = startTriangles[f][i][2];
                 double bx = startTriangles[f][(i + 1) % 3][0];
+                double by = startTriangles[f][(i + 1) % 3][1];
                 double bz = startTriangles[f][(i + 1) % 3][2];
 
                 double t = ((pz - qz) * (pz - az) + (px - qx) * (px - ax)) / ((pz - qz) * (bz - az) + (px - qx) * (bx - ax));
 
                 if (t >= 0.0 && t <= 1.0) {
+                    if ((f == 0 && i != 2) || (f == 1 && i != 0)) {
+                        intOnEdge[intersections] = true;
+                    }
                     intersectionPoints[intersections][0] = ax + (bx - ax) * t;
+                    intersectionPoints[intersections][1] = ay + (by - ay) * t;
                     intersectionPoints[intersections][2] = az + (bz - az) * t;
                     intersections++;
                 }
@@ -1006,8 +1014,10 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
             double cutPoints[2];
 
             double ax = intersectionPoints[0][0];
+            double ay = intersectionPoints[0][1];
             double az = intersectionPoints[0][2];
             double bx = intersectionPoints[1][0];
+            double by = intersectionPoints[1][1];
             double bz = intersectionPoints[1][2];
 
             px = testFrame1Position[0];
@@ -1033,38 +1043,46 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
                 cutPoints[1] = temp;
             }
 
-            cutPoints[0] = fmax(cutPoints[0], 0.0) + 0.001;
-            cutPoints[1] = fmin(cutPoints[1], 1.0) - 0.001;
+            cutPoints[0] = fmax(cutPoints[0], 0.0);
+            cutPoints[1] = fmin(cutPoints[1], 1.0);
 
             if (cutPoints[0] <= cutPoints[1]) {
                 intersectionPoints[0][0] = ax + (bx - ax) * cutPoints[0];
+                intersectionPoints[0][1] = ay + (by - ay) * cutPoints[0];
                 intersectionPoints[0][2] = az + (bz - az) * cutPoints[0];
-                intersectionPoints[1][0] = ax + (bx - ax) * cutPoints[1];
-                intersectionPoints[1][2] = az + (bz - az) * cutPoints[1];
 
-                find_floor(intersectionPoints[0], startTriangles, startNormals, &intersectionPoints[0][1]);
-                find_floor(intersectionPoints[1], startTriangles, startNormals, &intersectionPoints[1][1]);
+                intersectionPoints[1][0] = ax + (bx - ax) * cutPoints[1];
+                intersectionPoints[1][1] = ay + (by - ay) * cutPoints[1];
+                intersectionPoints[1][2] = az + (bz - az) * cutPoints[1];
 
                 if (fmaxf(intersectionPoints[0][1], intersectionPoints[1][1]) > marioMinY && fminf(intersectionPoints[0][1], intersectionPoints[1][1]) < testOneUpPlatformPosition[1]) {
                     if (intersectionPoints[0][1] < marioMinY) {
-                        intersectionPoints[0][0] = intersectionPoints[0][0] + (intersectionPoints[1][0] - intersectionPoints[0][0]) * (-2971.0f - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
-                        intersectionPoints[0][2] = intersectionPoints[0][2] + (intersectionPoints[1][2] - intersectionPoints[0][2]) * (-2971.0f - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
+                        double ratio = (marioMinY - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
+                        cutPoints[0] = cutPoints[0] + (cutPoints[1] - cutPoints[0]) * ratio;
+                        intersectionPoints[0][0] = intersectionPoints[0][0] + (intersectionPoints[1][0] - intersectionPoints[0][0]) * ratio;
+                        intersectionPoints[0][2] = intersectionPoints[0][2] + (intersectionPoints[1][2] - intersectionPoints[0][2]) * ratio;
                         intersectionPoints[0][1] = marioMinY;
                     }
                     else if (intersectionPoints[1][1] < marioMinY) {
-                        intersectionPoints[1][0] = intersectionPoints[1][0] + (intersectionPoints[0][0] - intersectionPoints[1][0]) * (-2971.0f - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
-                        intersectionPoints[1][2] = intersectionPoints[1][2] + (intersectionPoints[0][2] - intersectionPoints[1][2]) * (-2971.0f - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
+                        double ratio = (marioMinY - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
+                        cutPoints[1] = cutPoints[1] + (cutPoints[0] - cutPoints[1]) * ratio;
+                        intersectionPoints[1][0] = intersectionPoints[1][0] + (intersectionPoints[0][0] - intersectionPoints[1][0]) * ratio;
+                        intersectionPoints[1][2] = intersectionPoints[1][2] + (intersectionPoints[0][2] - intersectionPoints[1][2]) * ratio;
                         intersectionPoints[1][1] = marioMinY;
                     }
 
                     if (intersectionPoints[0][1] > testOneUpPlatformPosition[1]) {
-                        intersectionPoints[0][0] = intersectionPoints[0][0] + (intersectionPoints[1][0] - intersectionPoints[0][0]) * (testOneUpPlatformPosition[1] - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
-                        intersectionPoints[0][2] = intersectionPoints[0][2] + (intersectionPoints[1][2] - intersectionPoints[0][2]) * (testOneUpPlatformPosition[1] - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
+                        double ratio = (testOneUpPlatformPosition[1] - intersectionPoints[0][1]) / (intersectionPoints[1][1] - intersectionPoints[0][1]);
+                        cutPoints[0] = cutPoints[0] + (cutPoints[1] - cutPoints[0]) * ratio;
+                        intersectionPoints[0][0] = intersectionPoints[0][0] + (intersectionPoints[1][0] - intersectionPoints[0][0]) * ratio;
+                        intersectionPoints[0][2] = intersectionPoints[0][2] + (intersectionPoints[1][2] - intersectionPoints[0][2]) * ratio;
                         intersectionPoints[0][1] = testOneUpPlatformPosition[1];
                     }
                     else if (intersectionPoints[1][1] < testOneUpPlatformPosition[1]) {
-                        intersectionPoints[1][0] = intersectionPoints[1][0] + (intersectionPoints[0][0] - intersectionPoints[1][0]) * (testOneUpPlatformPosition[1] - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
-                        intersectionPoints[1][2] = intersectionPoints[1][2] + (intersectionPoints[0][2] - intersectionPoints[1][2]) * (testOneUpPlatformPosition[1] - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
+                        double ratio = (testOneUpPlatformPosition[1] - intersectionPoints[1][1]) / (intersectionPoints[0][1] - intersectionPoints[1][1]);
+                        cutPoints[1] = cutPoints[1] + (cutPoints[0] - cutPoints[1]) * ratio;
+                        intersectionPoints[1][0] = intersectionPoints[1][0] + (intersectionPoints[0][0] - intersectionPoints[1][0]) * ratio;
+                        intersectionPoints[1][2] = intersectionPoints[1][2] + (intersectionPoints[0][2] - intersectionPoints[1][2]) * ratio;
                         intersectionPoints[1][1] = testOneUpPlatformPosition[1];
                     }
 
