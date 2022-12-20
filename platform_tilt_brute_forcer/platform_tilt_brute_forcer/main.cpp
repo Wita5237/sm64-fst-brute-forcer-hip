@@ -2577,7 +2577,7 @@ __device__ void try_normal(float* normal, float* position, struct PlatformSoluti
 }
 
 __global__ void cudaFunc(const float minX, const float deltaX, const float minZ, const float deltaZ, const int width, const int height, float normalX, float normalY, float normalZ, int maxFrames) {
-    const float platformPos[3] = { -1945.0f, -3225.0f, -715.0f };
+    const float platformPos[3] = { platform_pos[0], platform_pos[1], platform_pos[2] };
     const short defaultTriangles[2][3][3] = { {{307, 307, -306}, {-306, 307, -306}, {-306, 307, 307}}, {{307, 307, -306}, {-306, 307, 307}, {307, 307, 307}} };
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
