@@ -1121,10 +1121,6 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
                                 solution.stick10K[1] = trueY;
                                 solution.cameraYaw10K = cameraYaw;
                                 tenKSolutions[idx] = solution;
-
-                            }
-                            else if (idx == MAX_10K_SOLUTIONS) {
-                                printf("Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
                             }
                         }
                     }
@@ -1637,9 +1633,6 @@ __device__ void find_pu_slide_setup(struct PlatformSolution *sol, int solIdx) {
                                 solution.stickMag = mag;
                                 puSolutions[idx] = solution;
                             }
-                            else if (idx == MAX_PU_SOLUTIONS) {
-                                printf("Warning: Number of PU solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                            }
                         }
                     }
                 }
@@ -1870,9 +1863,6 @@ __device__ bool try_pu_xz(float* normal, float* position, short (&current_triang
                         solution.penultimatePosition[1] = partialSolution.penultimatePosition[1];
                         solution.penultimatePosition[2] = partialSolution.penultimatePosition[2];
                         platSolutions[solIdx] = solution;
-                    }
-                    else if (solIdx == MAX_PLAT_SOLUTIONS) {
-                        printf("Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
                     }
 
                     break;
@@ -3315,7 +3305,10 @@ int main(int argc, char* argv[]) {
 
                     cudaMemcpyFromSymbol(&nPlatSolutionsCPU, nPlatSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
-                    nPlatSolutionsCPU = min(nPlatSolutionsCPU, MAX_PLAT_SOLUTIONS);
+                    if (nPlatSolutionsCPU == MAX_PLAT_SOLUTIONS) {
+                        fprintf(stderr, "Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                        nPlatSolutionsCPU = MAX_PLAT_SOLUTIONS;
+                    }
 
                     bool goodPositions = (nPlatSolutionsCPU > 0);
 
@@ -3332,7 +3325,10 @@ int main(int argc, char* argv[]) {
 
                         cudaMemcpyFromSymbol(&nPUSolutionsCPU, nPUSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
-                        nPUSolutionsCPU = min(nPUSolutionsCPU, MAX_PU_SOLUTIONS);
+                        if (nPUSolutionsCPU > MAX_PU_SOLUTIONS) {
+                            fprintf(stderr, "Warning: Number of PU solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                            nPUSolutionsCPU = MAX_PU_SOLUTIONS;
+                        }
 
                         if (nPUSolutionsCPU > 0) {
                             puSolutionLookup.clear();
@@ -3368,7 +3364,10 @@ int main(int argc, char* argv[]) {
 
                             cudaMemcpyFromSymbol(&n10KSolutionsCPU, n10KSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
-                            n10KSolutionsCPU = min(n10KSolutionsCPU, MAX_10K_SOLUTIONS);
+                            if (n10KSolutionsCPU > MAX_10K_SOLUTIONS) {
+                                fprintf(stderr, "Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                                n10KSolutionsCPU = MAX_10K_SOLUTIONS;
+                            }
 
                             if (n10KSolutionsCPU > 0) {
                                 cudaMemcpyFromSymbol(tenKSolutionsCPU, tenKSolutions, n10KSolutionsCPU * sizeof(struct TenKSolution), 0, cudaMemcpyDeviceToHost);
