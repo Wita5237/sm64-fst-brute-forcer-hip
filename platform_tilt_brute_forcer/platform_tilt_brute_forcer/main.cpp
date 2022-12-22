@@ -139,6 +139,7 @@ __device__ int gReverseArctanTable[65537];
 __device__ float platform_pos[3];
 __device__ short startTriangles[2][3][3];
 __device__ float startNormals[2][3];
+__device__ bool squishCeilings[4];
 
 __device__ float oneUpPlatformNormalYLeft = 0.351623833;
 __device__ float oneUpPlatformNormalXLeft = -0.9361413717;
@@ -529,6 +530,13 @@ __device__ bool check_inbounds(const float* mario_pos) {
     short z_mod = (short)(int)mario_pos[2];
 
     return (abs(x_mod) < 8192 & abs(y_mod) < 8192 & abs(z_mod) < 8192);
+}
+
+__global__ void set_squish_ceilings(float n0, float n1, float n2, float n3) {
+    squishCeilings[0] = n0 > -0.5;
+    squishCeilings[1] = n1 > -0.5;
+    squishCeilings[2] = n2 > -0.5;
+    squishCeilings[3] = n3 > -0.5;
 }
 
 __global__ void set_platform_pos(float x, float y, float z) {
@@ -988,7 +996,7 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
             double qx = testFrame1Position[0];
             double qz = testFrame1Position[2];
 
-            bool intOnEdge[2] = { false, false };
+            bool intOnSquishEdge[2] = { false, false };
 
             for (int i = 0; i < 3; i++) {
                 double ax = startTriangles[f][i][0];
@@ -1001,9 +1009,7 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
                 double t = ((pz - qz) * (pz - az) + (px - qx) * (px - ax)) / ((pz - qz) * (bz - az) + (px - qx) * (bx - ax));
 
                 if (t >= 0.0 && t <= 1.0) {
-                    if ((f == 0 && i != 2) || (f == 1 && i != 0)) {
-                        intOnEdge[intersections] = true;
-                    }
+                    intOnSquishEdge[intersections] = (f == 0 && ((i == 0 && squishCeilings[2]) || (i == 1 && squishCeilings[0]))) || (f == 1 && ((i == 1 && squishCeilings[1]) || (i == 2 && squishCeilings[3])));
                     intersectionPoints[intersections][0] = ax + (bx - ax) * t;
                     intersectionPoints[intersections][1] = ay + (by - ay) * t;
                     intersectionPoints[intersections][2] = az + (bz - az) * t;
@@ -1549,7 +1555,7 @@ __device__ bool find_10k_route(int solIdx, int f, int d, int h) {
                 if (test_one_up_position(solIdx, startPosition, oneUpPlatformPosition, sol->returnPosition, returnSpeed, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, d, sol->endTriangles, sol->endTriangleNormals)) {
                     foundSolution = true;
                 }
-          }
+        }
     }
 
     return foundSolution;
@@ -3039,7 +3045,6 @@ __global__ void cudaFunc(const float minX, const float deltaX, const float minZ,
         }
     }
 }
-
 int main(int argc, char* argv[]) {
     int nThreads = 256;
     size_t memorySize = 10000000;
@@ -3262,20 +3267,15 @@ int main(int argc, char* argv[]) {
                 Vec3f startNormal = { normX, normY, normZ };
                 Platform platform = Platform(platformPos[0], platformPos[1], platformPos[2], startNormal);
 
-                bool squishTest;
-
-                if (normX < 0) {
-                    squishTest = (platform.ceilings[3].normal[1] > -0.5f);
-                }
-                else {
-                    squishTest = (platform.ceilings[0].normal[1] > -0.5f);
-                }
+                bool squishTest = (platform.ceilings[0].normal[1] > -0.5f) || (platform.ceilings[1].normal[1] > -0.5f) || (platform.ceilings[2].normal[1] > -0.5f) || (platform.ceilings[3].normal[1] > -0.5f);
 
                 if (squishTest) {
+                    set_squish_ceilings<<<1, 1>>>(platform.ceilings[0].normal[1], platform.ceilings[1].normal[1], platform.ceilings[2].normal[1], platform.ceilings[3].normal[1]);
                     Vec3f position = { 0.0f, 0.0f, 0.0f };
 
                     for (int k = 0; k < nPUFrames; k++) {
                         platform.platform_logic(position);
+
                         if (k == 0) {
                             for (int x = 0; x < 2; x++) {
                                 for (int y = 0; y < 3; y++) {
