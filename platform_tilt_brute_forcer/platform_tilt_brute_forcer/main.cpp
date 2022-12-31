@@ -814,7 +814,7 @@ __device__ int atan2b(double z, double x) {
     return lower;
 }
 
-__device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, float vel1, float xVel1, float zVel1, int angle, int cameraYaw, float* startPosition, float* oneUpPlatformPosition, float oneUpPlatformXMin, float oneUpPlatformXMax, float oneUpPlatformYMin, float oneUpPlatformYMax, float oneUpPlatformZMin, float oneUpPlatformZMax, float oneUpPlatformNormalX, float oneUpPlatformNormalY, int f, float* frame1Position, float* returnPosition, short(&triangles)[2][3][3], float(&normals)[2][3], int d, int q) {
+__device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, float vel1, float xVel1, float zVel1, int angle, int cameraYaw, float* startPosition, float* oneUpPlatformPosition, float oneUpPlatformXMin, float oneUpPlatformXMax, float oneUpPlatformYMin, float oneUpPlatformYMax, float oneUpPlatformZMin, float oneUpPlatformZMax, float oneUpPlatformNormalX, float oneUpPlatformNormalY, int f, float* frame1Position, float* returnPosition, int d, int q) {
     bool foundSolution = false;
 
     float testStartPosition[3] = { startPosition[0], startPosition[1], startPosition[2] };
@@ -1112,7 +1112,7 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
                             struct PUSolution puSol = puSolutions[solIdx];
                             struct PlatformSolution platSol = platSolutions[puSol.platformSolutionIdx];
                             printf("---------------------------------------\nFound Solution:\n---------------------------------------\n    Start Position: %.10g, %.10g, %.10g\n    Frame 1 Position: %.10g, %.10g, %.10g\n    Frame 2 Position: %.10g, %.10g, %.10g\n    Return Position: %.10g, %.10g, %.10g\n    PU Route Speed: %.10g (x=%.10g, z=%.10g)\n    PU Return Speed: %.10g (x=%.10g, z=%.10g)\n    Frame 2 Q-steps: %d\n    10k Stick X: %d\n    10k Stick Y: %d\n    10k Camera Yaw: %d\n    Start Floor Normal: %.10g, %.10g, %.10g\n    Start Position Limit 1: %.10g %.10g %.10g\n    Start Position Limit 2: %.10g %.10g %.10g\n", testStartPosition[0], testStartPosition[1], testStartPosition[2], testFrame1Position[0], testFrame1Position[1], testFrame1Position[2], testOneUpPlatformPosition[0], testOneUpPlatformPosition[1], testOneUpPlatformPosition[2], returnPosition[0], returnPosition[1], returnPosition[2], vel1, xVel1, zVel1, endSpeed, xVel2a, zVel2a, q, trueX, trueY, cameraYaw, startNormals[f][0], startNormals[f][1], startNormals[f][2], intersectionPoints[0][0], intersectionPoints[0][1], intersectionPoints[0][2], intersectionPoints[1][0], intersectionPoints[1][1], intersectionPoints[1][2]);
-                            printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Indented DYaw: %d\n---------------------------------------\n\n\n", platSol.nFrames, platSol.endNormal[0], platSol.endNormal[1], platSol.endNormal[2], platSol.endPosition[0], platSol.endPosition[1], platSol.endPosition[2], platSol.pux, platSol.puz, puSol.angle, puSol.stickMag, puSol.intendedDYaw);
+                            printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Intended DYaw: %d\n---------------------------------------\n\n\n", platSol.nFrames, platSol.endNormal[0], platSol.endNormal[1], platSol.endNormal[2], platSol.endPosition[0], platSol.endPosition[1], platSol.endPosition[2], platSol.pux, platSol.puz, puSol.angle, puSol.stickMag, puSol.intendedDYaw);
 
                             int idx = atomicAdd(&n10KSolutions, 1);
 
@@ -1255,7 +1255,7 @@ __device__ int calculate_camera_yaw(float* currentPosition, float* lakituPositio
     return atan2sG(lakituPosition[2] - cameraFocus[2], lakituPosition[0] - cameraFocus[0]);
 }
 
-__device__ bool test_one_up_position(int solIdx, float* startPosition, float* oneUpPlatformPosition, float* returnPosition, float endSpeed, float oneUpPlatformXMin, float oneUpPlatformXMax, float oneUpPlatformYMin, float oneUpPlatformYMax, float oneUpPlatformZMin, float oneUpPlatformZMax, float oneUpPlatformNormalX, float oneUpPlatformNormalY, int f, int d, short(&triangles)[2][3][3], float(&normals)[2][3]) {
+__device__ bool test_one_up_position(int solIdx, float* startPosition, float* oneUpPlatformPosition, float* returnPosition, float endSpeed, float oneUpPlatformXMin, float oneUpPlatformXMax, float oneUpPlatformYMin, float oneUpPlatformYMax, float oneUpPlatformZMin, float oneUpPlatformZMax, float oneUpPlatformNormalX, float oneUpPlatformNormalY, int f, int d) {
     float cameraPositions[4][3] = { {-8192, -2918, -8192}, {-8192, -2918, 8191}, {8191, -2918, -8192}, {8191, -2918, 8191} };
     bool foundSolution = false;
 
@@ -1333,6 +1333,13 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                         }
                         else {
                             n = (-((double)s * (double)t) - 1.0 + sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
+
+                            double xVel2Test = xVel1 + n * zVel1;
+                            bool signTest = (xVel2 > 0 && xVel2Test > 0) || (xVel2 < 0 && xVel2Test < 0);
+
+                            if (signTest) {
+                                n = (-((double)s * (double)t) - 1.0 - sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
+                            }
                         }
 
                         double n1 = 32.0 * n / 0.05;
@@ -1352,7 +1359,7 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                     if (x != -1 && x != 1) {
                                         for (int y = floor(yS); y <= ceil(yS) && !foundSolution; y++) {
                                             if (y != -1 && y != 1) {
-                                                if (test_stick_position(solIdx, x, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                                if (test_stick_position(solIdx, x, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                     foundSolution = true;
                                                 }
                                             }
@@ -1367,7 +1374,7 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                 if (xS == 0) {
                                     if (yS < 0) {
                                         for (int y = -64; y <= -128; y--) {
-                                            if (test_stick_position(solIdx, 0, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                            if (test_stick_position(solIdx, 0, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                 foundSolution = true;
                                                 break;
                                             }
@@ -1375,7 +1382,7 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                     }
                                     else {
                                         for (int y = 64; y <= 127; y++) {
-                                            if (test_stick_position(solIdx, 0, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                            if (test_stick_position(solIdx, 0, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                 foundSolution = true;
                                                 break;
                                             }
@@ -1385,7 +1392,7 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                 else if (yS == 0) {
                                     if (xS < 0) {
                                         for (int x = -64; x <= -128; x--) {
-                                            if (test_stick_position(solIdx, x, 0, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                            if (test_stick_position(solIdx, x, 0, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                 foundSolution = true;
                                                 break;
                                             }
@@ -1393,7 +1400,7 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                     }
                                     else {
                                         for (int x = 64; x <= 127; x++) {
-                                            if (test_stick_position(solIdx, x, 0, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                            if (test_stick_position(solIdx, x, 0, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                 foundSolution = true;
                                                 break;
                                             }
@@ -1408,14 +1415,14 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                             double y = (double)x * (yS / xS);
 
                                             if (fabs(floor(y)) != 1.0) {
-                                                if (test_stick_position(solIdx, x, floor(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                                if (test_stick_position(solIdx, x, floor(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                     foundSolution = true;
                                                     break;
                                                 }
                                             }
 
                                             if (fabs(ceil(y)) != 1.0) {
-                                                if (test_stick_position(solIdx, x, ceil(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                                if (test_stick_position(solIdx, x, ceil(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                     foundSolution = true;
                                                     break;
                                                 }
@@ -1429,14 +1436,14 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                             double y = (double)x * (yS / xS);
 
                                             if (fabs(floor(y)) != 1.0) {
-                                                if (test_stick_position(solIdx, x, floor(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                                if (test_stick_position(solIdx, x, floor(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                     foundSolution = true;
                                                     break;
                                                 }
                                             }
 
                                             if (fabs(ceil(y)) != 1.0) {
-                                                if (test_stick_position(solIdx, x, ceil(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                                if (test_stick_position(solIdx, x, ceil(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                     foundSolution = true;
                                                     break;
                                                 }
@@ -1452,14 +1459,14 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                             double x = (double)y * (xS / yS);
 
                                             if (fabs(floor(x)) != 1.0) {
-                                                if (test_stick_position(solIdx, floor(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                                if (test_stick_position(solIdx, floor(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                     foundSolution = true;
                                                     break;
                                                 }
                                             }
 
                                             if (fabs(ceil(x)) != 1.0) {
-                                                if (test_stick_position(solIdx, ceil(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                                if (test_stick_position(solIdx, ceil(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                     foundSolution = true;
                                                     break;
                                                 }
@@ -1473,14 +1480,14 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                             double x = (double)y * (xS / yS);
 
                                             if (fabs(floor(x)) != 1.0) {
-                                                if (test_stick_position(solIdx, floor(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                                if (test_stick_position(solIdx, floor(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                     foundSolution = true;
                                                     break;
                                                 }
                                             }
 
                                             if (fabs(ceil(x)) != 1.0) {
-                                                if (test_stick_position(solIdx, ceil(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, triangles, normals, d, q)) {
+                                                if (test_stick_position(solIdx, ceil(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                     foundSolution = true;
                                                     break;
                                                 }
@@ -1552,10 +1559,10 @@ __device__ bool find_10k_route(int solIdx, int f, int d, int h) {
 
                 float oneUpPlatformPosition[3] = { (maxX + minX) / 2.0, (maxXY + minXY) / 2.0, (maxXZ + minXZ) / 2.0 };
 
-                if (test_one_up_position(solIdx, startPosition, oneUpPlatformPosition, sol->returnPosition, returnSpeed, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, d, sol->endTriangles, sol->endTriangleNormals)) {
+                if (test_one_up_position(solIdx, startPosition, oneUpPlatformPosition, sol->returnPosition, returnSpeed, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, d)) {
                     foundSolution = true;
                 }
-        }
+            }
     }
 
     return foundSolution;
@@ -3039,6 +3046,18 @@ __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
     }
 }
 
+__global__ void testEdge(const float x0, const float x1, const float z0, const float z1, float normalX, float normalY, float normalZ, int maxFrames) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int total = blockDim.x * gridDim.x;
+
+    double t = (double)idx / (double)total;
+
+    float marioPos[3] = { x0 + t * (x1 - x0), -2500.0f, z0 + t * (z1 - z0) };
+    float normal[3] = { normalX, normalY, normalZ };
+
+    try_position(marioPos, normal, maxFrames);
+}
+
 __global__ void cudaFunc(const float minX, const float deltaX, const float minZ, const float deltaZ, const int width, const int height, float normalX, float normalY, float normalZ, int maxFrames) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -3318,11 +3337,11 @@ int main(int argc, char* argv[]) {
                         continue;
                     }
 
-                    int nBlocks = (nX * nZ + nThreads - 1) / nThreads;
-
                     int nPlatSolutionsCPU = 0;
 
                     cudaMemcpyToSymbol(nPlatSolutions, &nPlatSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
+
+                    int nBlocks = (nX * nZ + nThreads - 1) / nThreads;
 
                     cudaFunc<<<nBlocks, nThreads>>>(minX, deltaX, minZ, deltaZ, nX, nZ, platform.normal[0], platform.normal[1], platform.normal[2], maxFrames);
 
