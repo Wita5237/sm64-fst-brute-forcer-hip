@@ -1331,13 +1331,14 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                         else if (zVel1 == 0) {
                             n = -zVel2 / xVel1;
                         }
-                        else {
-                            n = (-((double)s * (double)t) - 1.0 + sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
+                        else if (xVel2 == 0) {
+                            n = -t;
+                        } else {
+                            bool signTest = (xVel1 > 0 && xVel2 < 0) || (xVel1 < 0 && xVel2 > 0);
 
-                            double xVel2Test = xVel1 + n * zVel1;
-                            bool signTest = (xVel2 > 0 && xVel2Test > 0) || (xVel2 < 0 && xVel2Test < 0);
-
-                            if (signTest) {
+                            if ((signTest && zVel1 > 0) || (!signTest && zVel1 < 0)) {
+                                n = (-((double)s * (double)t) - 1.0 + sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
+                            } else {
                                 n = (-((double)s * (double)t) - 1.0 - sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
                             }
                         }
