@@ -1295,16 +1295,8 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
             double eqC = ((startPosition[0] - oneUpPlatformPosition[0]) * (startPosition[0] - oneUpPlatformPosition[0]) + (startPosition[2] - oneUpPlatformPosition[2]) * (startPosition[2] - oneUpPlatformPosition[2]));
             double eqDet = (eqB * eqB) - (4.0 * eqA * eqC);
 
-            if (eqDet >= 0) {
+            if (eqB < 0 && eqDet >= 0) {
                 float vel1 = 4.0f * ((-eqB - sqrt(eqDet)) / (2.0 * eqA)) / (float)q;
-
-                if (vel1 < 0) {
-                    vel1 = 4.0f * ((-eqB + sqrt(eqDet)) / (2.0 * eqA)) / (float)q;
-
-                    if (vel1 < 0) {
-                        continue;
-                    }
-                }
 		    
                 float xVel1 = vel1 * gSineTableG[angle >> 4];
                 float zVel1 = vel1 * gCosineTableG[angle >> 4];
