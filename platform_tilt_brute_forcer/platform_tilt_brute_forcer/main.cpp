@@ -1511,7 +1511,6 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
 __device__ bool find_10k_route(int solIdx, int f, int d, int h) {
     struct PlatformSolution* sol = &(platSolutions[puSolutions[solIdx].platformSolutionIdx]);
     float returnSpeed = puSolutions[solIdx].returnSpeed;
-    float oneUpPlatformBuffer = 0.0f;
 
     bool foundSolution = false;
 
@@ -1538,20 +1537,20 @@ __device__ bool find_10k_route(int solIdx, int f, int d, int h) {
 
     for (int i = minXPU; i <= maxXPU; i++) {
             double signZ = h == 0 ? 1.0 : -1.0;
-            double z0 = signZ * sqrt(r * r - (i * 65536.0 + (oneUpPlatformXMin - oneUpPlatformBuffer) - sol->returnPosition[0]) * (i * 65536.0 + (oneUpPlatformXMin - oneUpPlatformBuffer) - sol->returnPosition[0])) + sol->returnPosition[2];
-            double z1 = signZ * sqrt(r * r - (i * 65536.0 + (oneUpPlatformXMax + oneUpPlatformBuffer) - sol->returnPosition[0]) * (i * 65536.0 + (oneUpPlatformXMax + oneUpPlatformBuffer) - sol->returnPosition[0])) + sol->returnPosition[2];
+            double z0 = signZ * sqrt(r * r - (i * 65536.0 + oneUpPlatformXMin - sol->returnPosition[0]) * (i * 65536.0 + oneUpPlatformXMin - sol->returnPosition[0])) + sol->returnPosition[2];
+            double z1 = signZ * sqrt(r * r - (i * 65536.0 + oneUpPlatformXMax - sol->returnPosition[0]) * (i * 65536.0 + oneUpPlatformXMax - sol->returnPosition[0])) + sol->returnPosition[2];
 
-            int minZPU = (int)ceil((fmin(z0, z1) - (oneUpPlatformZMax + oneUpPlatformBuffer)) / 65536.0);
-            int maxZPU = (int)floor((fmax(z0, z1) - (oneUpPlatformZMin - oneUpPlatformBuffer)) / 65536.0);
+            int minZPU = (int)ceil((fmin(z0, z1) - oneUpPlatformZMax) / 65536.0);
+            int maxZPU = (int)floor((fmax(z0, z1) - oneUpPlatformZMin) / 65536.0);
 
             for (int j = minZPU; j <= maxZPU; j++) {
                 double signX = i > 0 ? 1.0 : -1.0;
 
-                double x0 = signX * sqrt(r * r - (j * 65536.0 + (oneUpPlatformZMin - oneUpPlatformBuffer) - sol->returnPosition[2]) * (j * 65536.0 + (oneUpPlatformZMin - oneUpPlatformBuffer) - sol->returnPosition[2])) + sol->returnPosition[0];
-                double x1 = signX * sqrt(r * r - (j * 65536.0 + (oneUpPlatformZMax + oneUpPlatformBuffer) - sol->returnPosition[2]) * (j * 65536.0 + (oneUpPlatformZMax + oneUpPlatformBuffer) - sol->returnPosition[2])) + sol->returnPosition[0];
+                double x0 = signX * sqrt(r * r - (j * 65536.0 + oneUpPlatformZMin - sol->returnPosition[2]) * (j * 65536.0 + oneUpPlatformZMin - sol->returnPosition[2])) + sol->returnPosition[0];
+                double x1 = signX * sqrt(r * r - (j * 65536.0 + oneUpPlatformZMax - sol->returnPosition[2]) * (j * 65536.0 + oneUpPlatformZMax - sol->returnPosition[2])) + sol->returnPosition[0];
 
-                double minX = fmax(fmin(x0, x1), i * 65536.0 + (oneUpPlatformXMin - oneUpPlatformBuffer));
-                double maxX = fmin(fmax(x0, x1), i * 65536.0 + (oneUpPlatformXMax + oneUpPlatformBuffer));
+                double minX = fmax(fmin(x0, x1), i * 65536.0 + oneUpPlatformXMin);
+                double maxX = fmin(fmax(x0, x1), i * 65536.0 + oneUpPlatformXMax);
 
                 double minXY = (double)(oneUpPlatformYMax - oneUpPlatformYMin) * (minX - (65536.0 * i) - oneUpPlatformXMin) / (double)(oneUpPlatformXMax - oneUpPlatformXMin) + oneUpPlatformYMin;
                 double maxXY = (double)(oneUpPlatformYMax - oneUpPlatformYMin) * (maxX - (65536.0 * i) - oneUpPlatformXMin) / (double)(oneUpPlatformXMax - oneUpPlatformXMin) + oneUpPlatformYMin;
