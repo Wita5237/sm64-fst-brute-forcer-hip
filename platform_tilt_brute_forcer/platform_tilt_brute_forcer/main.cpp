@@ -1766,11 +1766,11 @@ __device__ void platform_logic(float* platform_normal, float* mario_pos, short (
 	mario_pos[2] = mz;
 }
 
-__device__ bool try_pu_xz(float* normal, float* position, short (&current_triangles)[2][3][3], float (&triangle_normals)[2][3], double x, double z, double nx, double ny, double nz, int tilt_idx, int q_steps, double max_speed, struct PlatformSolution partialSolution) {
-	// For current (x, z) PU position, find range of yaws that
-	// allow you to reach the PU platform from the original universe.
+__device__ bool try_pu_xz(float* normal, float* position, short (&current_triangles)[2][3][3], float (&triangle_normals)[2][3], double x, double z, struct PlatformSolution partialSolution) {
+    // For current (x, z) PU position, find range of yaws that
+    // allow you to reach the PU platform from the original universe.
 
-	float test_normal[3] = {normal[0], normal[1], normal[2]};
+    float test_normal[3] = {normal[0], normal[1], normal[2]};
     float mario_pos[3] = {x + position[0], position[1], z + position[2]};
 
     short triangles[2][3][3];
@@ -1792,35 +1792,34 @@ __device__ bool try_pu_xz(float* normal, float* position, short (&current_triang
                 }
 
                 if (!good_solution) {
-					float floor_dist = 65536.0;
-					float speed = 65536.0*sqrtf(x*x + z*z);
+                    float floor_dist = 65536.0;
+                    float speed = 65536.0*sqrtf(x*x + z*z);
 
-					for (int f = 0; f < n_floor_ranges; f++) {
-						float f_dist = mario_pos[1] - lower_floor[f];
+                    for (int f = 0; f < n_floor_ranges; f++) {
+                        float f_dist = mario_pos[1] - lower_floor[f];
 
-						if (f_dist > 0) {
-							floor_dist = f_dist;
-						}
-						else {
-							break;
-						}
-					}
+                        if (f_dist > 0) {
+                            floor_dist = f_dist;
+                        }
+                        else {
+                            break;
+                        }
+                    }
 
-					int falling_frames = (int)ceil((sqrt(2.0*floor_dist + 1.0) + 1.0) / 2.0);
+                    int falling_frames = (int)ceil((sqrt(2.0*floor_dist + 1.0) + 1.0) / 2.0);
 
-					int closest_pu_dist = fmin(fmin(mario_pos[0] + pow(2, 31), pow(2, 31) - 1.0 - mario_pos[0]), fmin(mario_pos[2] + pow(2, 31), pow(2, 31) - 1.0 - mario_pos[2]));
+                    int closest_pu_dist = fmin(fmin(mario_pos[0] + pow(2, 31), pow(2, 31) - 1.0 - mario_pos[0]), fmin(mario_pos[2] + pow(2, 31), pow(2, 31) - 1.0 - mario_pos[2]));
 
-					if (closest_pu_dist >= speed / 4.0) {
-						int total_falling_frames = (int)floor((pow(2, 32) - closest_pu_dist - 3.0 * speed / 2.0) / speed);
+                    if (closest_pu_dist >= speed / 4.0) {
+                        int total_falling_frames = (int)floor((pow(2, 32) - closest_pu_dist - 3.0 * speed / 2.0) / speed);
 
-						if (falling_frames <= total_falling_frames) {
-							good_solution = true;
-						}
-					}
+                        if (falling_frames <= total_falling_frames) {
+                            good_solution = true;
+                        }
+                    }
                 }
-                
-				//if (good_solution && mario_pos[1] >= 400 && mario_pos[1] <= 450) {
-				if (good_solution) {
+
+                if (good_solution) {
                     int solIdx = atomicAdd(&nPlatSolutions, 1);
                     if (solIdx < MAX_PLAT_SOLUTIONS) {
                         PlatformSolution solution;
@@ -1863,7 +1862,7 @@ __device__ bool try_pu_xz(float* normal, float* position, short (&current_triang
 	return true;
 }
 
-__device__ bool try_pu_x(float* normal, float* position, short (&current_triangles)[2][3][3], float (&triangle_normals)[2][3], float(&T_start)[4][4], float(&T_tilt)[4][4], double x, double x1_min, double x1_max, double x2_min, double x2_max, double platform_min_x, double platform_max_x, double platform_min_z, double platform_max_z, double m, double c_min, double c_max, double nx, double ny, double nz, int tilt_idx, int q_steps, double max_speed, struct PlatformSolution &partialSolution) {
+__device__ bool try_pu_x(float* normal, float* position, short (&current_triangles)[2][3][3], float (&triangle_normals)[2][3], float(&T_start)[4][4], float(&T_tilt)[4][4], double x, double x1_min, double x1_max, double x2_min, double x2_max, double platform_min_x, double platform_max_x, double platform_min_z, double platform_max_z, double m, double c_min, double c_max, int q_steps, double max_speed, struct PlatformSolution &partialSolution) {
 	double pu_platform_min_x = x + platform_min_x;
 	double pu_platform_max_x = x + platform_max_x;
 
@@ -1994,7 +1993,7 @@ __device__ bool try_pu_x(float* normal, float* position, short (&current_triangl
             // Check if our likely horizontal platform displacement puts us out of bounds.
             // If so, skip checking this PU.
             if (abs(bpd_x_mod) < 8192 + disp_leeway && abs(bpd_z_mod) < 8192 + disp_leeway) {
-                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, nx, ny, nz, tilt_idx, q_steps, max_speed, partialSolution)) {
+                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, partialSolution)) {
                     break;
                 }
             }
@@ -2011,7 +2010,7 @@ __device__ bool try_pu_x(float* normal, float* position, short (&current_triangl
             // Check if our likely horizontal platform displacement puts us out of bounds.
             // If so, skip checking this PU.
             if (abs(bpd_x_mod) < 8192 + disp_leeway && abs(bpd_z_mod) < 8192 + disp_leeway) {
-                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, nx, ny, nz, tilt_idx, q_steps, max_speed, partialSolution)) {
+                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, partialSolution)) {
                     break;
                 }
             }
@@ -2021,7 +2020,7 @@ __device__ bool try_pu_x(float* normal, float* position, short (&current_triangl
     }
 }
 
-__device__ bool try_pu_z(float* normal, float* position, short (&current_triangles)[2][3][3], float(&triangle_normals)[2][3], float(&T_start)[4][4], float(&T_tilt)[4][4], double z, double z1_min, double z1_max, double z2_min, double z2_max, double platform_min_x, double platform_max_x, double platform_min_z, double platform_max_z, double m, double c_min, double c_max, double nx, double ny, double nz, int tilt_idx, int q_steps, double max_speed, struct PlatformSolution &partialSolution) {
+__device__ bool try_pu_z(float* normal, float* position, short (&current_triangles)[2][3][3], float(&triangle_normals)[2][3], float(&T_start)[4][4], float(&T_tilt)[4][4], double z, double z1_min, double z1_max, double z2_min, double z2_max, double platform_min_x, double platform_max_x, double platform_min_z, double platform_max_z, double m, double c_min, double c_max, int q_steps, double max_speed, struct PlatformSolution &partialSolution) {
 	double pu_platform_min_z = z + platform_min_z;
 	double pu_platform_max_z = z + platform_max_z;
 
@@ -2153,7 +2152,7 @@ __device__ bool try_pu_z(float* normal, float* position, short (&current_triangl
             // Check if our likely horizontal platform displacement puts us out of bounds.
             // If so, skip checking this PU.
             if (abs(bpd_x_mod) < 8192 + disp_leeway && abs(bpd_z_mod) < 8192 + disp_leeway) {
-                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, nx, ny, nz, tilt_idx, q_steps, max_speed, partialSolution)) {
+                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, partialSolution)) {
                     break;
                 }
             }
@@ -2170,7 +2169,7 @@ __device__ bool try_pu_z(float* normal, float* position, short (&current_triangl
             // Check if our likely horizontal platform displacement puts us out of bounds.
             // If so, skip checking this PU.
             if (abs(bpd_x_mod) < 8192 + disp_leeway && abs(bpd_z_mod) < 8192 + disp_leeway) {
-                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, nx, ny, nz, tilt_idx, q_steps, max_speed, partialSolution)) {
+                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, partialSolution)) {
                     break;
                 }
             }
@@ -2318,241 +2317,238 @@ __device__ void try_normal(float* normal, float* position, struct PlatformSoluti
 		double T_diff11 = T_tilt[1][1] - T_start[1][1];
 		double T_diff21 = T_tilt[2][1] - T_start[2][1];
 
-		for (int j = 0; j < n_y_ranges; j++) {
-			double r_min = lower_y[j] - (1 + T_diff11) * max_y + T_diff01 * platform_pos[0] + T_diff11 * platform_pos[1] + T_diff21 * platform_pos[2];
-			double r_max = upper_y[j] - (1 + T_diff11) * min_y + T_diff01 * platform_pos[0] + T_diff11 * platform_pos[1] + T_diff21 * platform_pos[2];
+        for (int j = 0; j < n_y_ranges; j++) {
+            double r_min = lower_y[j] - (1 + T_diff11) * max_y + T_diff01 * platform_pos[0] + T_diff11 * platform_pos[1] + T_diff21 * platform_pos[2];
+            double r_max = upper_y[j] - (1 + T_diff11) * min_y + T_diff01 * platform_pos[0] + T_diff11 * platform_pos[1] + T_diff21 * platform_pos[2];
 
-			// z = mx + c_min
-			// z = mx + c_max
-			//
-			// PU platforms occurring between these lines will (usually) 
-			// give a y displacement within our desired range.
-			double m = -T_diff01 / T_diff21;
-			double c_min; double c_max;
+            // z = mx + c_min
+            // z = mx + c_max
+            //
+            // PU platforms occurring between these lines will (usually) 
+            // give a y displacement within our desired range.
+            double m = -T_diff01 / T_diff21;
+            double c_min; double c_max;
 
-			if (T_diff21 < 0) {
-				c_min = r_max / T_diff21;
-				c_max = r_min / T_diff21;
-			}
-			else {
-				c_min = r_min / T_diff21;
-				c_max = r_max / T_diff21;
-			}
+            if (T_diff21 < 0) {
+                c_min = r_max / T_diff21;
+                c_max = r_min / T_diff21;
+            }
+            else {
+                c_min = r_min / T_diff21;
+                c_max = r_max / T_diff21;
+            }
 
-			// Find intersection between y displacement lines and 
-			// good platform tilt angle ranges.
-			//
-			// Intersection forms a polygon that may (or may not)
-			// stretch to infinity in one direction.
-			// 
-			// Find the x coordinates where displacement lines and 
-			// platform tilt lines intersect.
-			//
-			// Non-intersecting lines have x coordinate set to NaN. 
-			double a1_cos = cos(a[i]);
-			double a2_cos = cos(a[(i + 1) % 4]);
+            // Find intersection between y displacement lines and 
+            // good platform tilt angle ranges.
+            //
+            // Intersection forms a polygon that may (or may not)
+            // stretch to infinity in one direction.
+            // 
+            // Find the x coordinates where displacement lines and 
+            // platform tilt lines intersect.
+            //
+            // Non-intersecting lines have x coordinate set to NaN. 
+            double a1_cos = cos(a[i]);
+            double a2_cos = cos(a[(i + 1) % 4]);
 
-			double x1_min; double x1_max; double x2_min; double x2_max;
+            double x1_min; double x1_max; double x2_min; double x2_max;
 
-			if (nx == 0) {
-				if (i % 2 == 0) {
-					x1_min = (c_min + tan(a[i]) * platform_pos[0] - platform_pos[2]) / (tan(a[i]) - m);
-					x1_max = (c_max + tan(a[i]) * platform_pos[0] - platform_pos[2]) / (tan(a[i]) - m);
-					x2_min = 0;
-					x2_max = 0;
+            if (nx == 0) {
+                if (i % 2 == 0) {
+                    x1_min = (c_min + tan(a[i]) * platform_pos[0] - platform_pos[2]) / (tan(a[i]) - m);
+                    x1_max = (c_max + tan(a[i]) * platform_pos[0] - platform_pos[2]) / (tan(a[i]) - m);
+                    x2_min = 0;
+                    x2_max = 0;
 
-					if (a1_cos > 0 && x1_min < platform_pos[0] || a1_cos < 0 && x1_min > platform_pos[0]) {
-						x1_min = NAN;
-					}
+                    if (a1_cos > 0 && x1_min < platform_pos[0] || a1_cos < 0 && x1_min > platform_pos[0]) {
+                        x1_min = NAN;
+                    }
 
-					if (a1_cos > 0 && x1_max < platform_pos[0] || a1_cos < 0 && x1_max > platform_pos[0]) {
-						x1_max = NAN;
-					}
+                    if (a1_cos > 0 && x1_max < platform_pos[0] || a1_cos < 0 && x1_max > platform_pos[0]) {
+                        x1_max = NAN;
+                    }
 
-					if (nz > 0 && c_min < platform_pos[0] || nz < 0 && c_min > platform_pos[0]) {
-						x2_min = NAN;
-					}
+                    if (nz > 0 && c_min < platform_pos[0] || nz < 0 && c_min > platform_pos[0]) {
+                        x2_min = NAN;
+                    }
 
-					if (nz > 0 && c_max < platform_pos[0] || nz < 0 && c_max > platform_pos[0]) {
-						x2_max = NAN;
-					}
-				}
-				else {
-					x1_min = 0;
-					x1_max = 0;
-					x2_min = (c_min + tan(a[(i + 1) % 4]) * platform_pos[0] - platform_pos[2]) / (tan(a[(i + 1) % 4]) - m);
-					x2_max = (c_max + tan(a[(i + 1) % 4]) * platform_pos[0] - platform_pos[2]) / (tan(a[(i + 1) % 4]) - m);
+                    if (nz > 0 && c_max < platform_pos[0] || nz < 0 && c_max > platform_pos[0]) {
+                        x2_max = NAN;
+                    }
+                }
+                else {
+                    x1_min = 0;
+                    x1_max = 0;
+                    x2_min = (c_min + tan(a[(i + 1) % 4]) * platform_pos[0] - platform_pos[2]) / (tan(a[(i + 1) % 4]) - m);
+                    x2_max = (c_max + tan(a[(i + 1) % 4]) * platform_pos[0] - platform_pos[2]) / (tan(a[(i + 1) % 4]) - m);
 
-					if (nz > 0 && c_min < platform_pos[0] || nz < 0 && c_min > platform_pos[0]) {
-						x1_min = NAN;
-					}
+                    if (nz > 0 && c_min < platform_pos[0] || nz < 0 && c_min > platform_pos[0]) {
+                        x1_min = NAN;
+                    }
 
-					if (nz > 0 && c_max < platform_pos[0] || nz < 0 && c_max > platform_pos[0]) {
-						x1_max = NAN;
-					}
+                    if (nz > 0 && c_max < platform_pos[0] || nz < 0 && c_max > platform_pos[0]) {
+                        x1_max = NAN;
+                    }
 
-					if (a2_cos > 0 && x2_min < platform_pos[0] || a2_cos < 0 && x2_min > platform_pos[0]) {
-						x2_min = NAN;
-					}
+                    if (a2_cos > 0 && x2_min < platform_pos[0] || a2_cos < 0 && x2_min > platform_pos[0]) {
+                        x2_min = NAN;
+                    }
 
-					if (a2_cos > 0 && x2_max < platform_pos[0] || a2_cos < 0 && x2_max >platform_pos[0]) {
-						x2_max = NAN;
-					}
-				}
-			}
-			else {
-				x1_min = (c_min + tan(a[i]) * platform_pos[0] - platform_pos[2]) / (tan(a[i]) - m);
-				x1_max = (c_max + tan(a[i]) * platform_pos[0] - platform_pos[2]) / (tan(a[i]) - m);
-				x2_min = (c_min + tan(a[(i + 1) % 4]) * platform_pos[0] - platform_pos[2]) / (tan(a[(i + 1) % 4]) - m);
-				x2_max = (c_max + tan(a[(i + 1) % 4]) * platform_pos[0] - platform_pos[2]) / (tan(a[(i + 1) % 4]) - m);
+                    if (a2_cos > 0 && x2_max < platform_pos[0] || a2_cos < 0 && x2_max >platform_pos[0]) {
+                        x2_max = NAN;
+                    }
+                }
+            }
+            else {
+                x1_min = (c_min + tan(a[i]) * platform_pos[0] - platform_pos[2]) / (tan(a[i]) - m);
+                x1_max = (c_max + tan(a[i]) * platform_pos[0] - platform_pos[2]) / (tan(a[i]) - m);
+                x2_min = (c_min + tan(a[(i + 1) % 4]) * platform_pos[0] - platform_pos[2]) / (tan(a[(i + 1) % 4]) - m);
+                x2_max = (c_max + tan(a[(i + 1) % 4]) * platform_pos[0] - platform_pos[2]) / (tan(a[(i + 1) % 4]) - m);
 
-				if (a1_cos > 0 && x1_min < platform_pos[0] || a1_cos < 0 && x1_min > platform_pos[0]) {
-					x1_min = NAN;
-				}
+                if (a1_cos > 0 && x1_min < platform_pos[0] || a1_cos < 0 && x1_min > platform_pos[0]) {
+                    x1_min = NAN;
+                }
 
-				if (a1_cos > 0 && x1_max < platform_pos[0] || a1_cos < 0 && x1_max > platform_pos[0]) {
-					x1_max = NAN;
-				}
+                if (a1_cos > 0 && x1_max < platform_pos[0] || a1_cos < 0 && x1_max > platform_pos[0]) {
+                    x1_max = NAN;
+                }
 
-				if (a2_cos > 0 && x2_min < platform_pos[0] || a2_cos < 0 && x2_min > platform_pos[0]) {
-					x2_min = NAN;
-				}
+                if (a2_cos > 0 && x2_min < platform_pos[0] || a2_cos < 0 && x2_min > platform_pos[0]) {
+                    x2_min = NAN;
+                }
 
-				if (a2_cos > 0 && x2_max < platform_pos[0] || a2_cos < 0 && x2_max > platform_pos[0]) {
-					x2_max = NAN;
-				}
-			}
+                if (a2_cos > 0 && x2_max < platform_pos[0] || a2_cos < 0 && x2_max > platform_pos[0]) {
+                    x2_max = NAN;
+                }
+            }
 
 
-			// Mario's movement can end on any of his quarter steps, as long as the next move puts him 
-			// out of bounds (or is the last step). So we need to consider PU movement for each possible
-			// final quarter step
+            // Mario's movement can end on any of his quarter steps, as long as the next move puts him 
+            // out of bounds (or is the last step). So we need to consider PU movement for each possible
+            // final quarter step
 
-			// If the normals match then you can't force Mario out of bounds after his final q step.
-			// Therefore, only 4 q_steps are possible.
-			int min_q_steps = 4;
+            // If the normals match then you can't force Mario out of bounds after his final q step.
+            // Therefore, only 4 q_steps are possible.
+            int q = 4;
+            double pu_gap = 65536.0 * q;
 
-			for (int q = 4; q >= min_q_steps; q--) {
-				double pu_gap = 65536.0 * q;
+            // Start searching for PUs in the polygon.
+            //
+            // We want to minimise speed, so we search outwards
+            // from the point closest to the real platform.
+            //
+            // This will be at the x = 0 (if abs(m) < 1)
+            // or z = 0 (if abs(m) > 1)
+            if (abs(m) < 1) {
+                // Find x limits of polygon
+                double poly_x_start; double poly_x_end;
 
-				// Start searching for PUs in the polygon.
-				//
-				// We want to minimise speed, so we search outwards
-				// from the point closest to the real platform.
-				//
-				// This will be at the x = 0 (if abs(m) < 1)
-				// or z = 0 (if abs(m) > 1)
-				if (abs(m) < 1) {
-					// Find x limits of polygon
-					double poly_x_start; double poly_x_end;
+                if (!isnan(x1_min) && !isnan(x1_max)) {
+                    if (!isnan(x2_min) && !isnan(x2_max)) {
+                        poly_x_start = fmin(fmin(x1_min, x1_max), fmin(x2_min, x2_max));
+                        poly_x_end = fmax(fmax(x1_min, x1_max), fmax(x2_min, x2_max));
+                    }
+                    else {
+                        if (c_min > 0) {
+                            poly_x_start = -INFINITY;
+                            poly_x_end = fmax(x1_min, x1_max);
+                        }
+                        else {
+                            poly_x_start = fmin(x1_min, x1_max);
+                            poly_x_end = INFINITY;
+                        }
+                    }
+                }
+                else if (!isnan(x2_min) && !isnan(x2_max)) {
+                    if (c_min > 0) {
+                        poly_x_start = fmin(x2_min, x2_max);
+                        poly_x_end = INFINITY;
+                    }
+                    else {
+                        poly_x_start = -INFINITY;
+                        poly_x_end = fmax(x2_min, x2_max);
+                    }
+                }
+                else {
+                    continue;
+                }
 
-					if (!isnan(x1_min) && !isnan(x1_max)) {
-						if (!isnan(x2_min) && !isnan(x2_max)) {
-							poly_x_start = fmin(fmin(x1_min, x1_max), fmin(x2_min, x2_max));
-							poly_x_end = fmax(fmax(x1_min, x1_max), fmax(x2_min, x2_max));
-						}
-						else {
-							if (c_min > 0) {
-								poly_x_start = -INFINITY;
-								poly_x_end = fmax(x1_min, x1_max);
-							}
-							else {
-								poly_x_start = fmin(x1_min, x1_max);
-								poly_x_end = INFINITY;
-							}
-						}
-					}
-					else if (!isnan(x2_min) && !isnan(x2_max)) {
-						if (c_min > 0) {
-							poly_x_start = fmin(x2_min, x2_max);
-							poly_x_end = INFINITY;
-						}
-						else {
-							poly_x_start = -INFINITY;
-							poly_x_end = fmax(x2_min, x2_max);
-						}
-					}
-					else {
-						continue;
-					}
+                double first_x_pu = ceil((poly_x_start - platform_max_x) / pu_gap) * pu_gap;
+                double last_x_pu = floor((poly_x_end - platform_min_x) / pu_gap) * pu_gap;
 
-					double first_x_pu = ceil((poly_x_start - platform_max_x) / pu_gap) * pu_gap;
-					double last_x_pu = floor((poly_x_end - platform_min_x) / pu_gap) * pu_gap;
+                // Search backwards from x=0
+                for (double x = fmin(0.0, last_x_pu); x + platform_min_x > poly_x_start; x -= pu_gap) {
+                    if (!try_pu_x(normal, position, current_triangles, triangle_normals, T_start, T_tilt, x, x1_min, x1_max, x2_min, x2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, partialSolution)) {
+                        break;
+                    }
+                }
 
-					// Search backwards from x=0
-					for (double x = fmin(0.0, last_x_pu); x + platform_min_x > poly_x_start; x -= pu_gap) {
-						if (!try_pu_x(normal, position, current_triangles, triangle_normals, T_start, T_tilt, x, x1_min, x1_max, x2_min, x2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, nx, ny, nz, i, q, max_speed, partialSolution)) {
-							break;
-						}
-					}
+                // Search forwards from x>0
+                for (double x = fmax(pu_gap, first_x_pu); x - platform_max_x < poly_x_end; x += pu_gap) {
+                    if (!try_pu_x(normal, position, current_triangles, triangle_normals, T_start, T_tilt, x, x1_min, x1_max, x2_min, x2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, partialSolution)) {
+                        break;
+                    }
+                }
+            }
+            else {
+                // Calculate z coordinates of intersection points
+                double z1_min = tan(a[i]) * x1_min + platform_pos[2] - tan(a[i]) * platform_pos[0];
+                double z1_max = tan(a[i]) * x1_max + platform_pos[2] - tan(a[i]) * platform_pos[0];
+                double z2_min = tan(a[(i + 1) % 4]) * x2_min + platform_pos[2] - tan(a[(i + 1) % 4]) * platform_pos[0];
+                double z2_max = tan(a[(i + 1) % 4]) * x2_max + platform_pos[2] - tan(a[(i + 1) % 4]) * platform_pos[0];
 
-					// Search forwards from x>0
-					for (double x = fmax(pu_gap, first_x_pu); x - platform_max_x < poly_x_end; x += pu_gap) {
-						if (!try_pu_x(normal, position, current_triangles, triangle_normals, T_start, T_tilt, x, x1_min, x1_max, x2_min, x2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, nx, ny, nz, i, q, max_speed, partialSolution)) {
-							break;
-						}
-					}
-				}
-				else {
-					// Calculate z coordinates of intersection points
-					double z1_min = tan(a[i]) * x1_min + platform_pos[2] - tan(a[i]) * platform_pos[0];
-					double z1_max = tan(a[i]) * x1_max + platform_pos[2] - tan(a[i]) * platform_pos[0];
-					double z2_min = tan(a[(i + 1) % 4]) * x2_min + platform_pos[2] - tan(a[(i + 1) % 4]) * platform_pos[0];
-					double z2_max = tan(a[(i + 1) % 4]) * x2_max + platform_pos[2] - tan(a[(i + 1) % 4]) * platform_pos[0];
+                // Find z limits of polygon
+                double poly_z_start; double poly_z_end;
 
-					// Find z limits of polygon
-					double poly_z_start; double poly_z_end;
+                if (!isnan(z1_min) && !isnan(z1_max)) {
+                    if (!isnan(z2_min) && !isnan(z2_max)) {
+                        poly_z_start = fmin(fmin(z1_min, z1_max), fmin(z2_min, z2_max));
+                        poly_z_end = fmax(fmax(z1_min, z1_max), fmax(z2_min, z2_max));
+                    }
+                    else {
+                        if (c_min / m > 0) {
+                            poly_z_start = -INFINITY;
+                            poly_z_end = fmax(z1_min, z1_max);
+                        }
+                        else {
+                            poly_z_start = fmin(z1_min, z1_max);
+                            poly_z_end = INFINITY;
+                        }
+                    }
+                }
+                else if (!isnan(z2_min) && !isnan(z2_max)) {
+                    if (c_min / m > 0) {
+                        poly_z_start = fmin(z2_min, z2_max);
+                        poly_z_end = INFINITY;
+                    }
+                    else {
+                        poly_z_start = -INFINITY;
+                        poly_z_end = fmax(z2_min, z2_max);
+                    }
+                }
+                else {
+                    continue;
+                }
 
-					if (!isnan(z1_min) && !isnan(z1_max)) {
-						if (!isnan(z2_min) && !isnan(z2_max)) {
-							poly_z_start = fmin(fmin(z1_min, z1_max), fmin(z2_min, z2_max));
-							poly_z_end = fmax(fmax(z1_min, z1_max), fmax(z2_min, z2_max));
-						}
-						else {
-							if (c_min / m > 0) {
-								poly_z_start = -INFINITY;
-								poly_z_end = fmax(z1_min, z1_max);
-							}
-							else {
-								poly_z_start = fmin(z1_min, z1_max);
-								poly_z_end = INFINITY;
-							}
-						}
-					}
-					else if (!isnan(z2_min) && !isnan(z2_max)) {
-						if (c_min / m > 0) {
-							poly_z_start = fmin(z2_min, z2_max);
-							poly_z_end = INFINITY;
-						}
-						else {
-							poly_z_start = -INFINITY;
-							poly_z_end = fmax(z2_min, z2_max);
-						}
-					}
-					else {
-						continue;
-					}
+                double first_z_pu = ceil((poly_z_start - platform_max_z) / pu_gap) * pu_gap;
+                double last_z_pu = floor((poly_z_end - platform_min_z) / pu_gap) * pu_gap;
 
-					double first_z_pu = ceil((poly_z_start - platform_max_z) / pu_gap) * pu_gap;
-					double last_z_pu = floor((poly_z_end - platform_min_z) / pu_gap) * pu_gap;
-					
-					// Search backwards from z=0
-					for (double z = fmin(0.0, last_z_pu); z + platform_min_z > poly_z_start; z -= pu_gap) {
-						if (!try_pu_z(normal, position, current_triangles, triangle_normals, T_start, T_tilt, z, z1_min, z1_max, z2_min, z2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, nx, ny, nz, i, q, max_speed, partialSolution)) {
-							break;
-						}
-					}
+                // Search backwards from z=0
+                for (double z = fmin(0.0, last_z_pu); z + platform_min_z > poly_z_start; z -= pu_gap) {
+                    if (!try_pu_z(normal, position, current_triangles, triangle_normals, T_start, T_tilt, z, z1_min, z1_max, z2_min, z2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, partialSolution)) {
+                        break;
+                    }
+                }
 
-					// Search forwards from z>0
-					for (double z = fmax(pu_gap, first_z_pu); z - platform_max_z < poly_z_end; z += pu_gap) {
-						if (!try_pu_z(normal, position, current_triangles, triangle_normals, T_start, T_tilt, z, z1_min, z1_max, z2_min, z2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, nx, ny, nz, i, q, max_speed, partialSolution)) {
-							break;
-						}
-					}
-				}
-			}
-		}
-	}
+                // Search forwards from z>0
+                for (double z = fmax(pu_gap, first_z_pu); z - platform_max_z < poly_z_end; z += pu_gap) {
+                    if (!try_pu_z(normal, position, current_triangles, triangle_normals, T_start, T_tilt, z, z1_min, z1_max, z2_min, z2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, partialSolution)) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
 }
 
 __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
