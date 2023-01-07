@@ -1357,15 +1357,12 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                 double yS = -stickMagnitude * cos(2.0 * M_PI * (stickAngle / 65536));
                                 double xS = stickMagnitude * sin(2.0 * M_PI * (stickAngle / 65536));
 
-                                for (int x = floor(xS); x <= ceil(xS) && !foundSolution; x++) {
-                                    if (x != -1 && x != 1) {
-                                        for (int y = floor(yS); y <= ceil(yS) && !foundSolution; y++) {
-                                            if (y != -1 && y != 1) {
-                                                if (test_stick_position(solIdx, x, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
-                                                    foundSolution = true;
-                                                }
-                                            }
-                                        }
+                                int x = round(xS);
+                                int y = round(yS);
+
+                                if (x != -1 && x != 1 && y != -1 && y != 1) {
+                                    if (test_stick_position(solIdx, x, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
+                                        foundSolution = true;
                                     }
                                 }
                             }
