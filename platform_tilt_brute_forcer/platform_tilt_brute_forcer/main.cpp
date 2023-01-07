@@ -814,7 +814,7 @@ __device__ int atan2b(double z, double x) {
     return lower;
 }
 
-__device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, float vel1, float xVel1, float zVel1, int angle, int cameraYaw, float* startPosition, float* oneUpPlatformPosition, float oneUpPlatformXMin, float oneUpPlatformXMax, float oneUpPlatformYMin, float oneUpPlatformYMax, float oneUpPlatformZMin, float oneUpPlatformZMax, float oneUpPlatformNormalX, float oneUpPlatformNormalY, int f, float* frame1Position, float* returnPosition, int d, int q) {
+__device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, float vel1, float xVel1, float zVel1, int angle, int cameraYaw, float* startPosition, float* oneUpPlatformPosition, float oneUpPlatformXMin, float oneUpPlatformXMax, float oneUpPlatformYMin, float oneUpPlatformYMax, float oneUpPlatformZMin, float oneUpPlatformZMax, float oneUpPlatformNormalX, float oneUpPlatformNormalY, int f, float* frame1Position, float* returnPosition, int q) {
     bool foundSolution = false;
 
     float testStartPosition[3] = { startPosition[0], startPosition[1], startPosition[2] };
@@ -1111,6 +1111,7 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
                             foundSolution = true;
                             struct PUSolution puSol = puSolutions[solIdx];
                             struct PlatformSolution platSol = platSolutions[puSol.platformSolutionIdx];
+
                             printf("---------------------------------------\nFound Solution:\n---------------------------------------\n    Start Position: %.10g, %.10g, %.10g\n    Frame 1 Position: %.10g, %.10g, %.10g\n    Frame 2 Position: %.10g, %.10g, %.10g\n    Return Position: %.10g, %.10g, %.10g\n    PU Route Speed: %.10g (x=%.10g, z=%.10g)\n    PU Return Speed: %.10g (x=%.10g, z=%.10g)\n    Frame 2 Q-steps: %d\n    10k Stick X: %d\n    10k Stick Y: %d\n    10k Camera Yaw: %d\n    Start Floor Normal: %.10g, %.10g, %.10g\n    Start Position Limit 1: %.10g %.10g %.10g\n    Start Position Limit 2: %.10g %.10g %.10g\n", testStartPosition[0], testStartPosition[1], testStartPosition[2], testFrame1Position[0], testFrame1Position[1], testFrame1Position[2], testOneUpPlatformPosition[0], testOneUpPlatformPosition[1], testOneUpPlatformPosition[2], returnPosition[0], returnPosition[1], returnPosition[2], vel1, xVel1, zVel1, endSpeed, xVel2a, zVel2a, q, trueX, trueY, cameraYaw, startNormals[f][0], startNormals[f][1], startNormals[f][2], intersectionPoints[0][0], intersectionPoints[0][1], intersectionPoints[0][2], intersectionPoints[1][0], intersectionPoints[1][1], intersectionPoints[1][2]);
                             printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Intended DYaw: %d\n---------------------------------------\n\n\n", platSol.nFrames, platSol.endNormal[0], platSol.endNormal[1], platSol.endNormal[2], platSol.endPosition[0], platSol.endPosition[1], platSol.endPosition[2], platSol.pux, platSol.puz, puSol.angle, puSol.stickMag, puSol.intendedDYaw);
 
@@ -1255,7 +1256,7 @@ __device__ int calculate_camera_yaw(float* currentPosition, float* lakituPositio
     return atan2sG(lakituPosition[2] - cameraFocus[2], lakituPosition[0] - cameraFocus[0]);
 }
 
-__device__ bool test_one_up_position(int solIdx, float* startPosition, float* oneUpPlatformPosition, float* returnPosition, float endSpeed, float oneUpPlatformXMin, float oneUpPlatformXMax, float oneUpPlatformYMin, float oneUpPlatformYMax, float oneUpPlatformZMin, float oneUpPlatformZMax, float oneUpPlatformNormalX, float oneUpPlatformNormalY, int f, int d) {
+__device__ bool test_one_up_position(int solIdx, float* startPosition, float* oneUpPlatformPosition, float* returnPosition, float endSpeed, float oneUpPlatformXMin, float oneUpPlatformXMax, float oneUpPlatformYMin, float oneUpPlatformYMax, float oneUpPlatformZMin, float oneUpPlatformZMax, float oneUpPlatformNormalX, float oneUpPlatformNormalY, int f) {
     float cameraPositions[4][3] = { {-8192, -2918, -8192}, {-8192, -2918, 8191}, {8191, -2918, -8192}, {8191, -2918, 8191} };
     bool foundSolution = false;
 
@@ -1297,7 +1298,7 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
 
             if (eqB < 0 && eqDet >= 0) {
                 float vel1 = 4.0f * ((-eqB - sqrt(eqDet)) / (2.0 * eqA)) / (float)q;
-		    
+
                 float xVel1 = vel1 * gSineTableG[angle >> 4];
                 float zVel1 = vel1 * gCosineTableG[angle >> 4];
 
@@ -1361,7 +1362,7 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                 int y = round(yS);
 
                                 if (x != -1 && x != 1 && y != -1 && y != 1) {
-                                    if (test_stick_position(solIdx, x, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
+                                    if (test_stick_position(solIdx, x, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, q)) {
                                         foundSolution = true;
                                     }
                                 }
@@ -1378,13 +1379,13 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                         double y = (double)x * (yS / xS);
 
                                         if (fabs(floor(y)) != 1.0) {
-                                            if (test_stick_position(solIdx, x, floor(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
+                                            if (test_stick_position(solIdx, x, floor(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, q)) {
                                                 foundSolution = true;
                                             }
                                         }
 
                                         if (fabs(ceil(y)) != 1.0) {
-                                            if (test_stick_position(solIdx, x, ceil(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
+                                            if (test_stick_position(solIdx, x, ceil(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, q)) {
                                                 foundSolution = true;
                                             }
                                         }
@@ -1398,13 +1399,13 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                         double x = (double)y * (xS / yS);
 
                                         if (fabs(floor(x)) != 1.0) {
-                                            if (test_stick_position(solIdx, floor(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
+                                            if (test_stick_position(solIdx, floor(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, q)) {
                                                 foundSolution = true;
                                             }
                                         }
 
                                         if (fabs(ceil(x)) != 1.0) {
-                                            if (test_stick_position(solIdx, ceil(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
+                                            if (test_stick_position(solIdx, ceil(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, q)) {
                                                 foundSolution = true;
                                             }
                                         }
@@ -1421,7 +1422,7 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
     return foundSolution;
 }
 
-__device__ bool find_10k_route(int solIdx, int f, int d, int h) {
+__device__ bool find_10k_route(int solIdx, int f, int d, int h, int e) {
     struct PlatformSolution* sol = &(platSolutions[puSolutions[solIdx].platformSolutionIdx]);
     float returnSpeed = puSolutions[solIdx].returnSpeed;
 
@@ -1431,6 +1432,9 @@ __device__ bool find_10k_route(int solIdx, int f, int d, int h) {
     startPosition[0] = ((float)startTriangles[f][0][0] + (float)startTriangles[f][1][0] + (float)startTriangles[f][2][0]) / 3.0;
     startPosition[1] = ((float)startTriangles[f][0][1] + (float)startTriangles[f][1][1] + (float)startTriangles[f][2][1]) / 3.0;
     startPosition[2] = ((float)startTriangles[f][0][2] + (float)startTriangles[f][1][2] + (float)startTriangles[f][2][2]) / 3.0;
+
+    double signX = d == 0 ? -1.0 : 1.0;
+    double signZ = h == 0 ? -1.0 : 1.0;
 
     float oneUpPlatformNormalY = (d == 0) ? oneUpPlatformNormalYRight : oneUpPlatformNormalYLeft;
     float oneUpPlatformNormalX = (d == 0) ? oneUpPlatformNormalXRight : oneUpPlatformNormalXLeft;
@@ -1443,22 +1447,20 @@ __device__ bool find_10k_route(int solIdx, int f, int d, int h) {
 
     double r = fabs((double)returnSpeed * (double)oneUpPlatformNormalY) / 4.0;
 
-    int maxXPU = (int)floor((sol->returnPosition[0] + r - oneUpPlatformXMin) / 65536.0);
-    maxXPU = (d == 0) ? min(0, maxXPU) : maxXPU;
-    int minXPU = (int)ceil((sol->returnPosition[0] - r - oneUpPlatformXMax) / 65536.0);
-    minXPU = (d == 0) ? minXPU : max(1, minXPU);
+    if (e == 0) {
+        int maxXPU = (d == 0) ? (int)ceil((sol->returnPosition[0] - (r * sqrt(0.5)) - oneUpPlatformXMax) / 65536.0) : (int)floor((sol->returnPosition[0] + r - oneUpPlatformXMin) / 65536.0);
+        int minXPU = (d == 0) ? (int)ceil((sol->returnPosition[0] - r - oneUpPlatformXMax) / 65536.0) : (int)floor((sol->returnPosition[0] + (r * sqrt(0.5)) - oneUpPlatformXMin) / 65536.0);
 
-    for (int i = minXPU; i <= maxXPU; i++) {
-            double signZ = h == 0 ? 1.0 : -1.0;
+        for (int i = minXPU; i <= maxXPU; i++) {
             double z0 = signZ * sqrt(r * r - (i * 65536.0 + oneUpPlatformXMin - sol->returnPosition[0]) * (i * 65536.0 + oneUpPlatformXMin - sol->returnPosition[0])) + sol->returnPosition[2];
             double z1 = signZ * sqrt(r * r - (i * 65536.0 + oneUpPlatformXMax - sol->returnPosition[0]) * (i * 65536.0 + oneUpPlatformXMax - sol->returnPosition[0])) + sol->returnPosition[2];
 
             int minZPU = (int)ceil((fmin(z0, z1) - oneUpPlatformZMax) / 65536.0);
+            minZPU = (h == 0) ? minZPU : max(1, minZPU);
             int maxZPU = (int)floor((fmax(z0, z1) - oneUpPlatformZMin) / 65536.0);
+            maxZPU = (h == 0) ? min(0, maxZPU) : maxZPU;
 
             for (int j = minZPU; j <= maxZPU; j++) {
-                double signX = i > 0 ? 1.0 : -1.0;
-
                 double x0 = signX * sqrt(r * r - (j * 65536.0 + oneUpPlatformZMin - sol->returnPosition[2]) * (j * 65536.0 + oneUpPlatformZMin - sol->returnPosition[2])) + sol->returnPosition[0];
                 double x1 = signX * sqrt(r * r - (j * 65536.0 + oneUpPlatformZMax - sol->returnPosition[2]) * (j * 65536.0 + oneUpPlatformZMax - sol->returnPosition[2])) + sol->returnPosition[0];
 
@@ -1473,10 +1475,45 @@ __device__ bool find_10k_route(int solIdx, int f, int d, int h) {
 
                 float oneUpPlatformPosition[3] = { (maxX + minX) / 2.0, (maxXY + minXY) / 2.0, (maxXZ + minXZ) / 2.0 };
 
-                if (test_one_up_position(solIdx, startPosition, oneUpPlatformPosition, sol->returnPosition, returnSpeed, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, d)) {
+                if (test_one_up_position(solIdx, startPosition, oneUpPlatformPosition, sol->returnPosition, returnSpeed, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f)) {
                     foundSolution = true;
                 }
             }
+        }
+    }
+    else {
+        int maxZPU = (h == 0) ? (int)ceil((sol->returnPosition[2] - (r * sqrt(0.5)) - oneUpPlatformZMax) / 65536.0) : (int)floor((sol->returnPosition[2] + r - oneUpPlatformZMin) / 65536.0);
+        int minZPU = (h == 0) ? (int)ceil((sol->returnPosition[2] - r - oneUpPlatformZMax) / 65536.0) : (int)floor((sol->returnPosition[2] + (r * sqrt(0.5)) - oneUpPlatformZMin) / 65536.0);
+
+        for (int i = minZPU; i <= maxZPU; i++) {
+            double x0 = signX * sqrt(r * r - (i * 65536.0 + oneUpPlatformZMin - sol->returnPosition[2]) * (i * 65536.0 + oneUpPlatformZMin - sol->returnPosition[2])) + sol->returnPosition[0];
+            double x1 = signX * sqrt(r * r - (i * 65536.0 + oneUpPlatformZMax - sol->returnPosition[2]) * (i * 65536.0 + oneUpPlatformZMax - sol->returnPosition[2])) + sol->returnPosition[0];
+
+            int minXPU = (int)ceil((fmin(x0, x1) - oneUpPlatformXMax) / 65536.0);
+            minXPU = (d == 0) ? minXPU : max(1, minXPU);
+            int maxXPU = (int)floor((fmax(x0, x1) - oneUpPlatformXMin) / 65536.0);
+            maxXPU = (d == 0) ? min(0, maxXPU) : maxXPU;
+
+            for (int j = minXPU; j <= maxXPU; j++) {
+                double z0 = signZ * sqrt(r * r - (j * 65536.0 + oneUpPlatformXMin - sol->returnPosition[0]) * (j * 65536.0 + oneUpPlatformXMin - sol->returnPosition[0])) + sol->returnPosition[2];
+                double z1 = signZ * sqrt(r * r - (j * 65536.0 + oneUpPlatformXMax - sol->returnPosition[0]) * (j * 65536.0 + oneUpPlatformXMax - sol->returnPosition[0])) + sol->returnPosition[2];
+
+                double minZ = fmax(fmin(z0, z1), i * 65536.0 + oneUpPlatformZMin);
+                double maxZ = fmin(fmax(z0, z1), i * 65536.0 + oneUpPlatformZMax);
+
+                double minZX = signX * sqrt(r * r - (minZ - sol->returnPosition[2]) * (minZ - sol->returnPosition[2])) + sol->returnPosition[0];
+                double maxZX = signX * sqrt(r * r - (maxZ - sol->returnPosition[2]) * (maxZ - sol->returnPosition[2])) + sol->returnPosition[0];
+
+                double minZY = (double)(oneUpPlatformYMax - oneUpPlatformYMin) * (minZX - (65536.0 * i) - oneUpPlatformXMin) / (double)(oneUpPlatformXMax - oneUpPlatformXMin) + oneUpPlatformYMin;
+                double maxZY = (double)(oneUpPlatformYMax - oneUpPlatformYMin) * (maxZX - (65536.0 * i) - oneUpPlatformXMin) / (double)(oneUpPlatformXMax - oneUpPlatformXMin) + oneUpPlatformYMin;
+
+                float oneUpPlatformPosition[3] = { (maxZX + minZX) / 2.0, (maxZY + minZY) / 2.0, (maxZ + minZ) / 2.0 };
+
+                if (test_one_up_position(solIdx, startPosition, oneUpPlatformPosition, sol->returnPosition, returnSpeed, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f)) {
+                    foundSolution = true;
+                }
+            }
+        }
     }
 
     return foundSolution;
@@ -1492,8 +1529,88 @@ __global__ void test_pu_solution() {
         idx = idx / 2;
         int d = idx % 2;
         idx = idx / 2;
-        int h = idx;
-        find_10k_route(solIdx, f, d, h);
+        int h = idx % 2;
+        idx = idx / 2;
+        int e = idx;
+        find_10k_route(solIdx, f, d, h, e);
+    }
+}
+
+__device__ void try_pu_slide_angle(struct PlatformSolution* sol, int solIdx, int angleIdx, int floorIdx, double s, float xVel1, float zVel1) {
+    int angle = gArctanTableG[angleIdx];
+    angle = (65536 + angle) % 65536;
+
+    double t = tan(2.0 * M_PI * (double)(angle - (angle % 16)) / 65536.0);
+
+    double n = (-(s * t) - 1.0 + sqrt((s * t - 1.0) * (s * t - 1.0) + 4.0 * s * s)) / (2.0 * s);
+    float nTestX = gCosineTableG[angle >> 4] + n * gSineTableG[angle >> 4];
+
+    if ((xVel1 < 0 && nTestX > 0) || (xVel1 > 0 && nTestX < 0)) {
+        n = (-(s * t) - 1.0 - sqrt((s * t - 1.0) * (s * t - 1.0) + 4.0 * s * s)) / (2.0 * s);
+    }
+
+    double n1 = n / 0.05;
+
+    if (fabs(n1) <= 1.01) {
+        int minAngle = (int)round(65536.0 * asin(fabs(n1 / 1.01)) / (2 * M_PI));
+        minAngle = minAngle + ((16 - (minAngle % 16)) % 16);
+
+        for (int j = minAngle; j <= 32768 - minAngle; j += 16) {
+            int j1 = (n1 >= 0) ? j : (65536 - j) % 65536;
+
+            float idealMag = 32.0f * n1 / gSineTableG[j1 >> 4];
+
+            float mag = find_closest_mag(idealMag);
+
+            float vel0 = (float)(sqrt((double)xVel1 * (double)xVel1 + (double)zVel1 * (double)zVel1) / ((double)(mag / 32.0f) * (double)gCosineTableG[j1 >> 4] * 0.02 + 0.92));
+            vel0 = (vel0 < 0) ? vel0 : -vel0;
+
+            float xVel0 = vel0 * gSineTableG[angle >> 4];
+            float zVel0 = vel0 * gCosineTableG[angle >> 4];
+
+            float xVel1a = xVel0;
+            float zVel1a = zVel0;
+
+            float oldSpeed = sqrtf(xVel1a * xVel1a + zVel1a * zVel1a);
+
+            xVel1a += zVel1a * (mag / 32.0f) * gSineTableG[j1 >> 4] * 0.05f;
+            zVel1a -= xVel1a * (mag / 32.0f) * gSineTableG[j1 >> 4] * 0.05f;
+
+            float newSpeed = sqrtf(xVel1a * xVel1a + zVel1a * zVel1a);
+
+            xVel1a = xVel1a * oldSpeed / newSpeed;
+            zVel1a = zVel1a * oldSpeed / newSpeed;
+
+            xVel1a *= mag / 32.0f * gCosineTableG[j1 >> 4] * 0.02f + 0.92f;
+            zVel1a *= mag / 32.0f * gCosineTableG[j1 >> 4] * 0.02f + 0.92f;
+
+            float positionTest[3] = { sol->endPosition[0], sol->endPosition[1], sol->endPosition[2] };
+
+            for (int s = 0; s < 4; s++) {
+                positionTest[0] = positionTest[0] + sol->endTriangleNormals[floorIdx][1] * (xVel1a / 4.0f);
+                positionTest[2] = positionTest[2] + sol->endTriangleNormals[floorIdx][1] * (zVel1a / 4.0f);
+            }
+
+            float floorHeight;
+            int floorIdx1 = find_floor(positionTest, sol->endTriangles, sol->endTriangleNormals, &floorHeight);
+
+            if (floorIdx1 != -1 && fabs(positionTest[1] - floorHeight) < 4.0f) {
+                float prePositionTest[3] = { sol->penultimatePosition[0] + sol->penultimateFloorNormalY * xVel0 / 4.0f, sol->penultimatePosition[1], sol->penultimatePosition[2] + sol->penultimateFloorNormalY * zVel0 / 4.0f };
+
+                if (!check_inbounds(prePositionTest)) {
+                    int idx = atomicAdd(&nPUSolutions, 1);
+                    if (idx < MAX_PU_SOLUTIONS) {
+                        PUSolution solution;
+                        solution.platformSolutionIdx = solIdx;
+                        solution.returnSpeed = vel0;
+                        solution.angle = angle;
+                        solution.intendedDYaw = j1;
+                        solution.stickMag = mag;
+                        puSolutions[idx] = solution;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1508,80 +1625,7 @@ __device__ void find_pu_slide_setup(struct PlatformSolution *sol, int solIdx) {
         float zVel1 = (float)(65536.0 * (double)sol->puz / (double)sol->endTriangleNormals[floorIdx][1]);
 
         for (int i = 0; i < 8192; i++) {
-            int angle = gArctanTableG[i];
-            angle = (65536 + angle) % 65536;
-
-            double t = tan(2.0 * M_PI * (double)(angle - (angle % 16)) / 65536.0);
-
-            double n = (-(s * t) - 1.0 + sqrt((s * t - 1.0) * (s * t - 1.0) + 4.0 * s * s)) / (2.0 * s);
-            float nTestX = gCosineTableG[angle >> 4] + n * gSineTableG[angle >> 4];
-
-            if ((xVel1 < 0 && nTestX > 0) || (xVel1 > 0 && nTestX < 0)) {
-                n = (-(s * t) - 1.0 - sqrt((s * t - 1.0) * (s * t - 1.0) + 4.0 * s * s)) / (2.0 * s);
-            }
-
-            double n1 = n / 0.05;
-
-            if (fabs(n1) <= 1.01) {
-                int minAngle = (int)round(65536.0 * asin(fabs(n1 / 1.01)) / (2 * M_PI));
-                minAngle = minAngle + ((16 - (minAngle % 16)) % 16);
-
-                for (int j = minAngle; j <= 32768 - minAngle; j += 16) {
-                    int j1 = (n1 >= 0) ? j : (65536 - j) % 65536;
-
-                    float idealMag = 32.0f * n1 / gSineTableG[j1 >> 4];
-
-                    float mag = find_closest_mag(idealMag);
-
-                    float vel0 = (float)(sqrt((double)xVel1 * (double)xVel1 + (double)zVel1 * (double)zVel1) / ((double)(mag / 32.0f) * (double)gCosineTableG[j1 >> 4] * 0.02 + 0.92));
-                    vel0 = (vel0 < 0) ? vel0 : -vel0;
-
-                    float xVel0 = vel0 * gSineTableG[angle >> 4];
-                    float zVel0 = vel0 * gCosineTableG[angle >> 4];
-
-                    float xVel1a = xVel0;
-                    float zVel1a = zVel0;
-
-                    float oldSpeed = sqrtf(xVel1a * xVel1a + zVel1a * zVel1a);
-
-                    xVel1a += zVel1a * (mag / 32.0f) * gSineTableG[j1 >> 4] * 0.05f;
-                    zVel1a -= xVel1a * (mag / 32.0f) * gSineTableG[j1 >> 4] * 0.05f;
-
-                    float newSpeed = sqrtf(xVel1a * xVel1a + zVel1a * zVel1a);
-
-                    xVel1a = xVel1a * oldSpeed / newSpeed;
-                    zVel1a = zVel1a * oldSpeed / newSpeed;
-
-                    xVel1a *= mag / 32.0f * gCosineTableG[j1 >> 4] * 0.02f + 0.92f;
-                    zVel1a *= mag / 32.0f * gCosineTableG[j1 >> 4] * 0.02f + 0.92f;
-
-                    float positionTest[3] = { sol->endPosition[0], sol->endPosition[1], sol->endPosition[2] };
-
-                    for (int s = 0; s < 4; s++) {
-                        positionTest[0] = positionTest[0] + sol->endTriangleNormals[floorIdx][1] * (xVel1a / 4.0f);
-                        positionTest[2] = positionTest[2] + sol->endTriangleNormals[floorIdx][1] * (zVel1a / 4.0f);
-                    }
-
-                    int floorIdx1 = find_floor(positionTest, sol->endTriangles, sol->endTriangleNormals, &floorHeight);
-
-                    if (floorIdx1 != -1 && fabs(positionTest[1] - floorHeight) < 4.0f) {
-                        float prePositionTest[3] = { sol->penultimatePosition[0] + sol->penultimateFloorNormalY * xVel0 / 4.0f, sol->penultimatePosition[1], sol->penultimatePosition[2] + sol->penultimateFloorNormalY * zVel0 / 4.0f };
-
-                        if (!check_inbounds(prePositionTest)) {
-                            int idx = atomicAdd(&nPUSolutions, 1);
-                            if (idx < MAX_PU_SOLUTIONS) {
-                                PUSolution solution;
-                                solution.platformSolutionIdx = solIdx;
-                                solution.returnSpeed = vel0;
-                                solution.angle = angle;
-                                solution.intendedDYaw = j1;
-                                solution.stickMag = mag;
-                                puSolutions[idx] = solution;
-                            }
-                        }
-                    }
-                }
-            }
+            try_pu_slide_angle(sol, solIdx, i, floorIdx, s, xVel1, zVel1);
         }
     }
 }
@@ -2947,7 +2991,7 @@ __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
                     partialSolution.penultimatePosition[0] = lastPos[0];
                     partialSolution.penultimatePosition[1] = lastPos[1];
                     partialSolution.penultimatePosition[2] = lastPos[2];
-
+                    
                     try_normal(normal, marioPos, partialSolution);
                 }
             }
@@ -3306,7 +3350,7 @@ int main(int argc, char* argv[]) {
                             cudaMemcpyToSymbol(nPUSolutions, &nPUSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
                             cudaMemcpyToSymbol(puSolutions, puSolutionsCPU, nPUSolutionsCPU * sizeof(PUSolution), 0, cudaMemcpyHostToDevice);
 
-                            nBlocks = (8 * nPUSolutionsCPU + nThreads - 1) / nThreads;
+                            nBlocks = (16 * nPUSolutionsCPU + nThreads - 1) / nThreads;
 
                             printf("---------------------------------------\nTesting Normal: %g, %g, %g\n        Index: %d, %d, %d\n        # Platform Solutions: %d\n        # PU Solutions: %d\n", normX, normY, normZ, h, i, j, nPlatSolutionsCPU, nPUSolutionsCPU);
 
@@ -3315,8 +3359,6 @@ int main(int argc, char* argv[]) {
                             cudaMemcpyToSymbol(n10KSolutions, &n10KSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
 
                             test_pu_solution<<<nBlocks, nThreads>>>();
-
-                            cudaDeviceSynchronize();
 
                             cudaMemcpyFromSymbol(&n10KSolutionsCPU, n10KSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
