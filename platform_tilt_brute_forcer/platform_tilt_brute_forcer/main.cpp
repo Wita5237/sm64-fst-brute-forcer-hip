@@ -1522,7 +1522,7 @@ __device__ bool find_10k_route(int solIdx, int f, int d, int h, int e) {
 __global__ void test_pu_solution() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < 8 * nPUSolutions) {
+    if (idx < 16 * nPUSolutions) {
         int solIdx = idx % nPUSolutions;
         idx = idx / nPUSolutions;
         int f = idx % 2;
