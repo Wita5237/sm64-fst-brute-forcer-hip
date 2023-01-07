@@ -1373,126 +1373,42 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                 double yS = -64.0 * sin(2.0 * M_PI * (stickAngle / 65536));
                                 double xS = 64.0 * cos(2.0 * M_PI * (stickAngle / 65536));
 
-                                if (xS == 0) {
-                                    if (yS < 0) {
-                                        for (int y = -64; y <= -128; y--) {
-                                            if (test_stick_position(solIdx, 0, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
+                                if (fabs(xS) > fabs(yS)) {
+                                    int minX = (fabs(yS) < 0.00001) ? ((xS < 0) ? -128 : 64) : ((xS < 0) ? floor(xS) : ceil(xS));
+                                    int maxX = (fabs(yS) < 0.00001) ? ((xS < 0) ? -64 : 127) : ((xS < 0) ? ceil(-128 * xS / yS) : floor(127 * xS / yS));
+
+                                    for (int x = minX; x <= maxX; x++) {
+                                        double y = (double)x * (yS / xS);
+
+                                        if (fabs(floor(y)) != 1.0) {
+                                            if (test_stick_position(solIdx, x, floor(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                 foundSolution = true;
-                                                break;
                                             }
                                         }
-                                    }
-                                    else {
-                                        for (int y = 64; y <= 127; y++) {
-                                            if (test_stick_position(solIdx, 0, y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
+
+                                        if (fabs(ceil(y)) != 1.0) {
+                                            if (test_stick_position(solIdx, x, ceil(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
                                                 foundSolution = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                                else if (yS == 0) {
-                                    if (xS < 0) {
-                                        for (int x = -64; x <= -128; x--) {
-                                            if (test_stick_position(solIdx, x, 0, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
-                                                foundSolution = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    else {
-                                        for (int x = 64; x <= 127; x++) {
-                                            if (test_stick_position(solIdx, x, 0, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
-                                                foundSolution = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                                else if (fabs(xS) > fabs(yS)) {
-                                    if (xS < 0) {
-                                        int maxX = ceil(-128 * xS / yS);
-
-                                        for (int x = floor(xS); x <= maxX; x++) {
-                                            double y = (double)x * (yS / xS);
-
-                                            if (fabs(floor(y)) != 1.0) {
-                                                if (test_stick_position(solIdx, x, floor(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
-                                                    foundSolution = true;
-                                                    break;
-                                                }
-                                            }
-
-                                            if (fabs(ceil(y)) != 1.0) {
-                                                if (test_stick_position(solIdx, x, ceil(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
-                                                    foundSolution = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    else {
-                                        int maxX = floor(127 * xS / yS);
-
-                                        for (int x = ceil(xS); x <= maxX; x++) {
-                                            double y = (double)x * (yS / xS);
-
-                                            if (fabs(floor(y)) != 1.0) {
-                                                if (test_stick_position(solIdx, x, floor(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
-                                                    foundSolution = true;
-                                                    break;
-                                                }
-                                            }
-
-                                            if (fabs(ceil(y)) != 1.0) {
-                                                if (test_stick_position(solIdx, x, ceil(y), endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
-                                                    foundSolution = true;
-                                                    break;
-                                                }
                                             }
                                         }
                                     }
                                 }
                                 else {
-                                    if (yS < 0) {
-                                        int maxY = ceil(-128 * yS / xS);
+                                    int minY = (fabs(xS) < 0.00001) ? ((yS < 0) ? -128 : 64) : ((yS < 0) ? floor(yS) : ceil(yS));
+                                    int maxY = (fabs(xS) < 0.00001) ? ((yS < 0) ? -64 : 127) : ((yS < 0) ? ceil(-128 * yS / xS) : floor(127 * yS / xS));
 
-                                        for (int y = floor(yS); y <= maxY; y++) {
-                                            double x = (double)y * (xS / yS);
+                                    for (int y = minY; y <= maxY; y++) {
+                                        double x = (double)y * (xS / yS);
 
-                                            if (fabs(floor(x)) != 1.0) {
-                                                if (test_stick_position(solIdx, floor(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
-                                                    foundSolution = true;
-                                                    break;
-                                                }
-                                            }
-
-                                            if (fabs(ceil(x)) != 1.0) {
-                                                if (test_stick_position(solIdx, ceil(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
-                                                    foundSolution = true;
-                                                    break;
-                                                }
+                                        if (fabs(floor(x)) != 1.0) {
+                                            if (test_stick_position(solIdx, floor(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
+                                                foundSolution = true;
                                             }
                                         }
-                                    }
-                                    else {
-                                        int maxY = floor(127 * yS / xS);
 
-                                        for (int y = ceil(yS); y <= maxY; y++) {
-                                            double x = (double)y * (xS / yS);
-
-                                            if (fabs(floor(x)) != 1.0) {
-                                                if (test_stick_position(solIdx, floor(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
-                                                    foundSolution = true;
-                                                    break;
-                                                }
-                                            }
-
-                                            if (fabs(ceil(x)) != 1.0) {
-                                                if (test_stick_position(solIdx, ceil(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
-                                                    foundSolution = true;
-                                                    break;
-                                                }
+                                        if (fabs(ceil(x)) != 1.0) {
+                                            if (test_stick_position(solIdx, ceil(x), y, endSpeed, vel1, xVel1, zVel1, angle, cameraYaw, startPosition, oneUpPlatformPosition, oneUpPlatformXMin, oneUpPlatformXMax, oneUpPlatformYMin, oneUpPlatformYMax, oneUpPlatformZMin, oneUpPlatformZMax, oneUpPlatformNormalX, oneUpPlatformNormalY, f, frame1Position, returnPosition, d, q)) {
+                                                foundSolution = true;
                                             }
                                         }
                                     }
