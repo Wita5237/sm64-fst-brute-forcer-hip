@@ -2075,9 +2075,9 @@ __device__ bool try_pu_xz(float* normal, float* position, short (&current_triang
                         solution.endNormal[0] = normal[0];
                         solution.endNormal[1] = normal[1];
                         solution.endNormal[2] = normal[2];
-                        solution.endPosition[0] = position[0];
-                        solution.endPosition[1] = position[1];
-                        solution.endPosition[2] = position[2];
+                        solution.endPosition[0] = mario_pos[0];
+                        solution.endPosition[1] = mario_pos[1];
+                        solution.endPosition[2] = mario_pos[2];
                         for (int j = 0; j < 2; j++) {
                             solution.endTriangleNormals[j][0] = triangle_normals[j][0];
                             solution.endTriangleNormals[j][1] = triangle_normals[j][1];
@@ -3586,7 +3586,7 @@ int main(int argc, char* argv[]) {
 
                     cudaMemcpyFromSymbol(&nPlatSolutionsCPU, nPlatSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
-                    if (nPlatSolutionsCPU == MAX_PLAT_SOLUTIONS) {
+                    if (nPlatSolutionsCPU > MAX_PLAT_SOLUTIONS) {
                         fprintf(stderr, "Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
                         nPlatSolutionsCPU = MAX_PLAT_SOLUTIONS;
                     }
