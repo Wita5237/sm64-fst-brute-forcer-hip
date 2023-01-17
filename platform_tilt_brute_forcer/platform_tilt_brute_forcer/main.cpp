@@ -13,10 +13,11 @@
 #include "Trig.hpp"
 #include "vmath.hpp"
 
-# define M_PI               3.14159265358979323846  /* pi */
-# define MAX_10K_SOLUTIONS   50000
-# define MAX_PU_SOLUTIONS   50000000
-# define MAX_PLAT_SOLUTIONS 200000
+# define M_PI                  3.14159265358979323846  /* pi */
+# define MAX_10K_SOLUTIONS     50000
+# define MAX_PU_SOLUTIONS      50000000
+# define MAX_UPWARP_SOLUTIONS  5000000
+# define MAX_PLAT_SOLUTIONS    200000
 
 std::ofstream out_stream;
 
@@ -38,11 +39,18 @@ struct TenKSolution {
 };
 
 struct PUSolution {
-    int platformSolutionIdx;
+    int upwarpSolutionIdx;
     float returnSpeed;
     int angle;
     float stickMag;
     int intendedDYaw;
+};
+
+struct UpwarpSolution {
+    int platformSolutionIdx;
+    float upwarpPosition[3];
+    int pux;
+    int puz;
 };
 
 struct PlatformSolution {
@@ -53,8 +61,6 @@ struct PlatformSolution {
     float endTriangleNormals[2][3];
     float penultimateFloorNormalY;
     float penultimatePosition[3];
-    int pux;
-    int puz;
     int nFrames;
 };
 
@@ -163,6 +169,9 @@ __device__ float oneUpPlatformXMaxRight = -3993.0f;
 
 __device__ struct PlatformSolution platSolutions[MAX_PLAT_SOLUTIONS];
 __device__ int nPlatSolutions;
+
+__device__ struct UpwarpSolution upwarpSolutions[MAX_UPWARP_SOLUTIONS];
+__device__ int nUpwarpSolutions;
 
 __device__ struct PUSolution puSolutions[MAX_PU_SOLUTIONS];
 __device__ int nPUSolutions;
@@ -1351,11 +1360,11 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
 
                             foundSolution = true;
                             struct PUSolution puSol = puSolutions[solIdx];
-                            struct PlatformSolution platSol = platSolutions[puSol.platformSolutionIdx];
-
+                            struct UpwarpSolution uwSol = upwarpSolutions[puSol.upwarpSolutionIdx];
+                            struct PlatformSolution platSol = platSolutions[uwSol.platformSolutionIdx];
                             printf("---------------------------------------\nFound Solution:\n---------------------------------------\n    Start Position: %.10g, %.10g, %.10g\n    Frame 1 Position: %.10g, %.10g, %.10g\n    Frame 2 Position: %.10g, %.10g, %.10g\n    Return Position: %.10g, %.10g, %.10g\n    PU Route Speed: %.10g (x=%.10g, z=%.10g)\n    PU Return Speed: %.10g (x=%.10g, z=%.10g)\n    Frame 1 Q-steps: %d\n    Frame 2 Q-steps: %d\n    Frame 3 Q-steps: %d\n", testStartPosition[0], testStartPosition[1], testStartPosition[2], testFrame1Position[0], testFrame1Position[1], testFrame1Position[2], testOneUpPlatformPosition[0], testOneUpPlatformPosition[1], testOneUpPlatformPosition[2], returnPosition[0], returnPosition[1], returnPosition[2], vel1, xVel1, zVel1, endSpeed, xVel2a, zVel2a, q1, q2, q3);
                             printf("    10k Stick X: %d\n    10k Stick Y: %d\n    10k Camera Yaw: %d\n    Start Floor Normal: %.10g, %.10g, %.10g\n    Start Position Limit 1: %.10g %.10g %.10g\n    Start Position Limit 2: %.10g %.10g %.10g\n", trueX, trueY, cameraYaw, startNormals[f][0], startNormals[f][1], startNormals[f][2], intersectionPoints[0][0], intersectionPoints[0][1], intersectionPoints[0][2], intersectionPoints[1][0], intersectionPoints[1][1], intersectionPoints[1][2]);
-                            printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Intended DYaw: %d\n---------------------------------------\n\n\n", platSol.nFrames, platSol.endNormal[0], platSol.endNormal[1], platSol.endNormal[2], platSol.endPosition[0], platSol.endPosition[1], platSol.endPosition[2], platSol.pux, platSol.puz, puSol.angle, puSol.stickMag, puSol.intendedDYaw);
+                            printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Post-Upwarp Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Intended DYaw: %d\n---------------------------------------\n\n\n", platSol.nFrames, platSol.endNormal[0], platSol.endNormal[1], platSol.endNormal[2], platSol.endPosition[0], platSol.endPosition[1], platSol.endPosition[2], uwSol.upwarpPosition[0], uwSol.upwarpPosition[1], uwSol.upwarpPosition[2], uwSol.pux, uwSol.puz, puSol.angle, puSol.stickMag, puSol.intendedDYaw);
 
                             int idx = atomicAdd(&n10KSolutions, 1);
 
@@ -1671,7 +1680,7 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
 }
 
 __device__ bool find_10k_route(int solIdx, int f, int d, int h, int e, int q3, int minQ1, int maxQ1, int minQ2, int maxQ2) {
-    struct PlatformSolution* sol = &(platSolutions[puSolutions[solIdx].platformSolutionIdx]);
+    struct PlatformSolution* sol = &(platSolutions[upwarpSolutions[puSolutions[solIdx].upwarpSolutionIdx].platformSolutionIdx]);
     float returnSpeed = puSolutions[solIdx].returnSpeed;
 
     bool foundSolution = false;
@@ -1850,7 +1859,7 @@ __device__ void try_pu_slide_angle(struct PlatformSolution* sol, int solIdx, int
                     int idx = atomicAdd(&nPUSolutions, 1);
                     if (idx < MAX_PU_SOLUTIONS) {
                         PUSolution solution;
-                        solution.platformSolutionIdx = solIdx;
+                        solution.upwarpSolutionIdx = solIdx;
                         solution.returnSpeed = vel0;
                         solution.angle = angle;
                         solution.intendedDYaw = j1;
@@ -1863,27 +1872,30 @@ __device__ void try_pu_slide_angle(struct PlatformSolution* sol, int solIdx, int
     }
 }
 
-__device__ void find_pu_slide_setup(struct PlatformSolution *sol, int solIdx) {
+__device__ void find_pu_slide_setup(int solIdx) {
+    struct UpwarpSolution* uwSol = &(upwarpSolutions[solIdx]);
+    struct PlatformSolution* platSol = &(platSolutions[uwSol->platformSolutionIdx]);
+
     float floorHeight;
-    int floorIdx = find_floor(sol->endPosition, sol->endTriangles, sol->endTriangleNormals, &floorHeight);
+    int floorIdx = find_floor(platSol->endPosition, platSol->endTriangles, platSol->endTriangleNormals, &floorHeight);
 
     if (floorIdx != -1) {
-        double s = (double)sol->pux / (double)sol->puz;
+        double s = (double)uwSol->pux / (double)uwSol->puz;
 
-        float xVel1 = (float)(65536.0 * (double)sol->pux / (double)sol->endTriangleNormals[floorIdx][1]);
-        float zVel1 = (float)(65536.0 * (double)sol->puz / (double)sol->endTriangleNormals[floorIdx][1]);
+        float xVel1 = (float)(65536.0 * (double)uwSol->pux / (double)platSol->endTriangleNormals[floorIdx][1]);
+        float zVel1 = (float)(65536.0 * (double)uwSol->puz / (double)platSol->endTriangleNormals[floorIdx][1]);
 
         for (int i = 0; i < 8192; i++) {
-            try_pu_slide_angle(sol, solIdx, i, floorIdx, s, xVel1, zVel1);
+            try_pu_slide_angle(platSol, solIdx, i, floorIdx, s, xVel1, zVel1);
         }
     }
 }
 
-__global__ void test_plat_solution() {
+__global__ void test_upwarp_solution() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < nPlatSolutions) {
-        find_pu_slide_setup(&(platSolutions[idx]), idx);
+    if (idx < min(nUpwarpSolutions, MAX_UPWARP_SOLUTIONS)) {
+        find_pu_slide_setup(idx);
     }
 }
 
@@ -2015,12 +2027,12 @@ __device__ void platform_logic(float* platform_normal, float* mario_pos, short (
 	mario_pos[2] = mz;
 }
 
-__device__ bool try_pu_xz(float* normal, float* position, short (&current_triangles)[2][3][3], float (&triangle_normals)[2][3], double x, double z, struct PlatformSolution partialSolution) {
+__device__ bool try_pu_xz(float* normal, float* position, short(&current_triangles)[2][3][3], float(&triangle_normals)[2][3], double x, double z, int platSolIdx) {
     // For current (x, z) PU position, find range of yaws that
     // allow you to reach the PU platform from the original universe.
 
-    float test_normal[3] = {normal[0], normal[1], normal[2]};
-    float mario_pos[3] = {x + position[0], position[1], z + position[2]};
+    float test_normal[3] = { normal[0], normal[1], normal[2] };
+    float mario_pos[3] = { x + position[0], position[1], z + position[2] };
 
     short triangles[2][3][3];
     float normals[2][3];
@@ -2042,7 +2054,7 @@ __device__ bool try_pu_xz(float* normal, float* position, short (&current_triang
 
                 if (!good_solution) {
                     float floor_dist = 65536.0;
-                    float speed = 65536.0*sqrtf(x*x + z*z);
+                    float speed = 65536.0 * sqrtf(x * x + z * z);
 
                     for (int f = 0; f < n_floor_ranges; f++) {
                         float f_dist = mario_pos[1] - lower_floor[f];
@@ -2055,7 +2067,7 @@ __device__ bool try_pu_xz(float* normal, float* position, short (&current_triang
                         }
                     }
 
-                    int falling_frames = (int)ceil((sqrt(2.0*floor_dist + 1.0) + 1.0) / 2.0);
+                    int falling_frames = (int)ceil((sqrt(2.0 * floor_dist + 1.0) + 1.0) / 2.0);
 
                     int closest_pu_dist = fmin(fmin(mario_pos[0] + pow(2, 31), pow(2, 31) - 1.0 - mario_pos[0]), fmin(mario_pos[2] + pow(2, 31), pow(2, 31) - 1.0 - mario_pos[2]));
 
@@ -2068,38 +2080,19 @@ __device__ bool try_pu_xz(float* normal, float* position, short (&current_triang
                     }
                 }
 
+                //if (good_solution && mario_pos[1] >= 400 && mario_pos[1] <= 450) {
                 if (good_solution) {
-                    int solIdx = atomicAdd(&nPlatSolutions, 1);
-                    if (solIdx < MAX_PLAT_SOLUTIONS) {
-                        PlatformSolution solution;
-                        solution.endNormal[0] = normal[0];
-                        solution.endNormal[1] = normal[1];
-                        solution.endNormal[2] = normal[2];
-                        solution.endPosition[0] = mario_pos[0];
-                        solution.endPosition[1] = mario_pos[1];
-                        solution.endPosition[2] = mario_pos[2];
-                        for (int j = 0; j < 2; j++) {
-                            solution.endTriangleNormals[j][0] = triangle_normals[j][0];
-                            solution.endTriangleNormals[j][1] = triangle_normals[j][1];
-                            solution.endTriangleNormals[j][2] = triangle_normals[j][2];
+                    int solIdx = atomicAdd(&nUpwarpSolutions, 1);
 
-                            for (int k = 0; k < 3; k++) {
-                                solution.endTriangles[j][k][0] = current_triangles[j][k][0];
-                                solution.endTriangles[j][k][1] = current_triangles[j][k][1];
-                                solution.endTriangles[j][k][2] = current_triangles[j][k][2];
-                            }
-                        }
+                    if (solIdx < MAX_UPWARP_SOLUTIONS) {
+                        UpwarpSolution solution;
+                        solution.platformSolutionIdx = platSolIdx;
+                        solution.upwarpPosition[0] = mario_pos[0];
+                        solution.upwarpPosition[1] = mario_pos[1];
+                        solution.upwarpPosition[2] = mario_pos[2];
                         solution.pux = (int)roundf(x / 65536.0f);
                         solution.puz = (int)roundf(z / 65536.0f);
-                        solution.nFrames = partialSolution.nFrames;
-                        solution.returnPosition[0] = partialSolution.returnPosition[0];
-                        solution.returnPosition[1] = partialSolution.returnPosition[1];
-                        solution.returnPosition[2] = partialSolution.returnPosition[2];
-                        solution.penultimateFloorNormalY = partialSolution.penultimateFloorNormalY;
-                        solution.penultimatePosition[0] = partialSolution.penultimatePosition[0];
-                        solution.penultimatePosition[1] = partialSolution.penultimatePosition[1];
-                        solution.penultimatePosition[2] = partialSolution.penultimatePosition[2];
-                        platSolutions[solIdx] = solution;
+                        upwarpSolutions[solIdx] = solution;
                     }
 
                     break;
@@ -2108,98 +2101,99 @@ __device__ bool try_pu_xz(float* normal, float* position, short (&current_triang
         }
     }
 
-	return true;
+    return true;
 }
 
-__device__ bool try_pu_x(float* normal, float* position, short (&current_triangles)[2][3][3], float (&triangle_normals)[2][3], float(&T_start)[4][4], float(&T_tilt)[4][4], double x, double x1_min, double x1_max, double x2_min, double x2_max, double platform_min_x, double platform_max_x, double platform_min_z, double platform_max_z, double m, double c_min, double c_max, int q_steps, double max_speed, struct PlatformSolution &partialSolution) {
-	double pu_platform_min_x = x + platform_min_x;
-	double pu_platform_max_x = x + platform_max_x;
+__device__ bool try_pu_x(float* normal, float* position, short(&current_triangles)[2][3][3], float(&triangle_normals)[2][3], float(&T_start)[4][4], float(&T_tilt)[4][4], double x, double x1_min, double x1_max, double x2_min, double x2_max, double platform_min_x, double platform_max_x, double platform_min_z, double platform_max_z, double m, double c_min, double c_max, int q_steps, double max_speed, int platSolIdx) {
+    double pu_platform_min_x = x + platform_min_x;
+    double pu_platform_max_x = x + platform_max_x;
 
-	double pu_gap = 65536.0 * q_steps;
+    double pu_gap = 65536.0 * q_steps;
 
-	// Find maximal range of PUs along z axis from current x PU position
-	double min_z_pu_idx = (m * pu_platform_min_x + c_min) / pu_gap;
-	double max_z_pu_idx = (m * pu_platform_max_x + c_max) / pu_gap;
+    // Find maximal range of PUs along z axis from current x PU position
+    double min_z_pu_idx = (m * pu_platform_min_x + c_min) / pu_gap;
+    double max_z_pu_idx = (m * pu_platform_max_x + c_max) / pu_gap;
 
-	if (min_z_pu_idx > max_z_pu_idx) {
-		double temp = min_z_pu_idx;
-		min_z_pu_idx = max_z_pu_idx;
-		max_z_pu_idx = temp;
-	}
+    if (min_z_pu_idx > max_z_pu_idx) {
+        double temp = min_z_pu_idx;
+        min_z_pu_idx = max_z_pu_idx;
+        max_z_pu_idx = temp;
+    }
 
-	// Check max_x_pu_idx and min_x_pu_idx are in range for valid platform tilt.
-	// Correct them if they're not.
-	//
-	// Possible for only part of the platform to be in range.
-	// In this case just skip whole PU to avoid headaches later on.
+    // Check max_x_pu_idx and min_x_pu_idx are in range for valid platform tilt.
+    // Correct them if they're not.
+    //
+    // Possible for only part of the platform to be in range.
+    // In this case just skip whole PU to avoid headaches later on.
 
-	if (pu_platform_max_x > fmin(x1_min, x1_max) && pu_platform_min_x < fmax(x1_min, x1_max)) {
-		double z1_min = m * x1_min + c_min;
-		double z1_max = m * x1_max + c_max;
-		double tilt_cutoff_z = (z1_max - z1_min) * (x - x1_min) / (x1_max - x1_min) + z1_min;
+    if (pu_platform_max_x > fmin(x1_min, x1_max) && pu_platform_min_x < fmax(x1_min, x1_max)) {
+        double z1_min = m * x1_min + c_min;
+        double z1_max = m * x1_max + c_max;
+        double tilt_cutoff_z = (z1_max - z1_min) * (x - x1_min) / (x1_max - x1_min) + z1_min;
 
-		if (x1_min > 0) {
-			// Find new lower bound for z_pu
-			double tilt_cutoff_pu_idx = (tilt_cutoff_z - platform_max_z) / pu_gap;
-			min_z_pu_idx = fmax(min_z_pu_idx, tilt_cutoff_pu_idx);
-		}
-		else {
-			// Find new upper bound for z_pu
-			double tilt_cutoff_pu_idx = (tilt_cutoff_z - platform_min_z) / pu_gap;
-			max_z_pu_idx = fmin(max_z_pu_idx, tilt_cutoff_pu_idx);
-		}
-	}
+        if (x1_min > 0) {
+            // Find new lower bound for z_pu
+            double tilt_cutoff_pu_idx = (tilt_cutoff_z - platform_max_z) / pu_gap;
+            min_z_pu_idx = fmax(min_z_pu_idx, tilt_cutoff_pu_idx);
+        }
+        else {
+            // Find new upper bound for z_pu
+            double tilt_cutoff_pu_idx = (tilt_cutoff_z - platform_min_z) / pu_gap;
+            max_z_pu_idx = fmin(max_z_pu_idx, tilt_cutoff_pu_idx);
+        }
+    }
 
-	if (pu_platform_max_x > fmin(x2_min, x2_max) && pu_platform_min_x < fmax(x2_min, x2_max)) {
-		double z2_min = m * x2_min + c_min;
-		double z2_max = m * x2_max + c_max;
-		double tilt_cutoff_z = (z2_max - z2_min) * (x - x2_min) / (x2_max - x2_min) + z2_min;
+    if (pu_platform_max_x > fmin(x2_min, x2_max) && pu_platform_min_x < fmax(x2_min, x2_max)) {
+        double z2_min = m * x2_min + c_min;
+        double z2_max = m * x2_max + c_max;
+        double tilt_cutoff_z = (z2_max - z2_min) * (x - x2_min) / (x2_max - x2_min) + z2_min;
 
-		if (x2_min > 0) {
-			// Find new upper bound for z_pu
-			double tilt_cutoff_pu_idx = (tilt_cutoff_z - platform_min_z) / pu_gap;
-			max_z_pu_idx = fmin(max_z_pu_idx, tilt_cutoff_pu_idx);
-		}
-		else {
-			// Find new lower bound for z_pu
-			double tilt_cutoff_pu_idx = (tilt_cutoff_z - platform_max_z) / pu_gap;
-			min_z_pu_idx = fmax(min_z_pu_idx, tilt_cutoff_pu_idx);
-		}
-	}
+        if (x2_min > 0) {
+            // Find new upper bound for z_pu
+            double tilt_cutoff_pu_idx = (tilt_cutoff_z - platform_min_z) / pu_gap;
+            max_z_pu_idx = fmin(max_z_pu_idx, tilt_cutoff_pu_idx);
+        }
+        else {
+            // Find new lower bound for z_pu
+            double tilt_cutoff_pu_idx = (tilt_cutoff_z - platform_max_z) / pu_gap;
+            min_z_pu_idx = fmax(min_z_pu_idx, tilt_cutoff_pu_idx);
+        }
+    }
 
-	min_z_pu_idx = q_steps * ceil(min_z_pu_idx);
-	max_z_pu_idx = q_steps * floor(max_z_pu_idx);
+    min_z_pu_idx = q_steps * ceil(min_z_pu_idx);
+    max_z_pu_idx = q_steps * floor(max_z_pu_idx);
 
-	double min_z_pu = 65536.0 * min_z_pu_idx;
-	double max_z_pu = 65536.0 * max_z_pu_idx;
+    double min_z_pu = 65536.0 * min_z_pu_idx;
+    double max_z_pu = 65536.0 * max_z_pu_idx;
 
-	double closest_z_pu_platform;
+    double closest_z_pu_platform;
 
-	if (min_z_pu < 0) {
-		if (max_z_pu < 0) {
-			closest_z_pu_platform = max_z_pu + platform_max_z - platform_min_z;
-		}
-		else {
-			if (abs(min_z_pu) < abs(max_z_pu)) {
-				closest_z_pu_platform = min_z_pu + platform_max_z - platform_min_z;
-			}
-			else {
-				closest_z_pu_platform = max_z_pu + platform_min_z - platform_max_z;
-			}
-		}
-	}
-	else {
-		closest_z_pu_platform = min_z_pu + platform_min_z - platform_max_z;
-	}
+    if (min_z_pu < 0) {
+        if (max_z_pu < 0) {
+            closest_z_pu_platform = max_z_pu + platform_max_z - platform_min_z;
+        }
+        else {
+            if (abs(min_z_pu) < abs(max_z_pu)) {
+                closest_z_pu_platform = min_z_pu + platform_max_z - platform_min_z;
+            }
+            else {
+                closest_z_pu_platform = max_z_pu + platform_min_z - platform_max_z;
+            }
+        }
+    }
+    else {
+        closest_z_pu_platform = min_z_pu + platform_min_z - platform_max_z;
+    }
 
-	// Find the minimum speed to reach a valid PU from current x position.
-	// If this exceeds our maximum allowed speed, then we can stop searching polygon
-	// in this direction.
-	double min_needed_speed = (4.0 / (double)q_steps) * sqrt((x + platform_max_z - platform_min_z) * (x + platform_max_z - platform_min_z) + (closest_z_pu_platform * closest_z_pu_platform)) / fmin(triangle_normals[0][1], triangle_normals[1][1]);
+    // Find the minimum speed to reach a valid PU from current x position.
+    // If this exceeds our maximum allowed speed, then we can stop searching polygon
+    // in this direction.
+    double min_needed_speed = (4.0 / (double)q_steps) * sqrt((x + platform_max_z - platform_min_z) * (x + platform_max_z - platform_min_z) + (closest_z_pu_platform * closest_z_pu_platform)) / fmin(triangle_normals[0][1], triangle_normals[1][1]);
 
     if (min_needed_speed > max_speed) {
         return false;
-    } else {
+    }
+    else {
         double min_pu_oob_z;
 
         if (q_steps < 4) {
@@ -2242,7 +2236,7 @@ __device__ bool try_pu_x(float* normal, float* position, short (&current_triangl
             // Check if our likely horizontal platform displacement puts us out of bounds.
             // If so, skip checking this PU.
             if (abs(bpd_x_mod) < 8192 + disp_leeway && abs(bpd_z_mod) < 8192 + disp_leeway) {
-                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, partialSolution)) {
+                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, platSolIdx)) {
                     break;
                 }
             }
@@ -2259,7 +2253,7 @@ __device__ bool try_pu_x(float* normal, float* position, short (&current_triangl
             // Check if our likely horizontal platform displacement puts us out of bounds.
             // If so, skip checking this PU.
             if (abs(bpd_x_mod) < 8192 + disp_leeway && abs(bpd_z_mod) < 8192 + disp_leeway) {
-                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, partialSolution)) {
+                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, platSolIdx)) {
                     break;
                 }
             }
@@ -2269,94 +2263,94 @@ __device__ bool try_pu_x(float* normal, float* position, short (&current_triangl
     }
 }
 
-__device__ bool try_pu_z(float* normal, float* position, short (&current_triangles)[2][3][3], float(&triangle_normals)[2][3], float(&T_start)[4][4], float(&T_tilt)[4][4], double z, double z1_min, double z1_max, double z2_min, double z2_max, double platform_min_x, double platform_max_x, double platform_min_z, double platform_max_z, double m, double c_min, double c_max, int q_steps, double max_speed, struct PlatformSolution &partialSolution) {
-	double pu_platform_min_z = z + platform_min_z;
-	double pu_platform_max_z = z + platform_max_z;
+__device__ bool try_pu_z(float* normal, float* position, short(&current_triangles)[2][3][3], float(&triangle_normals)[2][3], float(&T_start)[4][4], float(&T_tilt)[4][4], double z, double z1_min, double z1_max, double z2_min, double z2_max, double platform_min_x, double platform_max_x, double platform_min_z, double platform_max_z, double m, double c_min, double c_max, int q_steps, double max_speed, int platSolIdx) {
+    double pu_platform_min_z = z + platform_min_z;
+    double pu_platform_max_z = z + platform_max_z;
 
-	double pu_gap = 65535.0 * q_steps;
+    double pu_gap = 65535.0 * q_steps;
 
-	// Find maximal range of PUs along x axis from current z PU position
-	double min_x_pu_idx = ((pu_platform_min_z - c_min) / m) / pu_gap;
-	double max_x_pu_idx = ((pu_platform_max_z - c_max) / m) / pu_gap;
+    // Find maximal range of PUs along x axis from current z PU position
+    double min_x_pu_idx = ((pu_platform_min_z - c_min) / m) / pu_gap;
+    double max_x_pu_idx = ((pu_platform_max_z - c_max) / m) / pu_gap;
 
-	if (min_x_pu_idx > max_x_pu_idx) {
-		double temp = min_x_pu_idx;
-		min_x_pu_idx = max_x_pu_idx;
-		max_x_pu_idx = temp;
-	}
+    if (min_x_pu_idx > max_x_pu_idx) {
+        double temp = min_x_pu_idx;
+        min_x_pu_idx = max_x_pu_idx;
+        max_x_pu_idx = temp;
+    }
 
-	// Check max_x_pu and min_x_pu are in range for valid platform tilt.
-	// Correct them if they're not.
-	//
-	// Possible for only part of the platform to be in range.
-	// In this case just skip it to avoid headaches later on.
+    // Check max_x_pu and min_x_pu are in range for valid platform tilt.
+    // Correct them if they're not.
+    //
+    // Possible for only part of the platform to be in range.
+    // In this case just skip it to avoid headaches later on.
 
-	if (pu_platform_max_z > fmin(z1_min, z1_max) && pu_platform_min_z < fmax(z1_min, z1_max)) {
-		double x1_min = (z1_min - c_min) / m;
-		double x1_max = (z1_max - c_max) / m;
-		double tilt_cutoff_x = (x1_max - x1_min) * (z - z1_min) / (z1_max - z1_min) + x1_min;
+    if (pu_platform_max_z > fmin(z1_min, z1_max) && pu_platform_min_z < fmax(z1_min, z1_max)) {
+        double x1_min = (z1_min - c_min) / m;
+        double x1_max = (z1_max - c_max) / m;
+        double tilt_cutoff_x = (x1_max - x1_min) * (z - z1_min) / (z1_max - z1_min) + x1_min;
 
-		if (z1_min > 0) {
-			// Find new upper bound for z_pu
-			double tilt_cutoff_pu_idx = (tilt_cutoff_x - platform_min_x) / pu_gap;
-			max_x_pu_idx = fmin(max_x_pu_idx, tilt_cutoff_pu_idx);
-		}
-		else {
-			// Find new lower bound for z_pu
-			double tilt_cutoff_pu_idx = (tilt_cutoff_x - platform_max_x) / pu_gap;
-			min_x_pu_idx = fmax(min_x_pu_idx, tilt_cutoff_pu_idx);
-		}
-	}
+        if (z1_min > 0) {
+            // Find new upper bound for z_pu
+            double tilt_cutoff_pu_idx = (tilt_cutoff_x - platform_min_x) / pu_gap;
+            max_x_pu_idx = fmin(max_x_pu_idx, tilt_cutoff_pu_idx);
+        }
+        else {
+            // Find new lower bound for z_pu
+            double tilt_cutoff_pu_idx = (tilt_cutoff_x - platform_max_x) / pu_gap;
+            min_x_pu_idx = fmax(min_x_pu_idx, tilt_cutoff_pu_idx);
+        }
+    }
 
-	if (pu_platform_max_z > fmin(z2_min, z2_max) && pu_platform_min_z < fmax(z2_min, z2_max)) {
-		double x2_min = (z2_min - c_min) / m;
-		double x2_max = (z2_max - c_max) / m;
-		double tilt_cutoff_x = (x2_max - x2_min) * (z - z2_min) / (z2_max - z2_min) + x2_min;
+    if (pu_platform_max_z > fmin(z2_min, z2_max) && pu_platform_min_z < fmax(z2_min, z2_max)) {
+        double x2_min = (z2_min - c_min) / m;
+        double x2_max = (z2_max - c_max) / m;
+        double tilt_cutoff_x = (x2_max - x2_min) * (z - z2_min) / (z2_max - z2_min) + x2_min;
 
-		if (z2_min > 0) {
-			// Find new lower bound for z_pu
-			double tilt_cutoff_pu_idx = (tilt_cutoff_x - platform_max_x) / pu_gap;
-			min_x_pu_idx = fmax(min_x_pu_idx, tilt_cutoff_pu_idx);
-		}
-		else {
-			// Find new upper bound for z_pu
-			double tilt_cutoff_pu_idx = (tilt_cutoff_x - platform_min_x) / pu_gap;
-			max_x_pu_idx = fmin(max_x_pu_idx, tilt_cutoff_pu_idx);
-		}
-	}
+        if (z2_min > 0) {
+            // Find new lower bound for z_pu
+            double tilt_cutoff_pu_idx = (tilt_cutoff_x - platform_max_x) / pu_gap;
+            min_x_pu_idx = fmax(min_x_pu_idx, tilt_cutoff_pu_idx);
+        }
+        else {
+            // Find new upper bound for z_pu
+            double tilt_cutoff_pu_idx = (tilt_cutoff_x - platform_min_x) / pu_gap;
+            max_x_pu_idx = fmin(max_x_pu_idx, tilt_cutoff_pu_idx);
+        }
+    }
 
-	min_x_pu_idx = q_steps * ceil(min_x_pu_idx);
-	max_x_pu_idx = q_steps * floor(max_x_pu_idx);
+    min_x_pu_idx = q_steps * ceil(min_x_pu_idx);
+    max_x_pu_idx = q_steps * floor(max_x_pu_idx);
 
-	double min_x_pu = 65536.0 * min_x_pu_idx;
-	double max_x_pu = 65536.0 * max_x_pu_idx;
+    double min_x_pu = 65536.0 * min_x_pu_idx;
+    double max_x_pu = 65536.0 * max_x_pu_idx;
 
-	double closest_x_pu_platform;
+    double closest_x_pu_platform;
 
-	if (min_x_pu < 0) {
-		if (max_x_pu < 0) {
-			closest_x_pu_platform = max_x_pu + platform_max_x - platform_min_x;
-		}
-		else {
-			if (abs(min_x_pu) < abs(max_x_pu)) {
-				closest_x_pu_platform = min_x_pu + platform_max_x - platform_min_x;
-			}
-			else {
-				closest_x_pu_platform = max_x_pu + platform_min_x - platform_max_x;
-			}
-		}
-	}
-	else {
-		closest_x_pu_platform = min_x_pu + platform_min_x - platform_max_x;
-	}
+    if (min_x_pu < 0) {
+        if (max_x_pu < 0) {
+            closest_x_pu_platform = max_x_pu + platform_max_x - platform_min_x;
+        }
+        else {
+            if (abs(min_x_pu) < abs(max_x_pu)) {
+                closest_x_pu_platform = min_x_pu + platform_max_x - platform_min_x;
+            }
+            else {
+                closest_x_pu_platform = max_x_pu + platform_min_x - platform_max_x;
+            }
+        }
+    }
+    else {
+        closest_x_pu_platform = min_x_pu + platform_min_x - platform_max_x;
+    }
 
-	// Find the minimum speed to reach a valid PU from current z position.
-	// If this exceeds our maximum allowed speed, then we can stop searching
-	// the polygon in this direction.
-	double min_needed_speed = (4.0 / (double)q_steps) * sqrt((z + platform_max_x - platform_min_x) * (z + platform_max_x - platform_min_x) + (closest_x_pu_platform * closest_x_pu_platform)) / fmin(triangle_normals[0][1], triangle_normals[1][1]);
+    // Find the minimum speed to reach a valid PU from current z position.
+    // If this exceeds our maximum allowed speed, then we can stop searching
+    // the polygon in this direction.
+    double min_needed_speed = (4.0 / (double)q_steps) * sqrt((z + platform_max_x - platform_min_x) * (z + platform_max_x - platform_min_x) + (closest_x_pu_platform * closest_x_pu_platform)) / fmin(triangle_normals[0][1], triangle_normals[1][1]);
 
-	if (min_needed_speed > max_speed) {
-		return false;
+    if (min_needed_speed > max_speed) {
+        return false;
     }
     else {
         double min_pu_oob_x;
@@ -2401,7 +2395,7 @@ __device__ bool try_pu_z(float* normal, float* position, short (&current_triangl
             // Check if our likely horizontal platform displacement puts us out of bounds.
             // If so, skip checking this PU.
             if (abs(bpd_x_mod) < 8192 + disp_leeway && abs(bpd_z_mod) < 8192 + disp_leeway) {
-                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, partialSolution)) {
+                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, platSolIdx)) {
                     break;
                 }
             }
@@ -2418,7 +2412,7 @@ __device__ bool try_pu_z(float* normal, float* position, short (&current_triangl
             // Check if our likely horizontal platform displacement puts us out of bounds.
             // If so, skip checking this PU.
             if (abs(bpd_x_mod) < 8192 + disp_leeway && abs(bpd_z_mod) < 8192 + disp_leeway) {
-                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, partialSolution)) {
+                if (!try_pu_xz(normal, position, current_triangles, triangle_normals, x, z, platSolIdx)) {
                     break;
                 }
             }
@@ -2428,143 +2422,143 @@ __device__ bool try_pu_z(float* normal, float* position, short (&current_triangl
     }
 }
 
-__device__ void try_normal(float* normal, float* position, struct PlatformSolution &partialSolution) {
-	// Tilt angle cut-offs
-	// These are the yaw boundaries where the platform tilt 
-	// switches direction. Directions match normal_offsets:
-	// Between a[0] and a[1]: +x +z
-	// Between a[1] and a[2]: -x +z
-	// Between a[2] and a[3]: -x -z
-	// Between a[3] and a[0]: +x -z
-    
-	double max_speed = 1000000000.0;
+__device__ void try_normal(float* normal, float* position, int platSolIdx) {
+    // Tilt angle cut-offs
+    // These are the yaw boundaries where the platform tilt 
+    // switches direction. Directions match normal_offsets:
+    // Between a[0] and a[1]: +x +z
+    // Between a[1] and a[2]: -x +z
+    // Between a[2] and a[3]: -x -z
+    // Between a[3] and a[0]: +x -z
 
-	short current_triangles[2][3][3];
-	float triangle_normals[2][3];
+    double max_speed = 1000000000.0;
 
-	float T_start[4][4];
-	T_start[1][0] = normal[0];
-	T_start[1][1] = normal[1];
-	T_start[1][2] = normal[2];
+    short current_triangles[2][3][3];
+    float triangle_normals[2][3];
 
-	float invsqrt = 1.0f / sqrtf(T_start[1][0] * T_start[1][0] + T_start[1][1] * T_start[1][1] + T_start[1][2] * T_start[1][2]);
+    float T_start[4][4];
+    T_start[1][0] = normal[0];
+    T_start[1][1] = normal[1];
+    T_start[1][2] = normal[2];
 
-	T_start[1][0] *= invsqrt;
-	T_start[1][1] *= invsqrt;
-	T_start[1][2] *= invsqrt;
+    float invsqrt = 1.0f / sqrtf(T_start[1][0] * T_start[1][0] + T_start[1][1] * T_start[1][1] + T_start[1][2] * T_start[1][2]);
 
-	T_start[0][0] = T_start[1][1] * 1.0f - 0.0f * T_start[1][2];
-	T_start[0][1] = T_start[1][2] * 0.0f - 1.0f * T_start[1][0];
-	T_start[0][2] = T_start[1][0] * 0.0f - 0.0f * T_start[1][1];
+    T_start[1][0] *= invsqrt;
+    T_start[1][1] *= invsqrt;
+    T_start[1][2] *= invsqrt;
 
-	invsqrt = 1.0f / sqrtf(T_start[0][0] * T_start[0][0] + T_start[0][1] * T_start[0][1] + T_start[0][2] * T_start[0][2]);
+    T_start[0][0] = T_start[1][1] * 1.0f - 0.0f * T_start[1][2];
+    T_start[0][1] = T_start[1][2] * 0.0f - 1.0f * T_start[1][0];
+    T_start[0][2] = T_start[1][0] * 0.0f - 0.0f * T_start[1][1];
 
-	T_start[0][0] *= invsqrt;
-	T_start[0][1] *= invsqrt;
-	T_start[0][2] *= invsqrt;
+    invsqrt = 1.0f / sqrtf(T_start[0][0] * T_start[0][0] + T_start[0][1] * T_start[0][1] + T_start[0][2] * T_start[0][2]);
 
-	T_start[2][0] = T_start[0][1] * T_start[1][2] - T_start[1][1] * T_start[0][2];
-	T_start[2][1] = T_start[0][2] * T_start[1][0] - T_start[1][2] * T_start[0][0];
-	T_start[2][2] = T_start[0][0] * T_start[1][1] - T_start[1][0] * T_start[0][1];
+    T_start[0][0] *= invsqrt;
+    T_start[0][1] *= invsqrt;
+    T_start[0][2] *= invsqrt;
 
-	invsqrt = 1.0f / sqrtf(T_start[2][0] * T_start[2][0] + T_start[2][1] * T_start[2][1] + T_start[2][2] * T_start[2][2]);
+    T_start[2][0] = T_start[0][1] * T_start[1][2] - T_start[1][1] * T_start[0][2];
+    T_start[2][1] = T_start[0][2] * T_start[1][0] - T_start[1][2] * T_start[0][0];
+    T_start[2][2] = T_start[0][0] * T_start[1][1] - T_start[1][0] * T_start[0][1];
 
-	T_start[2][0] *= invsqrt;
-	T_start[2][1] *= invsqrt;
-	T_start[2][2] *= invsqrt;
+    invsqrt = 1.0f / sqrtf(T_start[2][0] * T_start[2][0] + T_start[2][1] * T_start[2][1] + T_start[2][2] * T_start[2][2]);
 
-	T_start[3][0] = platform_pos[0];
-	T_start[3][1] = platform_pos[1];
-	T_start[3][2] = platform_pos[2];
-	T_start[0][3] = 0.0f;
-	T_start[1][3] = 0.0f;
-	T_start[2][3] = 0.0f;
-	T_start[3][3] = 1.0f;
+    T_start[2][0] *= invsqrt;
+    T_start[2][1] *= invsqrt;
+    T_start[2][2] *= invsqrt;
 
-	for (int h = 0; h < 2; h++) {
-		for (int i = 0; i < 3; i++) {
-			float vx = default_triangles[h][i][0];
-			float vy = default_triangles[h][i][1];
-			float vz = default_triangles[h][i][2];
+    T_start[3][0] = platform_pos[0];
+    T_start[3][1] = platform_pos[1];
+    T_start[3][2] = platform_pos[2];
+    T_start[0][3] = 0.0f;
+    T_start[1][3] = 0.0f;
+    T_start[2][3] = 0.0f;
+    T_start[3][3] = 1.0f;
 
-			current_triangles[h][i][0] = (short)(int)(vx * T_start[0][0] + vy * T_start[1][0] + vz * T_start[2][0] + T_start[3][0]);
-			current_triangles[h][i][1] = (short)(int)(vx * T_start[0][1] + vy * T_start[1][1] + vz * T_start[2][1] + T_start[3][1]);
-			current_triangles[h][i][2] = (short)(int)(vx * T_start[0][2] + vy * T_start[1][2] + vz * T_start[2][2] + T_start[3][2]);
-		}
+    for (int h = 0; h < 2; h++) {
+        for (int i = 0; i < 3; i++) {
+            float vx = default_triangles[h][i][0];
+            float vy = default_triangles[h][i][1];
+            float vz = default_triangles[h][i][2];
 
-		triangle_normals[h][0] = ((current_triangles[h][1][1] - current_triangles[h][0][1]) * (current_triangles[h][2][2] - current_triangles[h][1][2])) - ((current_triangles[h][1][2] - current_triangles[h][0][2]) * (current_triangles[h][2][1] - current_triangles[h][1][1]));
-		triangle_normals[h][1] = ((current_triangles[h][1][2] - current_triangles[h][0][2]) * (current_triangles[h][2][0] - current_triangles[h][1][0])) - ((current_triangles[h][1][0] - current_triangles[h][0][0]) * (current_triangles[h][2][2] - current_triangles[h][1][2]));
-		triangle_normals[h][2] = ((current_triangles[h][1][0] - current_triangles[h][0][0]) * (current_triangles[h][2][1] - current_triangles[h][1][1])) - ((current_triangles[h][1][1] - current_triangles[h][0][1]) * (current_triangles[h][2][0] - current_triangles[h][1][0]));
+            current_triangles[h][i][0] = (short)(int)(vx * T_start[0][0] + vy * T_start[1][0] + vz * T_start[2][0] + T_start[3][0]);
+            current_triangles[h][i][1] = (short)(int)(vx * T_start[0][1] + vy * T_start[1][1] + vz * T_start[2][1] + T_start[3][1]);
+            current_triangles[h][i][2] = (short)(int)(vx * T_start[0][2] + vy * T_start[1][2] + vz * T_start[2][2] + T_start[3][2]);
+        }
 
-		invsqrt = 1.0f / sqrtf(triangle_normals[h][0] * triangle_normals[h][0] + triangle_normals[h][1] * triangle_normals[h][1] + triangle_normals[h][2] * triangle_normals[h][2]);
+        triangle_normals[h][0] = ((current_triangles[h][1][1] - current_triangles[h][0][1]) * (current_triangles[h][2][2] - current_triangles[h][1][2])) - ((current_triangles[h][1][2] - current_triangles[h][0][2]) * (current_triangles[h][2][1] - current_triangles[h][1][1]));
+        triangle_normals[h][1] = ((current_triangles[h][1][2] - current_triangles[h][0][2]) * (current_triangles[h][2][0] - current_triangles[h][1][0])) - ((current_triangles[h][1][0] - current_triangles[h][0][0]) * (current_triangles[h][2][2] - current_triangles[h][1][2]));
+        triangle_normals[h][2] = ((current_triangles[h][1][0] - current_triangles[h][0][0]) * (current_triangles[h][2][1] - current_triangles[h][1][1])) - ((current_triangles[h][1][1] - current_triangles[h][0][1]) * (current_triangles[h][2][0] - current_triangles[h][1][0]));
 
-		triangle_normals[h][0] *= invsqrt;
-		triangle_normals[h][1] *= invsqrt;
-		triangle_normals[h][2] *= invsqrt;
-	}
+        invsqrt = 1.0f / sqrtf(triangle_normals[h][0] * triangle_normals[h][0] + triangle_normals[h][1] * triangle_normals[h][1] + triangle_normals[h][2] * triangle_normals[h][2]);
 
-	float nx = normal[0];
-	float ny = normal[1];
-	float nz = normal[2];
+        triangle_normals[h][0] *= invsqrt;
+        triangle_normals[h][1] *= invsqrt;
+        triangle_normals[h][2] *= invsqrt;
+    }
 
-	double a[4];
-	a[0] = atan2(nz, sqrt(1 - nz * nz));
-	a[1] = atan2(sqrt(1 - nx * nx), nx);
-	a[2] = M_PI - a[0];
-	a[3] = 2 * M_PI - a[1];
+    float nx = normal[0];
+    float ny = normal[1];
+    float nz = normal[2];
 
-	double platform_min_x = fmin(fmin((double)current_triangles[0][0][0], (double)current_triangles[0][1][0]), fmin((double)current_triangles[0][2][0], (double)current_triangles[1][2][0]));
-	double platform_max_x = fmax(fmax((double)current_triangles[0][0][0], (double)current_triangles[0][1][0]), fmax((double)current_triangles[0][2][0], (double)current_triangles[1][2][0]));
-	double platform_min_z = fmin(fmin((double)current_triangles[0][0][2], (double)current_triangles[0][1][2]), fmin((double)current_triangles[0][2][2], (double)current_triangles[1][2][2]));
-	double platform_max_z = fmax(fmax((double)current_triangles[0][0][2], (double)current_triangles[0][1][2]), fmax((double)current_triangles[0][2][2], (double)current_triangles[1][2][2]));
+    double a[4];
+    a[0] = atan2(nz, sqrt(1 - nz * nz));
+    a[1] = atan2(sqrt(1 - nx * nx), nx);
+    a[2] = M_PI - a[0];
+    a[3] = 2 * M_PI - a[1];
 
-	double min_y = fmin(-3071.0, fmin(fmin((double)current_triangles[0][0][1], (double)current_triangles[0][1][1]), fmin((double)current_triangles[0][2][1], (double)current_triangles[1][2][1])));
-	double max_y = fmax(fmax((double)current_triangles[0][0][1], (double)current_triangles[0][1][1]), fmax((double)current_triangles[0][2][1], (double)current_triangles[1][2][1]));
+    double platform_min_x = fmin(fmin((double)current_triangles[0][0][0], (double)current_triangles[0][1][0]), fmin((double)current_triangles[0][2][0], (double)current_triangles[1][2][0]));
+    double platform_max_x = fmax(fmax((double)current_triangles[0][0][0], (double)current_triangles[0][1][0]), fmax((double)current_triangles[0][2][0], (double)current_triangles[1][2][0]));
+    double platform_min_z = fmin(fmin((double)current_triangles[0][0][2], (double)current_triangles[0][1][2]), fmin((double)current_triangles[0][2][2], (double)current_triangles[1][2][2]));
+    double platform_max_z = fmax(fmax((double)current_triangles[0][0][2], (double)current_triangles[0][1][2]), fmax((double)current_triangles[0][2][2], (double)current_triangles[1][2][2]));
 
-	// Try to find solutions for each possible platform tilt direction
-	for (int i = 0; i < 4; i++) {
-		float T_tilt[4][4];
-		T_tilt[1][0] = normal[0] + normal_offsets[i][0];
-		T_tilt[1][1] = normal[1] + normal_offsets[i][1];
-		T_tilt[1][2] = normal[2] + normal_offsets[i][2];
+    double min_y = fmin(-3071.0, fmin(fmin((double)current_triangles[0][0][1], (double)current_triangles[0][1][1]), fmin((double)current_triangles[0][2][1], (double)current_triangles[1][2][1])));
+    double max_y = fmax(fmax((double)current_triangles[0][0][1], (double)current_triangles[0][1][1]), fmax((double)current_triangles[0][2][1], (double)current_triangles[1][2][1]));
 
-		float invsqrt = 1.0f / sqrtf(T_tilt[1][0] * T_tilt[1][0] + T_tilt[1][1] * T_tilt[1][1] + T_tilt[1][2] * T_tilt[1][2]);
+    // Try to find solutions for each possible platform tilt direction
+    for (int i = 0; i < 4; i++) {
+        float T_tilt[4][4];
+        T_tilt[1][0] = normal[0] + normal_offsets[i][0];
+        T_tilt[1][1] = normal[1] + normal_offsets[i][1];
+        T_tilt[1][2] = normal[2] + normal_offsets[i][2];
 
-		T_tilt[1][0] *= invsqrt;
-		T_tilt[1][1] *= invsqrt;
-		T_tilt[1][2] *= invsqrt;
+        float invsqrt = 1.0f / sqrtf(T_tilt[1][0] * T_tilt[1][0] + T_tilt[1][1] * T_tilt[1][1] + T_tilt[1][2] * T_tilt[1][2]);
 
-		T_tilt[0][0] = T_tilt[1][1] * 1.0f - 0.0f * T_tilt[1][2];
-		T_tilt[0][1] = T_tilt[1][2] * 0.0f - 1.0f * T_tilt[1][0];
-		T_tilt[0][2] = T_tilt[1][0] * 0.0f - 0.0f * T_tilt[1][1];
+        T_tilt[1][0] *= invsqrt;
+        T_tilt[1][1] *= invsqrt;
+        T_tilt[1][2] *= invsqrt;
 
-		invsqrt = 1.0f / sqrtf(T_tilt[0][0] * T_tilt[0][0] + T_tilt[0][1] * T_tilt[0][1] + T_tilt[0][2] * T_tilt[0][2]);
+        T_tilt[0][0] = T_tilt[1][1] * 1.0f - 0.0f * T_tilt[1][2];
+        T_tilt[0][1] = T_tilt[1][2] * 0.0f - 1.0f * T_tilt[1][0];
+        T_tilt[0][2] = T_tilt[1][0] * 0.0f - 0.0f * T_tilt[1][1];
 
-		T_tilt[0][0] *= invsqrt;
-		T_tilt[0][1] *= invsqrt;
-		T_tilt[0][2] *= invsqrt;
+        invsqrt = 1.0f / sqrtf(T_tilt[0][0] * T_tilt[0][0] + T_tilt[0][1] * T_tilt[0][1] + T_tilt[0][2] * T_tilt[0][2]);
 
-		T_tilt[2][0] = T_tilt[0][1] * T_tilt[1][2] - T_tilt[1][1] * T_tilt[0][2];
-		T_tilt[2][1] = T_tilt[0][2] * T_tilt[1][0] - T_tilt[1][2] * T_tilt[0][0];
-		T_tilt[2][2] = T_tilt[0][0] * T_tilt[1][1] - T_tilt[1][0] * T_tilt[0][1];
+        T_tilt[0][0] *= invsqrt;
+        T_tilt[0][1] *= invsqrt;
+        T_tilt[0][2] *= invsqrt;
 
-		invsqrt = 1.0f / sqrtf(T_tilt[2][0] * T_tilt[2][0] + T_tilt[2][1] * T_tilt[2][1] + T_tilt[2][2] * T_tilt[2][2]);
+        T_tilt[2][0] = T_tilt[0][1] * T_tilt[1][2] - T_tilt[1][1] * T_tilt[0][2];
+        T_tilt[2][1] = T_tilt[0][2] * T_tilt[1][0] - T_tilt[1][2] * T_tilt[0][0];
+        T_tilt[2][2] = T_tilt[0][0] * T_tilt[1][1] - T_tilt[1][0] * T_tilt[0][1];
 
-		T_tilt[2][0] *= invsqrt;
-		T_tilt[2][1] *= invsqrt;
-		T_tilt[2][2] *= invsqrt;
+        invsqrt = 1.0f / sqrtf(T_tilt[2][0] * T_tilt[2][0] + T_tilt[2][1] * T_tilt[2][1] + T_tilt[2][2] * T_tilt[2][2]);
 
-		T_tilt[3][0] = platform_pos[0];
-		T_tilt[3][1] = platform_pos[1];
-		T_tilt[3][2] = platform_pos[2];
-		T_tilt[0][3] = 0.0f;
-		T_tilt[1][3] = 0.0f;
-		T_tilt[2][3] = 0.0f;
-		T_tilt[3][3] = 1.0f;
+        T_tilt[2][0] *= invsqrt;
+        T_tilt[2][1] *= invsqrt;
+        T_tilt[2][2] *= invsqrt;
 
-		double T_diff01 = T_tilt[0][1] - T_start[0][1];
-		double T_diff11 = T_tilt[1][1] - T_start[1][1];
-		double T_diff21 = T_tilt[2][1] - T_start[2][1];
+        T_tilt[3][0] = platform_pos[0];
+        T_tilt[3][1] = platform_pos[1];
+        T_tilt[3][2] = platform_pos[2];
+        T_tilt[0][3] = 0.0f;
+        T_tilt[1][3] = 0.0f;
+        T_tilt[2][3] = 0.0f;
+        T_tilt[3][3] = 1.0f;
+
+        double T_diff01 = T_tilt[0][1] - T_start[0][1];
+        double T_diff11 = T_tilt[1][1] - T_start[1][1];
+        double T_diff21 = T_tilt[2][1] - T_start[2][1];
 
         for (int j = 0; j < n_y_ranges; j++) {
             double r_min = lower_y[j] - (1 + T_diff11) * max_y + T_diff01 * platform_pos[0] + T_diff11 * platform_pos[1] + T_diff21 * platform_pos[2];
@@ -2727,14 +2721,14 @@ __device__ void try_normal(float* normal, float* position, struct PlatformSoluti
 
                 // Search backwards from x=0
                 for (double x = fmin(0.0, last_x_pu); x + platform_min_x > poly_x_start; x -= pu_gap) {
-                    if (!try_pu_x(normal, position, current_triangles, triangle_normals, T_start, T_tilt, x, x1_min, x1_max, x2_min, x2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, partialSolution)) {
+                    if (!try_pu_x(normal, position, current_triangles, triangle_normals, T_start, T_tilt, x, x1_min, x1_max, x2_min, x2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, platSolIdx)) {
                         break;
                     }
                 }
 
                 // Search forwards from x>0
                 for (double x = fmax(pu_gap, first_x_pu); x - platform_max_x < poly_x_end; x += pu_gap) {
-                    if (!try_pu_x(normal, position, current_triangles, triangle_normals, T_start, T_tilt, x, x1_min, x1_max, x2_min, x2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, partialSolution)) {
+                    if (!try_pu_x(normal, position, current_triangles, triangle_normals, T_start, T_tilt, x, x1_min, x1_max, x2_min, x2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, platSolIdx)) {
                         break;
                     }
                 }
@@ -2784,19 +2778,28 @@ __device__ void try_normal(float* normal, float* position, struct PlatformSoluti
 
                 // Search backwards from z=0
                 for (double z = fmin(0.0, last_z_pu); z + platform_min_z > poly_z_start; z -= pu_gap) {
-                    if (!try_pu_z(normal, position, current_triangles, triangle_normals, T_start, T_tilt, z, z1_min, z1_max, z2_min, z2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, partialSolution)) {
+                    if (!try_pu_z(normal, position, current_triangles, triangle_normals, T_start, T_tilt, z, z1_min, z1_max, z2_min, z2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, platSolIdx)) {
                         break;
                     }
                 }
 
                 // Search forwards from z>0
                 for (double z = fmax(pu_gap, first_z_pu); z - platform_max_z < poly_z_end; z += pu_gap) {
-                    if (!try_pu_z(normal, position, current_triangles, triangle_normals, T_start, T_tilt, z, z1_min, z1_max, z2_min, z2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, partialSolution)) {
+                    if (!try_pu_z(normal, position, current_triangles, triangle_normals, T_start, T_tilt, z, z1_min, z1_max, z2_min, z2_max, platform_min_x, platform_max_x, platform_min_z, platform_max_z, m, c_min, c_max, q, max_speed, platSolIdx)) {
                         break;
                     }
                 }
             }
         }
+    }
+}
+
+__global__ void find_upwarp_solutions() {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (idx < min(nPlatSolutions, MAX_PLAT_SOLUTIONS)) {
+        struct PlatformSolution* platSol = &(platSolutions[idx]);
+        try_normal(platSol->endNormal, platSol->endPosition, idx);
     }
 }
 
@@ -3227,17 +3230,38 @@ __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
                 }
 
                 if (validSolution) {
-                    struct PlatformSolution partialSolution;
-                    partialSolution.returnPosition[0] = returnPos[0];
-                    partialSolution.returnPosition[1] = returnPos[1];
-                    partialSolution.returnPosition[2] = returnPos[2];
-                    partialSolution.nFrames = f;
-                    partialSolution.penultimateFloorNormalY = lastYNormal;
-                    partialSolution.penultimatePosition[0] = lastPos[0];
-                    partialSolution.penultimatePosition[1] = lastPos[1];
-                    partialSolution.penultimatePosition[2] = lastPos[2];
-                    
-                    try_normal(normal, marioPos, partialSolution);
+                    int solIdx = atomicAdd(&nPlatSolutions, 1);
+
+                    if (solIdx < MAX_PLAT_SOLUTIONS) {
+                        struct PlatformSolution solution;
+                        solution.endNormal[0] = normal[0];
+                        solution.endNormal[1] = normal[1];
+                        solution.endNormal[2] = normal[2];
+                        solution.endPosition[0] = marioPos[0];
+                        solution.endPosition[1] = marioPos[1];
+                        solution.endPosition[2] = marioPos[2];
+                        solution.returnPosition[0] = returnPos[0];
+                        solution.returnPosition[1] = returnPos[1];
+                        solution.returnPosition[2] = returnPos[2];
+                        solution.nFrames = f;
+                        solution.penultimateFloorNormalY = lastYNormal;
+                        solution.penultimatePosition[0] = lastPos[0];
+                        solution.penultimatePosition[1] = lastPos[1];
+                        solution.penultimatePosition[2] = lastPos[2];
+                        for (int j = 0; j < 2; j++) {
+                            solution.endTriangleNormals[j][0] = triangleNormals[j][0];
+                            solution.endTriangleNormals[j][1] = triangleNormals[j][1];
+                            solution.endTriangleNormals[j][2] = triangleNormals[j][2];
+
+                            for (int k = 0; k < 3; k++) {
+                                solution.endTriangles[j][k][0] = currentTriangles[j][k][0];
+                                solution.endTriangles[j][k][1] = currentTriangles[j][k][1];
+                                solution.endTriangles[j][k][2] = currentTriangles[j][k][2];
+                            }
+                        }
+
+                        platSolutions[solIdx] = solution;
+                    }
                 }
             }
 
@@ -3449,7 +3473,7 @@ int main(int argc, char* argv[]) {
             verbose = true;
         }
     }
-
+    
     if (nPUFrames != 3) {
         fprintf(stderr, "Error: This brute forcer currently only supports 3 frame 10k routes. Value selected: %d.", nPUFrames);
         return 1;
@@ -3479,10 +3503,6 @@ int main(int argc, char* argv[]) {
     init_mag_set<<<1, 1>>>();
     initialise_floors<<<1, 1>>>();
     set_platform_pos<<<1, 1>>>(platformPos[0], platformPos[1], platformPos[2]);
-
-    struct PlatformSolution* platSolutionsCPU = (struct PlatformSolution*)std::malloc(MAX_PLAT_SOLUTIONS * sizeof(struct PlatformSolution));
-    struct PUSolution* puSolutionsCPU = (struct PUSolution*)std::malloc(MAX_PU_SOLUTIONS * sizeof(struct PUSolution));
-    struct TenKSolution* tenKSolutionsCPU = (struct TenKSolution*)std::malloc(MAX_10K_SOLUTIONS * sizeof(struct TenKSolution));
 
     short* dev_tris;
     float* dev_norms;
@@ -3515,6 +3535,7 @@ int main(int argc, char* argv[]) {
     wf << "Number of Tilt Frames, ";
     wf << "Post-Tilt Platform Normal X, Post-Tilt Platform Normal Y, Post-Tilt Platform Normal Z, ";
     wf << "Post-Tilt Position X, Post-Tilt Position Y, Post-Tilt Position Z, ";
+    wf << "Post-Upwarp Position X, Post-Upwarp Position Y, Post-Upwarp Position Z, ";
     wf << "Upwarp PU X, Upwarp PU Z, ";
     wf << "Upwarp Slide Facing Angle, Upwarp Slide IntendedMag, Upwarp Slide IntendedDYaw" << endl;
 
@@ -3577,6 +3598,9 @@ int main(int argc, char* argv[]) {
                     }
 
                     int nPlatSolutionsCPU = 0;
+                    int nUpwarpSolutionsCPU = 0;
+                    int nPUSolutionsCPU = 0;
+                    int n10KSolutionsCPU = 0;
 
                     cudaMemcpyToSymbol(nPlatSolutions, &nPlatSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
 
@@ -3586,104 +3610,133 @@ int main(int argc, char* argv[]) {
 
                     cudaMemcpyFromSymbol(&nPlatSolutionsCPU, nPlatSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
-                    if (nPlatSolutionsCPU > MAX_PLAT_SOLUTIONS) {
-                        fprintf(stderr, "Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                        nPlatSolutionsCPU = MAX_PLAT_SOLUTIONS;
-                    }
-
-                    bool goodPositions = (nPlatSolutionsCPU > 0);
-
-                    if (goodPositions) {
+                    if (nPlatSolutionsCPU > 0) {
+                        if (nPlatSolutionsCPU > MAX_PLAT_SOLUTIONS) {
+                            fprintf(stderr, "Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                            nPlatSolutionsCPU = MAX_PLAT_SOLUTIONS;
+                        }
                         nBlocks = (nPlatSolutionsCPU + nThreads - 1) / nThreads;
 
-                        int nPUSolutionsCPU = 0;
+                        cudaMemcpyToSymbol(nUpwarpSolutions, &nUpwarpSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
+
+                        find_upwarp_solutions<<<nBlocks, nThreads>>>();
+
+                        cudaDeviceSynchronize();
+
+                        cudaMemcpyFromSymbol(&nUpwarpSolutionsCPU, nUpwarpSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                    }
+
+                    if (nUpwarpSolutionsCPU > 0) {
+                        if (nUpwarpSolutionsCPU > MAX_UPWARP_SOLUTIONS) {
+                            fprintf(stderr, "Warning: Number of upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                            nUpwarpSolutionsCPU = MAX_UPWARP_SOLUTIONS;
+                        }
+                        nBlocks = (nUpwarpSolutionsCPU + nThreads - 1) / nThreads;
 
                         cudaMemcpyToSymbol(nPUSolutions, &nPUSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
 
-                        test_plat_solution<<<nBlocks, nThreads>>>();
+                        test_upwarp_solution<<<nBlocks, nThreads>>>();
 
                         cudaDeviceSynchronize();
 
                         cudaMemcpyFromSymbol(&nPUSolutionsCPU, nPUSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                    }
 
+                    struct PUSolution* puSolutionsCPU = (struct PUSolution*)std::malloc(nPUSolutionsCPU * sizeof(struct PUSolution));
+
+                    if (nPUSolutionsCPU > 0) {
                         if (nPUSolutionsCPU > MAX_PU_SOLUTIONS) {
                             fprintf(stderr, "Warning: Number of PU solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
                             nPUSolutionsCPU = MAX_PU_SOLUTIONS;
                         }
+                        puSolutionLookup.clear();
 
-                        if (nPUSolutionsCPU > 0) {
-                            puSolutionLookup.clear();
+                        cudaMemcpyFromSymbol(puSolutionsCPU, puSolutions, nPUSolutionsCPU * sizeof(struct PUSolution), 0, cudaMemcpyDeviceToHost);
 
-                            cudaMemcpyFromSymbol(puSolutionsCPU, puSolutions, nPUSolutionsCPU * sizeof(struct PUSolution), 0, cudaMemcpyDeviceToHost);
-
-                            for (int l = 0; l < nPUSolutionsCPU; l++) {
-                                uint64_t key = (((uint64_t)puSolutionsCPU[l].platformSolutionIdx) << 32) | (reinterpret_cast<uint32_t&>(puSolutionsCPU[l].returnSpeed));
-                                puSolutionLookup[key] = puSolutionsCPU[l];
-                            }
-
-                            nPUSolutionsCPU = 0;
-
-                            for (std::pair<const uint64_t, PUSolution> p : puSolutionLookup) {
-                                puSolutionsCPU[nPUSolutionsCPU] = p.second;
-                                nPUSolutionsCPU++;
-                            }
-
-                            cudaMemcpyToSymbol(nPUSolutions, &nPUSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
-                            cudaMemcpyToSymbol(puSolutions, puSolutionsCPU, nPUSolutionsCPU * sizeof(PUSolution), 0, cudaMemcpyHostToDevice);
-
-                            nBlocks = (16 * nPUSolutionsCPU + nThreads - 1) / nThreads;
-
-                            printf("---------------------------------------\nTesting Normal: %g, %g, %g\n        Index: %d, %d, %d\n        # Platform Solutions: %d\n        # PU Solutions: %d\n", normX, normY, normZ, h, i, j, nPlatSolutionsCPU, nPUSolutionsCPU);
-
-                            int n10KSolutionsCPU = 0;
-
-                            cudaMemcpyToSymbol(n10KSolutions, &n10KSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
-
-                            for (int q = minQ3; q <= maxQ3; q++) {
-                                test_pu_solution<<<nBlocks, nThreads>>>(q, minQ1, maxQ1, minQ2, maxQ2);
-                            }
-                            
-                            cudaMemcpyFromSymbol(&n10KSolutionsCPU, n10KSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-
-                            if (n10KSolutionsCPU > MAX_10K_SOLUTIONS) {
-                                fprintf(stderr, "Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                                n10KSolutionsCPU = MAX_10K_SOLUTIONS;
-                            }
-
-                            if (n10KSolutionsCPU > 0) {
-                                cudaMemcpyFromSymbol(tenKSolutionsCPU, tenKSolutions, n10KSolutionsCPU * sizeof(struct TenKSolution), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(platSolutionsCPU, platSolutions, nPlatSolutionsCPU * sizeof(struct PlatformSolution), 0, cudaMemcpyDeviceToHost);
-
-                                for (int l = 0; l < n10KSolutionsCPU; l++) {
-                                    int puSolIdx = tenKSolutionsCPU[l].puSolutionIdx;
-                                    int platSolIdx = puSolutionsCPU[puSolIdx].platformSolutionIdx;
-
-                                    wf << normX << ", " << normY << ", " << normZ << ", ";
-                                    wf << tenKSolutionsCPU[l].startPosition[0] << ", " << tenKSolutionsCPU[l].startPosition[1] << ", " << tenKSolutionsCPU[l].startPosition[2] << ", ";
-                                    wf << tenKSolutionsCPU[l].frame1Position[0] << ", " << tenKSolutionsCPU[l].frame1Position[1] << ", " << tenKSolutionsCPU[l].frame1Position[2] << ", ";
-                                    wf << tenKSolutionsCPU[l].frame2Position[0] << ", " << tenKSolutionsCPU[l].frame2Position[1] << ", " << tenKSolutionsCPU[l].frame2Position[2] << ", ";
-                                    wf << platSolutionsCPU[platSolIdx].returnPosition[0] << ", " << platSolutionsCPU[platSolIdx].returnPosition[1] << ", " << platSolutionsCPU[platSolIdx].returnPosition[2] << ", ";
-                                    wf << tenKSolutionsCPU[l].pre10Kspeed << ", " << tenKSolutionsCPU[l].pre10KVel[0] << ", " << tenKSolutionsCPU[l].pre10KVel[1] << ", ";
-                                    wf << puSolutionsCPU[puSolIdx].returnSpeed << ", " << tenKSolutionsCPU[l].returnVel[0] << ", " << tenKSolutionsCPU[l].returnVel[1] << ", ";
-                                    wf << tenKSolutionsCPU[l].frame1QSteps << ", " << tenKSolutionsCPU[l].frame2QSteps << ", " << tenKSolutionsCPU[l].frame3QSteps << ", ";
-                                    wf << tenKSolutionsCPU[l].stick10K[0] << ", " << tenKSolutionsCPU[l].stick10K[1] << ", ";
-                                    wf << tenKSolutionsCPU[l].cameraYaw10K << ", ";
-                                    wf << host_norms[3 * tenKSolutionsCPU[l].startFloorIdx] << ", " << host_norms[3 * tenKSolutionsCPU[l].startFloorIdx + 1] << ", " << host_norms[3 * tenKSolutionsCPU[l].startFloorIdx + 2] << ", ";
-                                    wf << tenKSolutionsCPU[l].startPositionLimits[0][0] << ", " << tenKSolutionsCPU[l].startPositionLimits[0][1] << ", " << tenKSolutionsCPU[l].startPositionLimits[0][2] << ", ";
-                                    wf << tenKSolutionsCPU[l].startPositionLimits[1][0] << ", " << tenKSolutionsCPU[l].startPositionLimits[1][1] << ", " << tenKSolutionsCPU[l].startPositionLimits[1][2] << ", ";
-                                    wf << platSolutionsCPU[platSolIdx].nFrames << ", ";
-                                    wf << platSolutionsCPU[platSolIdx].endNormal[0] << ", " << platSolutionsCPU[platSolIdx].endNormal[1] << ", " << platSolutionsCPU[platSolIdx].endNormal[2] << ", ";
-                                    wf << platSolutionsCPU[platSolIdx].endPosition[0] << ", " << platSolutionsCPU[platSolIdx].endPosition[1] << ", " << platSolutionsCPU[platSolIdx].endPosition[2] << ", ";
-                                    wf << platSolutionsCPU[platSolIdx].pux << ", " << platSolutionsCPU[platSolIdx].puz << ", ";
-                                    wf << puSolutionsCPU[puSolIdx].angle << ", " << puSolutionsCPU[puSolIdx].stickMag << ", " << puSolutionsCPU[puSolIdx].intendedDYaw << endl;
-                                }
-                            }
+                        for (int l = 0; l < nPUSolutionsCPU; l++) {
+                            uint64_t key = (((uint64_t)puSolutionsCPU[l].upwarpSolutionIdx) << 32) | (reinterpret_cast<uint32_t&>(puSolutionsCPU[l].returnSpeed));
+                            puSolutionLookup[key] = puSolutionsCPU[l];
                         }
+
+                        nPUSolutionsCPU = 0;
+
+                        for (std::pair<const uint64_t, PUSolution> p : puSolutionLookup) {
+                            puSolutionsCPU[nPUSolutionsCPU] = p.second;
+                            nPUSolutionsCPU++;
+                        }
+
+                        cudaMemcpyToSymbol(nPUSolutions, &nPUSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
+                        cudaMemcpyToSymbol(puSolutions, puSolutionsCPU, nPUSolutionsCPU * sizeof(PUSolution), 0, cudaMemcpyHostToDevice);
+
+                        nBlocks = (16 * nPUSolutionsCPU + nThreads - 1) / nThreads;
+
+                        printf("---------------------------------------\nTesting Normal: %g, %g, %g\n        Index: %d, %d, %d\n        # Platform Solutions: %d\n        # Upwarp Solutions: %d\n        # PU Solutions: %d\n", normX, normY, normZ, h, i, j, nPlatSolutionsCPU, nUpwarpSolutionsCPU, nPUSolutionsCPU);
+
+                        cudaMemcpyToSymbol(n10KSolutions, &n10KSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
+
+                        for (int q = minQ3; q <= maxQ3; q++) {
+                            test_pu_solution<<<nBlocks, nThreads>>>(q, minQ1, maxQ1, minQ2, maxQ2);
+                        }
+
+                        cudaMemcpyFromSymbol(&n10KSolutionsCPU, n10KSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
                     }
+
+                    if (n10KSolutionsCPU > 0) {
+                        if (n10KSolutionsCPU > MAX_10K_SOLUTIONS) {
+                            fprintf(stderr, "Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                            n10KSolutionsCPU = MAX_10K_SOLUTIONS;
+
+                        }
+
+                        struct PlatformSolution* platSolutionsCPU = (struct PlatformSolution*)std::malloc(nPlatSolutionsCPU * sizeof(struct PlatformSolution));
+                        struct UpwarpSolution* upwarpSolutionsCPU = (struct UpwarpSolution*)std::malloc(nUpwarpSolutionsCPU * sizeof(struct UpwarpSolution));
+                        struct TenKSolution* tenKSolutionsCPU = (struct TenKSolution*)std::malloc(n10KSolutionsCPU * sizeof(struct TenKSolution));
+
+                        cudaMemcpyFromSymbol(tenKSolutionsCPU, tenKSolutions, n10KSolutionsCPU * sizeof(struct TenKSolution), 0, cudaMemcpyDeviceToHost);
+                        cudaMemcpyFromSymbol(upwarpSolutionsCPU, upwarpSolutions, nUpwarpSolutionsCPU * sizeof(struct UpwarpSolution), 0, cudaMemcpyDeviceToHost);
+                        cudaMemcpyFromSymbol(platSolutionsCPU, platSolutions, nPlatSolutionsCPU * sizeof(struct PlatformSolution), 0, cudaMemcpyDeviceToHost);
+
+                        for (int l = 0; l < n10KSolutionsCPU; l++) {
+                            struct TenKSolution* tenKSol = &(tenKSolutionsCPU[l]);
+                            struct PUSolution* puSol = &(puSolutionsCPU[tenKSol->puSolutionIdx]);
+                            struct UpwarpSolution* uwSol = &(upwarpSolutionsCPU[puSol->upwarpSolutionIdx]);
+                            struct PlatformSolution* platSol = &(platSolutionsCPU[uwSol->platformSolutionIdx]);
+
+                            wf << normX << ", " << normY << ", " << normZ << ", ";
+                            wf << tenKSol->startPosition[0] << ", " << tenKSol->startPosition[1] << ", " << tenKSol->startPosition[2] << ", ";
+                            wf << tenKSol->frame1Position[0] << ", " << tenKSol->frame1Position[1] << ", " << tenKSol->frame1Position[2] << ", ";
+                            wf << tenKSol->frame2Position[0] << ", " << tenKSol->frame2Position[1] << ", " << tenKSol->frame2Position[2] << ", ";
+                            wf << platSol->returnPosition[0] << ", " << platSol->returnPosition[1] << ", " << platSol->returnPosition[2] << ", ";
+                            wf << tenKSol->pre10Kspeed << ", " << tenKSol->pre10KVel[0] << ", " << tenKSol->pre10KVel[1] << ", ";
+                            wf << puSol->returnSpeed << ", " << tenKSol->returnVel[0] << ", " << tenKSol->returnVel[1] << ", ";
+                            wf << tenKSol->frame1QSteps << ", " << tenKSol->frame2QSteps << ", " << tenKSol->frame3QSteps << ", ";
+                            wf << tenKSol->stick10K[0] << ", " << tenKSol->stick10K[1] << ", ";
+                            wf << tenKSol->cameraYaw10K << ", ";
+                            wf << host_norms[3 * tenKSol->startFloorIdx] << ", " << host_norms[3 * tenKSol->startFloorIdx + 1] << ", " << host_norms[3 * tenKSol->startFloorIdx + 2] << ", ";
+                            wf << tenKSol->startPositionLimits[0][0] << ", " << tenKSol->startPositionLimits[0][1] << ", " << tenKSol->startPositionLimits[0][2] << ", ";
+                            wf << tenKSol->startPositionLimits[1][0] << ", " << tenKSol->startPositionLimits[1][1] << ", " << tenKSol->startPositionLimits[1][2] << ", ";
+                            wf << platSol->nFrames << ", ";
+                            wf << platSol->endNormal[0] << ", " << platSol->endNormal[1] << ", " << platSol->endNormal[2] << ", ";
+                            wf << platSol->endPosition[0] << ", " << platSol->endPosition[1] << ", " << platSol->endPosition[2] << ", ";
+                            wf << uwSol->upwarpPosition[0] << ", " << uwSol->upwarpPosition[1] << ", " << uwSol->upwarpPosition[2] << ", ";
+                            wf << uwSol->pux << ", " << uwSol->puz << ", ";
+                            wf << puSol->angle << ", " << puSol->stickMag << ", " << puSol->intendedDYaw << endl;
+                        }
+
+                        free(tenKSolutionsCPU);
+                        free(upwarpSolutionsCPU);
+                        free(platSolutionsCPU);
+                    }
+
+                    free(puSolutionsCPU);
                 }
             }
         }
     }
-    
+
+    free(host_tris);
+    free(host_norms);
+    cudaFree(dev_tris);
+    cudaFree(dev_norms);
     wf.close();
 }
