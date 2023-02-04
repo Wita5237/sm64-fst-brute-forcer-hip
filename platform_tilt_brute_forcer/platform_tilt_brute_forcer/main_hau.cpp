@@ -1489,9 +1489,9 @@ __global__ void test_oup_solution() {
 }
 
 __global__ void check_speed_angle() {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    long long int idx = (long long int)blockIdx.x * (long long int)blockDim.x + (long long int)threadIdx.x;
 
-    if (idx < min(nStickSolutions, MAX_STICK_SOLUTIONS) * 2048) {
+    if (idx < (long long int)min(nStickSolutions, MAX_STICK_SOLUTIONS) * 2048) {
         float cameraPositions[4][3] = { {-8192, -2918, -8192}, {-8192, -2918, 8191}, {8191, -2918, -8192}, {8191, -2918, 8191} };
         float oupBuffer = 1000.0;
 
@@ -3353,7 +3353,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
 
-                    int nBlocks = (112 + nThreads - 1) / nThreads;
+                    long long int nBlocks = (112 + nThreads - 1) / nThreads;
 
                     calculate_10k_multipliers << <nBlocks, nThreads >> > (minQ1 + minQ2, maxQ1 + maxQ2, minQ3, maxQ3);
 
@@ -3437,7 +3437,7 @@ int main(int argc, char* argv[]) {
 
                         cudaMemcpyToSymbol(nOUPSolutions, &nOUPSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
 
-                        nBlocks = (2048 * nStickSolutionsCPU + nThreads - 1) / nThreads;
+                        nBlocks = (2048 * (long long int)nStickSolutionsCPU + nThreads - 1) / nThreads;
 
                         check_speed_angle<<<nBlocks, nThreads>>>();
 
