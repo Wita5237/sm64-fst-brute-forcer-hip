@@ -1778,9 +1778,9 @@ __device__ bool find_10k_route(int solIdx, int f, int d, int h, int e, int q3, i
 
 
 __global__ void test_pu_solution(int q3, int minQ1, int maxQ1, int minQ2, int maxQ2) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    long long int idx = (long long int)blockIdx.x * (long long int)blockDim.x + (long long int)threadIdx.x;
 
-    if (idx < 16 * nPUSolutions) {
+    if (idx < 16 * (long long int)min(nPUSolutions, MAX_PU_SOLUTIONS)) {
         int solIdx = idx % nPUSolutions;
         idx = idx / nPUSolutions;
         int f = idx % 2;
@@ -3604,7 +3604,7 @@ int main(int argc, char* argv[]) {
 
                     cudaMemcpyToSymbol(nPlatSolutions, &nPlatSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
 
-                    int nBlocks = (nX * nZ + nThreads - 1) / nThreads;
+                    long long int nBlocks = (nX * nZ + nThreads - 1) / nThreads;
 
                     cudaFunc<<<nBlocks, nThreads>>>(minX, deltaX, minZ, deltaZ, nX, nZ, platform.normal[0], platform.normal[1], platform.normal[2], maxFrames);
 
@@ -3668,7 +3668,7 @@ int main(int argc, char* argv[]) {
                         cudaMemcpyToSymbol(nPUSolutions, &nPUSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
                         cudaMemcpyToSymbol(puSolutions, puSolutionsCPU, nPUSolutionsCPU * sizeof(PUSolution), 0, cudaMemcpyHostToDevice);
 
-                        nBlocks = (16 * nPUSolutionsCPU + nThreads - 1) / nThreads;
+                        nBlocks = (16 * (long long int)nPUSolutionsCPU + nThreads - 1) / nThreads;
 
                         printf("---------------------------------------\nTesting Normal: %g, %g, %g\n        Index: %d, %d, %d\n        # Platform Solutions: %d\n        # Upwarp Solutions: %d\n        # PU Solutions: %d\n", normX, normY, normZ, h, i, j, nPlatSolutionsCPU, nUpwarpSolutionsCPU, nPUSolutionsCPU);
 
