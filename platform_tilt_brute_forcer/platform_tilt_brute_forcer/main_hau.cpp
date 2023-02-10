@@ -1615,7 +1615,7 @@ __global__ void check_speed_angle() {
                         }
 
                         for (int cIdx = minCameraIdx; cIdx <= maxCameraIdx; cIdx++) {
-                            int cameraYaw = gArctanTableG[cIdx % 65536];
+                            int cameraYaw = gArctanTableG[(8192 + cIdx) % 8192];
                             int oupSolIdx = atomicAdd(&nOUPSolutions, 1);
 
                             if (oupSolIdx < MAX_OUP_SOLUTIONS) {
