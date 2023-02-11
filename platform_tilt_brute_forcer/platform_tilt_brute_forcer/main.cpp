@@ -1591,9 +1591,9 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
                                 n = -t;
                             }
                             else {
-                                bool signTest = (xVel1 > 0 && xVel2 < 0) || (xVel1 < 0 && xVel2 > 0);
+                                bool signTest = (zVel1 > 0 && zVel2 > 0) || (zVel1 < 0 && zVel2 < 0);
 
-                                if ((signTest && zVel1 > 0) || (!signTest && zVel1 < 0)) {
+                                if (signTest) {
                                     n = (-((double)s * (double)t) - 1.0 + sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
                                 }
                                 else {
