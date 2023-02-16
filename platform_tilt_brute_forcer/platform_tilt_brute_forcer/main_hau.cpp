@@ -1593,25 +1593,26 @@ __global__ void check_speed_angle() {
                     }
 
                     if (inBoundsTest) {
-                        int minCameraYaw = INT_MAX;
-                        int maxCameraYaw = -INT_MAX;
+                        int minCameraYaw = 0;
+                        int maxCameraYaw = 0;
 
                         float oneUpPlatformPosition[3] = { oupX, platSol->returnPosition[1], oupZ };
 
-                        for (int k = 0; k < 4; k++) {
+                        int refCameraYaw = calculate_camera_yaw(oneUpPlatformPosition, cameraPositions[0]);
+                        refCameraYaw = (65536 + refCameraYaw) % 65536;
+
+                        for (int k = 1; k < 4; k++) {
                             int cameraYaw = calculate_camera_yaw(oneUpPlatformPosition, cameraPositions[k]);
-                            cameraYaw = (65536 + cameraYaw) % 65536;
+                            cameraYaw = cameraYaw - refCameraYaw;
                             minCameraYaw = min(minCameraYaw, cameraYaw);
                             maxCameraYaw = max(maxCameraYaw, cameraYaw);
                         }
 
-                        int minCameraIdx = gReverseArctanTable[minCameraYaw];
-                        int maxCameraIdx = gReverseArctanTable[maxCameraYaw];
+                        int minCameraIdx = gReverseArctanTable[(65536 + minCameraYaw + refCameraYaw) % 65536];
+                        int maxCameraIdx = gReverseArctanTable[(65536 + maxCameraYaw + refCameraYaw) % 65536];
 
-                        if (maxCameraYaw - minCameraYaw > 32768) {
-                            int temp = maxCameraIdx;
-                            maxCameraIdx = 8192 + minCameraIdx;
-                            minCameraIdx = temp;
+                        if (minCameraIdx > maxCameraIdx) {
+                            maxCameraIdx += 8192;
                         }
 
                         for (int cIdx = minCameraIdx; cIdx <= maxCameraIdx; cIdx++) {
