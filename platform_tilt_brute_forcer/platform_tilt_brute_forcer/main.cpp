@@ -1521,7 +1521,7 @@ __device__ bool test_one_up_position(int solIdx, float* startPosition, float* on
 
     for (int k = 1; k < 4; k++) {
         int cameraYaw = calculate_camera_yaw(oneUpPlatformPosition, cameraPositions[k]);
-        cameraYaw = cameraYaw - refCameraYaw;
+        cameraYaw = (short)(cameraYaw - refCameraYaw);
         minCameraYaw = min(minCameraYaw, cameraYaw);
         maxCameraYaw = max(maxCameraYaw, cameraYaw);
     }
