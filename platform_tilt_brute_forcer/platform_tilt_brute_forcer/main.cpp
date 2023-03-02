@@ -3475,11 +3475,6 @@ int main(int argc, char* argv[]) {
         }
     }
     
-    if (nPUFrames != 3) {
-        fprintf(stderr, "Error: This brute forcer currently only supports 3 frame 10k routes. Value selected: %d.", nPUFrames);
-        return 1;
-    }
-
     if (verbose) {
         printf("Max Frames: %d\n", maxFrames);
         printf("10K Frame 1 Q-Frames: (%d, %d)\n", minQ1, maxQ1);
@@ -3676,7 +3671,7 @@ int main(int argc, char* argv[]) {
                         cudaMemcpyToSymbol(n10KSolutions, &n10KSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
 
                         for (int q = minQ3; q <= maxQ3; q++) {
-                            test_pu_solution<<<nBlocks, nThreads>>>(q, minQ1, maxQ1, minQ2, maxQ2);
+                            test_pu_solution<<<nBlocks, nThreads>>>(q, minQ1, maxQ1, 4 * (nPUFrames - 3) + minQ2, 4 * (nPUFrames - 3) + maxQ2);
                         }
 
                         cudaMemcpyFromSymbol(&n10KSolutionsCPU, n10KSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
