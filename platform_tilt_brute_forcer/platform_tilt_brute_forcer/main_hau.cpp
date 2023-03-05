@@ -1663,7 +1663,7 @@ __global__ void find_stick_solutions() {
                 double maxStickMag = sqrt(-128 * (320000.0 * mul - 294400.0) / (100.0 + minPre10KSpeed));
 
                 int minJ = max(2, (int)ceil(minStickMag));
-                int maxJ = min(32, (int)floor(maxStickMag));
+                int maxJ = min(64, (int)floor(maxStickMag));
 
                 for (int j = minJ; j <= maxJ; j++) {
                     int solIdx = atomicAdd(&nStickSolutions, 1);
