@@ -1503,6 +1503,7 @@ __global__ void check_speed_angle() {
 
         int hau = (idx % 2048) + (stickSol->xDir == 0 ? 2048 : 0);
 
+        float oneUpPlatformNormalX = stickSol->xDir == 0 ? oneUpPlatformNormalXRight : oneUpPlatformNormalXLeft;
         float oneUpPlatformNormalY = stickSol->xDir == 0 ? oneUpPlatformNormalYRight : oneUpPlatformNormalYLeft;
         float oneUpPlatformXMin = stickSol->xDir == 0 ? oneUpPlatformXMinRight : oneUpPlatformXMinLeft;
         float oneUpPlatformXMax = stickSol->xDir == 0 ? oneUpPlatformXMaxRight : oneUpPlatformXMaxLeft;
@@ -1517,6 +1518,9 @@ __global__ void check_speed_angle() {
         float returnSpeedX = returnSpeed * gSineTableG[hau];
         float returnSpeedZ = returnSpeed * gCosineTableG[hau];
 
+        float startSpeedX = stickSol->startSpeed * gSineTableG[hau];
+        float startSpeedZ = stickSol->startSpeed * gCosineTableG[hau];
+
         float oupX = platSol->returnPosition[0] - (oneUpPlatformNormalY + stickSol->q3 - 1.0f) * (returnSpeedX / 4.0);
         float oupZ = platSol->returnPosition[2] - (oneUpPlatformNormalY + stickSol->q3 - 1.0f) * (returnSpeedZ / 4.0);
 
@@ -1525,48 +1529,34 @@ __global__ void check_speed_angle() {
             short relZ = (short)(int)oupZ;
 
             if (relX >= oneUpPlatformXMin - oupBuffer && relX <= oneUpPlatformXMax + oupBuffer && relZ >= oneUpPlatformZMin - oupBuffer && relZ <= oneUpPlatformZMax + oupBuffer) {
-                double px = platSol->returnPosition[0];
-                double pz = platSol->returnPosition[2];
-                double qx = oupX;
-                double qz = oupZ;
+                bool inBoundsTest = true;
+                int oobTolerance = 1000;
 
-                int nSquishEdges = 0;
-                int squishEdges[3];
+                float intendedPosition[3];
+                intendedPosition[0] = oupX;
+                intendedPosition[2] = oupZ;
 
-                for (int i = 0; i < 3; i++) {
-                    double ax = startTriangles[stickSol->floorIdx][i][0];
-                    double ay = startTriangles[stickSol->floorIdx][i][1];
-                    double az = startTriangles[stickSol->floorIdx][i][2];
-                    double bx = startTriangles[stickSol->floorIdx][(i + 1) % 3][0];
-                    double by = startTriangles[stickSol->floorIdx][(i + 1) % 3][1];
-                    double bz = startTriangles[stickSol->floorIdx][(i + 1) % 3][2];
+                float currentNormalY = oneUpPlatformNormalY;
 
-                    double t = ((qx - px) * (az - pz) - (qz - pz) * (ax - px)) / ((qz - pz) * (bx - ax) - (qx - px) * (bz - az));
+                for (int j = 1; j <= stickSol->q3; j++) {
+                    intendedPosition[0] = intendedPosition[0] + currentNormalY * returnSpeedX / 4.0;
+                    intendedPosition[2] = intendedPosition[2] + currentNormalY * returnSpeedZ / 4.0;
+                    currentNormalY = 1.0f;
 
-                    if (t >= 0.0 && t <= 1.0) {
-                        if ((stickSol->floorIdx == 0 && ((i == 0 && squishCeilings[2]) || (i == 1 && squishCeilings[0]))) || (stickSol->floorIdx == 1 && ((i == 1 && squishCeilings[1]) || (i == 2 && squishCeilings[3])))) {
-                            squishEdges[nSquishEdges] = i;
-                            nSquishEdges++;
-                        }
+                    if ((short)(int)intendedPosition[0] < -8191 - oobTolerance || (short)(int)intendedPosition[0] > 8192 + oobTolerance || (short)(int)intendedPosition[2] < -8191 - oobTolerance || (short)(int)intendedPosition[2] > 8192 + oobTolerance) {
+                        inBoundsTest = false;
+                        break;
                     }
                 }
 
-                if (nSquishEdges > 0) {
-                    bool inBoundsTest = true;
-                    int oobTolerance = 500;
+                if (inBoundsTest) {
+                    intendedPosition[0] = oupX - (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0f) * (startSpeedX / 4.0);
+                    intendedPosition[2] = oupZ - (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0f) * (startSpeedZ / 4.0);
+                    float currentNormalY = startNormals[stickSol->floorIdx][1];
 
-                    float startSpeedX = stickSol->startSpeed * gSineTableG[hau];
-                    float startSpeedZ = stickSol->startSpeed * gCosineTableG[hau];
-
-                    float intendedPosition[3];
-                    intendedPosition[0] = oupX;
-                    intendedPosition[2] = oupZ;
-
-                    float currentNormalY = oneUpPlatformNormalY;
-
-                    for (int j = 1; j <= stickSol->q3; j++) {
-                        intendedPosition[0] = intendedPosition[0] + currentNormalY * returnSpeedX / 4.0;
-                        intendedPosition[2] = intendedPosition[2] + currentNormalY * returnSpeedZ / 4.0;
+                    for (int j = 1; j <= stickSol->q1q2; j++) {
+                        intendedPosition[0] = intendedPosition[0] + currentNormalY * startSpeedX / 4.0;
+                        intendedPosition[2] = intendedPosition[2] + currentNormalY * startSpeedZ / 4.0;
                         currentNormalY = 1.0f;
 
                         if ((short)(int)intendedPosition[0] < -8191 - oobTolerance || (short)(int)intendedPosition[0] > 8192 + oobTolerance || (short)(int)intendedPosition[2] < -8191 - oobTolerance || (short)(int)intendedPosition[2] > 8192 + oobTolerance) {
@@ -1574,49 +1564,93 @@ __global__ void check_speed_angle() {
                             break;
                         }
                     }
+                }
 
-                    if (inBoundsTest) {
-                        intendedPosition[0] = oupX - (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0f) * (startSpeedX / 4.0);
-                        intendedPosition[2] = oupZ - (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0f) * (startSpeedZ / 4.0);
-                        float currentNormalY = startNormals[stickSol->floorIdx][1];
+                if (inBoundsTest) {
+                    float startSpeedX = stickSol->startSpeed * gSineTableG[hau];
+                    float startSpeedZ = stickSol->startSpeed * gCosineTableG[hau];
 
-                        for (int j = 1; j <= stickSol->q1q2; j++) {
-                            intendedPosition[0] = intendedPosition[0] + currentNormalY * startSpeedX / 4.0;
-                            intendedPosition[2] = intendedPosition[2] + currentNormalY * startSpeedZ / 4.0;
-                            currentNormalY = 1.0f;
+                    int minCameraYaw = 0;
+                    int maxCameraYaw = 0;
 
-                            if ((short)(int)intendedPosition[0] < -8191 - oobTolerance || (short)(int)intendedPosition[0] > 8192 + oobTolerance || (short)(int)intendedPosition[2] < -8191 - oobTolerance || (short)(int)intendedPosition[2] > 8192 + oobTolerance) {
-                                inBoundsTest = false;
-                                break;
-                            }
-                        }
+                    float oneUpPlatformPosition[3] = { oupX, platSol->returnPosition[1], oupZ };
+
+                    int refCameraYaw = calculate_camera_yaw(oneUpPlatformPosition, cameraPositions[0]);
+                    refCameraYaw = (65536 + refCameraYaw) % 65536;
+
+                    for (int k = 1; k < 4; k++) {
+                        int cameraYaw = calculate_camera_yaw(oneUpPlatformPosition, cameraPositions[k]);
+                        cameraYaw = (short)(cameraYaw - refCameraYaw);
+                        minCameraYaw = min(minCameraYaw, cameraYaw);
+                        maxCameraYaw = max(maxCameraYaw, cameraYaw);
                     }
 
-                    if (inBoundsTest) {
-                        int minCameraYaw = 0;
-                        int maxCameraYaw = 0;
+                    int minCameraIdx = gReverseArctanTable[(65536 + minCameraYaw + refCameraYaw) % 65536];
+                    int maxCameraIdx = gReverseArctanTable[(65536 + maxCameraYaw + refCameraYaw) % 65536];
 
-                        float oneUpPlatformPosition[3] = { oupX, platSol->returnPosition[1], oupZ };
+                    if (minCameraIdx > maxCameraIdx) {
+                        maxCameraIdx += 8192;
+                    }
 
-                        int refCameraYaw = calculate_camera_yaw(oneUpPlatformPosition, cameraPositions[0]);
-                        refCameraYaw = (65536 + refCameraYaw) % 65536;
+                    for (int cIdx = minCameraIdx; cIdx <= maxCameraIdx; cIdx++) {
+                        int cameraYaw = gArctanTableG[(8192 + cIdx) % 8192];
 
-                        for (int k = 1; k < 4; k++) {
-                            int cameraYaw = calculate_camera_yaw(oneUpPlatformPosition, cameraPositions[k]);
-                            cameraYaw = (short)(cameraYaw - refCameraYaw);
-                            minCameraYaw = min(minCameraYaw, cameraYaw);
-                            maxCameraYaw = max(maxCameraYaw, cameraYaw);
+                        float relY = stickSol->stickY + 6.0f;
+                        float intendedMag = (relY * relY / 128.0f);
+                        int intendedYaw = atan2sG(-relY, 0) + cameraYaw;
+                        intendedYaw = (65536 + intendedYaw) % 65536;
+                        int intendedDYaw = (65536 + intendedYaw - 16 * hau) % 65536;
+
+                        float lossFactor = gCosineTableG[intendedDYaw / 16];
+                        lossFactor *= 0.5f + 0.5f * stickSol->startSpeed / 100.0f;
+                        lossFactor = intendedMag / 32.0f * lossFactor * 0.02f + 0.92f;
+
+                        returnSpeedX = startSpeedX;
+                        returnSpeedZ = startSpeedZ;
+
+                        returnSpeedX += returnSpeedZ * (intendedMag / 32.0f) * gSineTableG[intendedDYaw / 16] * 0.05f;
+                        returnSpeedZ -= returnSpeedX * (intendedMag / 32.0f) * gSineTableG[intendedDYaw / 16] * 0.05f;
+
+                        float newSpeed = sqrtf(returnSpeedX * returnSpeedX + returnSpeedZ * returnSpeedZ);
+
+                        returnSpeedX = returnSpeedX * stickSol->startSpeed / newSpeed;
+                        returnSpeedZ = returnSpeedZ * stickSol->startSpeed / newSpeed;
+
+                        returnSpeedX += 7.0f * oneUpPlatformNormalX;
+
+                        returnSpeedX *= lossFactor;
+                        returnSpeedZ *= lossFactor;
+
+                        oupX = platSol->returnPosition[0] - (oneUpPlatformNormalY + stickSol->q3 - 1.0f) * (returnSpeedX / 4.0);
+                        oupZ = platSol->returnPosition[2] - (oneUpPlatformNormalY + stickSol->q3 - 1.0f) * (returnSpeedZ / 4.0);
+
+                        double px = platSol->returnPosition[0];
+                        double pz = platSol->returnPosition[2];
+                        double qx = oupX;
+                        double qz = oupZ;
+
+                        int nSquishEdges = 0;
+                        int squishEdges[3];
+
+                        for (int i = 0; i < 3; i++) {
+                            double ax = startTriangles[stickSol->floorIdx][i][0];
+                            double ay = startTriangles[stickSol->floorIdx][i][1];
+                            double az = startTriangles[stickSol->floorIdx][i][2];
+                            double bx = startTriangles[stickSol->floorIdx][(i + 1) % 3][0];
+                            double by = startTriangles[stickSol->floorIdx][(i + 1) % 3][1];
+                            double bz = startTriangles[stickSol->floorIdx][(i + 1) % 3][2];
+
+                            double t = ((qx - px) * (az - pz) - (qz - pz) * (ax - px)) / ((qz - pz) * (bx - ax) - (qx - px) * (bz - az));
+
+                            if (t >= 0.0 && t <= 1.0) {
+                                if ((stickSol->floorIdx == 0 && ((i == 0 && squishCeilings[2]) || (i == 1 && squishCeilings[0]))) || (stickSol->floorIdx == 1 && ((i == 1 && squishCeilings[1]) || (i == 2 && squishCeilings[3])))) {
+                                    squishEdges[nSquishEdges] = i;
+                                    nSquishEdges++;
+                                }
+                            }
                         }
 
-                        int minCameraIdx = gReverseArctanTable[(65536 + minCameraYaw + refCameraYaw) % 65536];
-                        int maxCameraIdx = gReverseArctanTable[(65536 + maxCameraYaw + refCameraYaw) % 65536];
-
-                        if (minCameraIdx > maxCameraIdx) {
-                            maxCameraIdx += 8192;
-                        }
-
-                        for (int cIdx = minCameraIdx; cIdx <= maxCameraIdx; cIdx++) {
-                            int cameraYaw = gArctanTableG[(8192 + cIdx) % 8192];
+                        if (nSquishEdges > 0) {
                             int oupSolIdx = atomicAdd(&nOUPSolutions, 1);
 
                             if (oupSolIdx < MAX_OUP_SOLUTIONS) {
