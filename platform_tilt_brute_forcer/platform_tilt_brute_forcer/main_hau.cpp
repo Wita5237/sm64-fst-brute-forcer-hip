@@ -1334,168 +1334,139 @@ __global__ void test_oup_solution() {
 
         float returnSpeed = -sqrtf(returnSpeedX * returnSpeedX + returnSpeedZ * returnSpeedZ);
 
-        float oupX = platSol->returnPosition[0] - (oneUpPlatformNormalY + stickSol->q3 - 1.0f) * (returnSpeedX / 4.0);
-        float oupZ = platSol->returnPosition[2] - (oneUpPlatformNormalY + stickSol->q3 - 1.0f) * (returnSpeedZ / 4.0);
+        float minStartSpeed = INFINITY;
+        float maxStartSpeed = -INFINITY;
 
-        double px = oupX;
-        double pz = oupZ;
-        double qx = gSineTableG[(oupSol->angle) / 16];
-        double qz = gCosineTableG[(oupSol->angle) / 16];
+        if (fabsf(returnSpeedX) > 0.0001) {
+            double t = ((65536.0 * oupSol->pux) + oneUpPlatformXMin - platSol->returnPosition[0]) / -((oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedX / 4.0);
+            float zCrossing = platSol->returnPosition[2] - (t * (oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedZ / 4.0);
 
-        int nSquishEdges = 0;
-        int squishEdges[3];
+            if (zCrossing >= (65536.0 * oupSol->puz) + oneUpPlatformZMin && zCrossing <= (65536.0 * oupSol->puz) + oneUpPlatformZMax) {
+                double p = (intendedMag * gCosineTableG[intendedDYaw / 16]);
+                double eqB = (50.0 + 147200.0 / p);
+                double eqC = -(320000.0 / p) * t * returnSpeed;
+                double eqDet = eqB * eqB - eqC;
 
-        for (int i = 0; i < 3; i++) {
-            double ax = startTriangles[stickSol->floorIdx][i][0];
-            double ay = startTriangles[stickSol->floorIdx][i][1];
-            double az = startTriangles[stickSol->floorIdx][i][2];
-            double bx = startTriangles[stickSol->floorIdx][(i + 1) % 3][0];
-            double by = startTriangles[stickSol->floorIdx][(i + 1) % 3][1];
-            double bz = startTriangles[stickSol->floorIdx][(i + 1) % 3][2];
+                if (eqDet > 0) {
+                    float adjustedSpeed = sqrt(eqDet) - eqB;
+                    minStartSpeed = fminf(minStartSpeed, adjustedSpeed);
+                    maxStartSpeed = fmaxf(maxStartSpeed, adjustedSpeed);
+                }
+            }
 
-            double t = (qx * (az - pz) - qz * (ax - px)) / (qz * (bx - ax) - qx * (bz - az));
+            t = ((65536.0 * oupSol->pux) + oneUpPlatformXMax - platSol->returnPosition[0]) / -((oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedX / 4.0);
+            zCrossing = platSol->returnPosition[2] - (t * (oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedZ / 4.0);
 
-            if (t >= 0.0 && t <= 1.0) {
-                if ((stickSol->floorIdx == 0 && ((i == 0 && squishCeilings[2]) || (i == 1 && squishCeilings[0]))) || (stickSol->floorIdx == 1 && ((i == 1 && squishCeilings[1]) || (i == 2 && squishCeilings[3])))) {
-                    squishEdges[nSquishEdges] = i;
-                    nSquishEdges++;
+            if (zCrossing >= (65536.0 * oupSol->puz) + oneUpPlatformZMin && zCrossing <= (65536.0 * oupSol->puz) + oneUpPlatformZMax) {
+                double p = (intendedMag * gCosineTableG[intendedDYaw / 16]);
+                double eqB = (50.0 + 147200.0 / p);
+                double eqC = -(320000.0 / p) * t * returnSpeed;
+                double eqDet = eqB * eqB - eqC;
+
+                if (eqDet > 0) {
+                    float adjustedSpeed = sqrt(eqDet) - eqB;
+                    minStartSpeed = fminf(minStartSpeed, adjustedSpeed);
+                    maxStartSpeed = fmaxf(maxStartSpeed, adjustedSpeed);
                 }
             }
         }
 
-        if (nSquishEdges > 0) {
-            float minStartSpeed = INFINITY;
-            float maxStartSpeed = -INFINITY;
+        if (fabsf(returnSpeedZ) > 0.0001) {
+            double t = ((65536.0 * oupSol->puz) + oneUpPlatformZMin - platSol->returnPosition[2]) / -((oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedZ / 4.0);
+            float xCrossing = platSol->returnPosition[0] - (t * (oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedX / 4.0);
 
-            if (fabsf(returnSpeedX) > 0.0001) {
-                double t = ((65536.0 * oupSol->pux) + oneUpPlatformXMin - platSol->returnPosition[0]) / -((oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedX / 4.0);
-                float zCrossing = platSol->returnPosition[2] - (t * (oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedZ / 4.0);
+            if (xCrossing >= (65536.0 * oupSol->pux) + oneUpPlatformXMin && xCrossing <= (65536.0 * oupSol->pux) + oneUpPlatformXMax) {
+                double p = (intendedMag * gCosineTableG[intendedDYaw / 16]);
+                double eqB = (50.0 + 147200.0 / p);
+                double eqC = -(320000.0 / p) * t * returnSpeed;
+                double eqDet = eqB * eqB - eqC;
 
-                if (zCrossing >= (65536.0 * oupSol->puz) + oneUpPlatformZMin && zCrossing <= (65536.0 * oupSol->puz) + oneUpPlatformZMax) {
-                    double p = (intendedMag * gCosineTableG[intendedDYaw / 16]);
-                    double eqB = (50.0 + 147200.0 / p);
-                    double eqC = -(320000.0 / p) * t * returnSpeed;
-                    double eqDet = eqB * eqB - eqC;
-
-                    if (eqDet > 0) {
-                        float adjustedSpeed = sqrt(eqDet) - eqB;
-                        minStartSpeed = fminf(minStartSpeed, adjustedSpeed);
-                        maxStartSpeed = fmaxf(maxStartSpeed, adjustedSpeed);
-                    }
-                }
-
-                t = ((65536.0 * oupSol->pux) + oneUpPlatformXMax - platSol->returnPosition[0]) / -((oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedX / 4.0);
-                zCrossing = platSol->returnPosition[2] - (t * (oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedZ / 4.0);
-
-                if (zCrossing >= (65536.0 * oupSol->puz) + oneUpPlatformZMin && zCrossing <= (65536.0 * oupSol->puz) + oneUpPlatformZMax) {
-                    double p = (intendedMag * gCosineTableG[intendedDYaw / 16]);
-                    double eqB = (50.0 + 147200.0 / p);
-                    double eqC = -(320000.0 / p) * t * returnSpeed;
-                    double eqDet = eqB * eqB - eqC;
-
-                    if (eqDet > 0) {
-                        float adjustedSpeed = sqrt(eqDet) - eqB;
-                        minStartSpeed = fminf(minStartSpeed, adjustedSpeed);
-                        maxStartSpeed = fmaxf(maxStartSpeed, adjustedSpeed);
-                    }
+                if (eqDet > 0) {
+                    float adjustedSpeed = sqrt(eqDet) - eqB;
+                    minStartSpeed = fminf(minStartSpeed, adjustedSpeed);
+                    maxStartSpeed = fmaxf(maxStartSpeed, adjustedSpeed);
                 }
             }
 
-            if (fabsf(returnSpeedZ) > 0.0001) {
-                double t = ((65536.0 * oupSol->puz) + oneUpPlatformZMin - platSol->returnPosition[2]) / -((oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedZ / 4.0);
-                float xCrossing = platSol->returnPosition[0] - (t * (oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedX / 4.0);
+            t = ((65536.0 * oupSol->puz) + oneUpPlatformZMax - platSol->returnPosition[2]) / -((oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedZ / 4.0);
+            xCrossing = platSol->returnPosition[0] - (t * (oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedX / 4.0);
 
-                if (xCrossing >= (65536.0 * oupSol->pux) + oneUpPlatformXMin && xCrossing <= (65536.0 * oupSol->pux) + oneUpPlatformXMax) {
-                    double p = (intendedMag * gCosineTableG[intendedDYaw / 16]);
-                    double eqB = (50.0 + 147200.0 / p);
-                    double eqC = -(320000.0 / p) * t * returnSpeed;
-                    double eqDet = eqB * eqB - eqC;
+            if (xCrossing >= (65536.0 * oupSol->pux) + oneUpPlatformXMin && xCrossing <= (65536.0 * oupSol->pux) + oneUpPlatformXMax) {
+                double p = (intendedMag * gCosineTableG[intendedDYaw / 16]);
+                double eqB = (50.0 + 147200.0 / p);
+                double eqC = -(320000.0 / p) * t * returnSpeed;
+                double eqDet = eqB * eqB - eqC;
 
-                    if (eqDet > 0) {
-                        float adjustedSpeed = sqrt(eqDet) - eqB;
-                        minStartSpeed = fminf(minStartSpeed, adjustedSpeed);
-                        maxStartSpeed = fmaxf(maxStartSpeed, adjustedSpeed);
-                    }
-                }
-
-                t = ((65536.0 * oupSol->puz) + oneUpPlatformZMax - platSol->returnPosition[2]) / -((oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedZ / 4.0);
-                xCrossing = platSol->returnPosition[0] - (t * (oneUpPlatformNormalY + stickSol->q3 - 1.0) * returnSpeedX / 4.0);
-
-                if (xCrossing >= (65536.0 * oupSol->pux) + oneUpPlatformXMin && xCrossing <= (65536.0 * oupSol->pux) + oneUpPlatformXMax) {
-                    double p = (intendedMag * gCosineTableG[intendedDYaw / 16]);
-                    double eqB = (50.0 + 147200.0 / p);
-                    double eqC = -(320000.0 / p) * t * returnSpeed;
-                    double eqDet = eqB * eqB - eqC;
-
-                    if (eqDet > 0) {
-                        float adjustedSpeed = sqrt(eqDet) - eqB;
-                        minStartSpeed = fminf(minStartSpeed, adjustedSpeed);
-                        maxStartSpeed = fmaxf(maxStartSpeed, adjustedSpeed);
-                    }
+                if (eqDet > 0) {
+                    float adjustedSpeed = sqrt(eqDet) - eqB;
+                    minStartSpeed = fminf(minStartSpeed, adjustedSpeed);
+                    maxStartSpeed = fmaxf(maxStartSpeed, adjustedSpeed);
                 }
             }
+        }
 
-            if (minStartSpeed <= maxStartSpeed) {
-                float minLossFactor = gCosineTableG[intendedDYaw / 16];
-                minLossFactor *= 0.5f + 0.5f * minStartSpeed / 100.0f;
-                minLossFactor = intendedMag / 32.0f * minLossFactor * 0.02f + 0.92f;
+        if (minStartSpeed <= maxStartSpeed) {
+            float minLossFactor = gCosineTableG[intendedDYaw / 16];
+            minLossFactor *= 0.5f + 0.5f * minStartSpeed / 100.0f;
+            minLossFactor = intendedMag / 32.0f * minLossFactor * 0.02f + 0.92f;
 
-                float minStartSpeedX = minStartSpeed * gSineTableG[(oupSol->angle) / 16];
-                float minStartSpeedZ = minStartSpeed * gCosineTableG[(oupSol->angle) / 16];
+            float minStartSpeedX = minStartSpeed * gSineTableG[(oupSol->angle) / 16];
+            float minStartSpeedZ = minStartSpeed * gCosineTableG[(oupSol->angle) / 16];
 
-                float minReturnSpeedX = minStartSpeedX;
-                float minReturnSpeedZ = minStartSpeedZ;
+            float minReturnSpeedX = minStartSpeedX;
+            float minReturnSpeedZ = minStartSpeedZ;
 
-                minReturnSpeedX += minReturnSpeedZ * (intendedMag / 32.0f) * gSineTableG[intendedDYaw / 16] * 0.05f;
-                minReturnSpeedZ -= minReturnSpeedX * (intendedMag / 32.0f) * gSineTableG[intendedDYaw / 16] * 0.05f;
+            minReturnSpeedX += minReturnSpeedZ * (intendedMag / 32.0f) * gSineTableG[intendedDYaw / 16] * 0.05f;
+            minReturnSpeedZ -= minReturnSpeedX * (intendedMag / 32.0f) * gSineTableG[intendedDYaw / 16] * 0.05f;
 
-                newSpeed = sqrtf(minReturnSpeedX * minReturnSpeedX + minReturnSpeedZ * minReturnSpeedZ);
+            newSpeed = sqrtf(minReturnSpeedX * minReturnSpeedX + minReturnSpeedZ * minReturnSpeedZ);
 
-                minReturnSpeedX = minReturnSpeedX * minStartSpeed / newSpeed;
-                minReturnSpeedZ = minReturnSpeedZ * minStartSpeed / newSpeed;
+            minReturnSpeedX = minReturnSpeedX * minStartSpeed / newSpeed;
+            minReturnSpeedZ = minReturnSpeedZ * minStartSpeed / newSpeed;
 
-                minReturnSpeedX += 7.0f * oneUpPlatformNormalX;
+            minReturnSpeedX += 7.0f * oneUpPlatformNormalX;
 
-                minReturnSpeedX *= minLossFactor;
-                minReturnSpeedZ *= minLossFactor;
+            minReturnSpeedX *= minLossFactor;
+            minReturnSpeedZ *= minLossFactor;
 
-                float minReturnSpeed = -sqrtf(minReturnSpeedX * minReturnSpeedX + minReturnSpeedZ * minReturnSpeedZ);
+            float minReturnSpeed = -sqrtf(minReturnSpeedX * minReturnSpeedX + minReturnSpeedZ * minReturnSpeedZ);
 
-                float maxLossFactor = gCosineTableG[intendedDYaw / 16];
-                maxLossFactor *= 0.5f + 0.5f * maxStartSpeed / 100.0f;
-                maxLossFactor = intendedMag / 32.0f * maxLossFactor * 0.02f + 0.92f;
+            float maxLossFactor = gCosineTableG[intendedDYaw / 16];
+            maxLossFactor *= 0.5f + 0.5f * maxStartSpeed / 100.0f;
+            maxLossFactor = intendedMag / 32.0f * maxLossFactor * 0.02f + 0.92f;
 
-                float maxStartSpeedX = maxStartSpeed * gSineTableG[(oupSol->angle) / 16];
-                float maxStartSpeedZ = maxStartSpeed * gCosineTableG[(oupSol->angle) / 16];
+            float maxStartSpeedX = maxStartSpeed * gSineTableG[(oupSol->angle) / 16];
+            float maxStartSpeedZ = maxStartSpeed * gCosineTableG[(oupSol->angle) / 16];
 
-                float maxReturnSpeedX = maxStartSpeedX;
-                float maxReturnSpeedZ = maxStartSpeedZ;
+            float maxReturnSpeedX = maxStartSpeedX;
+            float maxReturnSpeedZ = maxStartSpeedZ;
 
-                maxReturnSpeedX += maxReturnSpeedZ * (intendedMag / 32.0f) * gSineTableG[intendedDYaw / 16] * 0.05f;
-                maxReturnSpeedZ -= maxReturnSpeedX * (intendedMag / 32.0f) * gSineTableG[intendedDYaw / 16] * 0.05f;
+            maxReturnSpeedX += maxReturnSpeedZ * (intendedMag / 32.0f) * gSineTableG[intendedDYaw / 16] * 0.05f;
+            maxReturnSpeedZ -= maxReturnSpeedX * (intendedMag / 32.0f) * gSineTableG[intendedDYaw / 16] * 0.05f;
 
-                newSpeed = sqrtf(maxReturnSpeedX * maxReturnSpeedX + maxReturnSpeedZ * maxReturnSpeedZ);
+            newSpeed = sqrtf(maxReturnSpeedX * maxReturnSpeedX + maxReturnSpeedZ * maxReturnSpeedZ);
 
-                maxReturnSpeedX = maxReturnSpeedX * maxStartSpeed / newSpeed;
-                maxReturnSpeedZ = maxReturnSpeedZ * maxStartSpeed / newSpeed;
+            maxReturnSpeedX = maxReturnSpeedX * maxStartSpeed / newSpeed;
+            maxReturnSpeedZ = maxReturnSpeedZ * maxStartSpeed / newSpeed;
 
-                maxReturnSpeedX += 7.0f * oneUpPlatformNormalX;
+            maxReturnSpeedX += 7.0f * oneUpPlatformNormalX;
 
-                maxReturnSpeedX *= maxLossFactor;
-                maxReturnSpeedZ *= maxLossFactor;
+            maxReturnSpeedX *= maxLossFactor;
+            maxReturnSpeedZ *= maxLossFactor;
 
-                float maxReturnSpeed = -sqrtf(maxReturnSpeedX * maxReturnSpeedX + maxReturnSpeedZ * maxReturnSpeedZ);
+            float maxReturnSpeed = -sqrtf(maxReturnSpeedX * maxReturnSpeedX + maxReturnSpeedZ * maxReturnSpeedZ);
 
-                double ax = platSol->returnPosition[0] - minReturnSpeedX * (oneUpPlatformNormalY + stickSol->q3 - 1.0) / 4.0 - minStartSpeedX * (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0) / 4.0;
-                double az = platSol->returnPosition[2] - minReturnSpeedZ * (oneUpPlatformNormalY + stickSol->q3 - 1.0) / 4.0 - minStartSpeedZ * (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0) / 4.0;
-                double bx = platSol->returnPosition[0] - maxReturnSpeedX * (oneUpPlatformNormalY + stickSol->q3 - 1.0) / 4.0 - maxStartSpeedX * (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0) / 4.0;
-                double bz = platSol->returnPosition[2] - maxReturnSpeedZ * (oneUpPlatformNormalY + stickSol->q3 - 1.0) / 4.0 - maxStartSpeedZ * (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0) / 4.0;
+            double ax = platSol->returnPosition[0] - minReturnSpeedX * (oneUpPlatformNormalY + stickSol->q3 - 1.0) / 4.0 - minStartSpeedX * (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0) / 4.0;
+            double az = platSol->returnPosition[2] - minReturnSpeedZ * (oneUpPlatformNormalY + stickSol->q3 - 1.0) / 4.0 - minStartSpeedZ * (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0) / 4.0;
+            double bx = platSol->returnPosition[0] - maxReturnSpeedX * (oneUpPlatformNormalY + stickSol->q3 - 1.0) / 4.0 - maxStartSpeedX * (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0) / 4.0;
+            double bz = platSol->returnPosition[2] - maxReturnSpeedZ * (oneUpPlatformNormalY + stickSol->q3 - 1.0) / 4.0 - maxStartSpeedZ * (startNormals[stickSol->floorIdx][1] + stickSol->q1q2 - 1.0) / 4.0;
 
-                for (int i = 0; i < nSquishEdges; i++) {
-                    double px = startTriangles[stickSol->floorIdx][squishEdges[i]][0];
-                    double pz = startTriangles[stickSol->floorIdx][squishEdges[i]][2];
-                    double qx = startTriangles[stickSol->floorIdx][(squishEdges[i] + 1) % 3][0];
-                    double qz = startTriangles[stickSol->floorIdx][(squishEdges[i] + 1) % 3][2];
+            for (int i = 0; i < 3; i++) {
+                if ((stickSol->floorIdx == 0 && ((i == 0 && squishCeilings[2]) || (i == 1 && squishCeilings[0]))) || (stickSol->floorIdx == 1 && ((i == 1 && squishCeilings[1]) || (i == 2 && squishCeilings[3])))) {
+                    double px = startTriangles[stickSol->floorIdx][i][0];
+                    double pz = startTriangles[stickSol->floorIdx][i][2];
+                    double qx = startTriangles[stickSol->floorIdx][(i + 1) % 3][0];
+                    double qz = startTriangles[stickSol->floorIdx][(i + 1) % 3][2];
 
                     double t = ((qx - px) * (az - pz) - (qz - pz) * (ax - px)) / ((qz - pz) * (bx - ax) - (qx - px) * (bz - az));
 
