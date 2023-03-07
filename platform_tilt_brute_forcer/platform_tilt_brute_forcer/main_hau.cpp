@@ -1337,10 +1337,10 @@ __global__ void test_oup_solution() {
         float oupX = platSol->returnPosition[0] - (oneUpPlatformNormalY + stickSol->q3 - 1.0f) * (returnSpeedX / 4.0);
         float oupZ = platSol->returnPosition[2] - (oneUpPlatformNormalY + stickSol->q3 - 1.0f) * (returnSpeedZ / 4.0);
 
-        double px = platSol->returnPosition[0];
-        double pz = platSol->returnPosition[2];
-        double qx = oupX;
-        double qz = oupZ;
+        double px = oupX;
+        double pz = oupZ;
+        double qx = gSineTableG[(oupSol->angle) / 16];
+        double qz = gCosineTableG[(oupSol->angle) / 16];
 
         int nSquishEdges = 0;
         int squishEdges[3];
@@ -1353,7 +1353,7 @@ __global__ void test_oup_solution() {
             double by = startTriangles[stickSol->floorIdx][(i + 1) % 3][1];
             double bz = startTriangles[stickSol->floorIdx][(i + 1) % 3][2];
 
-            double t = ((qx - px) * (az - pz) - (qz - pz) * (ax - px)) / ((qz - pz) * (bx - ax) - (qx - px) * (bz - az));
+            double t = (qx * (az - pz) - qz * (ax - px)) / (qz * (bx - ax) - qx * (bz - az));
 
             if (t >= 0.0 && t <= 1.0) {
                 if ((stickSol->floorIdx == 0 && ((i == 0 && squishCeilings[2]) || (i == 1 && squishCeilings[0]))) || (stickSol->floorIdx == 1 && ((i == 1 && squishCeilings[1]) || (i == 2 && squishCeilings[3])))) {
