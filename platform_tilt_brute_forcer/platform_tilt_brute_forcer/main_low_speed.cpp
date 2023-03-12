@@ -1995,7 +1995,7 @@ __global__ void test_upwarp_solution(int nFrames) {
                     double maxRho = max(-32.0, (320000.0 * maxMul - 294400.0) / (100.0 + minPre10KSpeed));
 
                     if (minRho >= maxRho) {
-                        minPre10KSpeed = ((320000.0 * maxMul - 294400.0) / maxRho) - 100.0;
+                        minPre10KSpeed = fmax(minPre10KSpeed, ((320000.0 * maxMul - 294400.0) / maxRho) - 100.0);
 
                         int idx = atomicAdd(&nSpeedSolutions, 1);
 
