@@ -22,8 +22,8 @@
 # define MAX_SK_PHASE_ONE 50000
 # define MAX_SK_PHASE_TWO_A 50000
 # define MAX_SK_PHASE_TWO_B 50000
-# define MAX_SK_PHASE_TWO_C 4000000
-# define MAX_SK_PHASE_TWO_D 4000000
+# define MAX_SK_PHASE_TWO_C 5000000
+# define MAX_SK_PHASE_TWO_D 5000000
 # define MAX_SK_PHASE_THREE 4000000
 # define MAX_SK_PHASE_FOUR 5000000
 # define MAX_SK_PHASE_FIVE 5000000
@@ -3436,7 +3436,8 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
         int puAngleClosest = (65536 + atan2sG(sol->z1, sol->x1)) % 65536;
 
         double sinMaxAngle = sin(2.0 * M_PI * (double)maxQ3Turn / 65536.0);
-        double maxF2AngleChange = fabs(65536.0 * (asin(fmin(fmin(1.0, (sol->maxSpeedQ / (4.0 * sol->minF1Dist)) * sol->q2 * sinMaxAngle), sol->q2 * sinMaxAngle / (4.0 * floorNormalY))) / (2 * M_PI)));
+        double maxF2AngleChange = fmod(32768.0 - (65536.0 * asin(sol->q2 * sinMaxAngle / (4.0 * floorNormalY)) / (2.0 * M_PI)) - maxQ3Turn, 32768.0);
+        maxF2AngleChange = fabs(fmod(maxF2AngleChange + 16384.0, 32768.0) - 16384.0);
 
         int minF2AngleIdx = gReverseArctanTable[puAngleClosest];
         int maxF2AngleIdx = gReverseArctanTable[puAngleClosest];
