@@ -1046,7 +1046,7 @@ __global__ void test_skuw_solution(short* floorPoints, bool* squishEdges, const 
                         if (inBoundsTest) {
                             floorIdx = find_floor(frame1Position, startTriangles, startNormals, &floorHeight);
 
-                            if (floorIdx != -1 && floorHeight + (sol1->q2 * 20.0f / 4.0f) < frame2Position[1]) {
+                            if (floorIdx != -1 && floorHeight + (sol1->q2 * 20.0f / 4.0f) < frame2Position[1] && floorHeight > -3071.0f) {
                                 frame1Position[1] = floorHeight;
 
                                 float startPositions[2][3];
@@ -1083,25 +1083,27 @@ __global__ void test_skuw_solution(short* floorPoints, bool* squishEdges, const 
                                 }
 
                                 for (int i = 0; i < intersections; i++) {
-                                    int solIdx = atomicAdd(&n10KSolutions, 1);
+                                    if (startPositions[i][1] > -3071.0f) {
+                                        int solIdx = atomicAdd(&n10KSolutions, 1);
 
-                                    if (solIdx < MAX_SK_UPWARP_SOLUTIONS) {
-                                        struct TenKSolution* solution = &(tenKSolutions[solIdx]);
-                                        solution->skuwSolutionIdx = idx;
-                                        solution->pre10KSpeed = startSpeed;
-                                        solution->pre10KVel[0] = startVelX;
-                                        solution->pre10KVel[1] = startVelZ;
-                                        solution->returnVel[0] = returnVelX;
-                                        solution->returnVel[1] = returnVelZ;
-                                        solution->frame2Position[0] = frame2Position[0];
-                                        solution->frame2Position[1] = frame2Position[1];
-                                        solution->frame2Position[2] = frame2Position[2];
-                                        solution->frame1Position[0] = frame1Position[0];
-                                        solution->frame1Position[1] = frame1Position[1];
-                                        solution->frame1Position[2] = frame1Position[2];
-                                        solution->startPosition[0] = startPositions[i][0];
-                                        solution->startPosition[1] = startPositions[i][1];
-                                        solution->startPosition[2] = startPositions[i][2];
+                                        if (solIdx < MAX_SK_UPWARP_SOLUTIONS) {
+                                            struct TenKSolution* solution = &(tenKSolutions[solIdx]);
+                                            solution->skuwSolutionIdx = idx;
+                                            solution->pre10KSpeed = startSpeed;
+                                            solution->pre10KVel[0] = startVelX;
+                                            solution->pre10KVel[1] = startVelZ;
+                                            solution->returnVel[0] = returnVelX;
+                                            solution->returnVel[1] = returnVelZ;
+                                            solution->frame2Position[0] = frame2Position[0];
+                                            solution->frame2Position[1] = frame2Position[1];
+                                            solution->frame2Position[2] = frame2Position[2];
+                                            solution->frame1Position[0] = frame1Position[0];
+                                            solution->frame1Position[1] = frame1Position[1];
+                                            solution->frame1Position[2] = frame1Position[2];
+                                            solution->startPosition[0] = startPositions[i][0];
+                                            solution->startPosition[1] = startPositions[i][1];
+                                            solution->startPosition[2] = startPositions[i][2];
+                                        }
                                     }
                                 }
                            }
