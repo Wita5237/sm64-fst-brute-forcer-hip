@@ -34,7 +34,7 @@
 
 std::ofstream out_stream;
 
-__device__ const int maxQ3Turn = 552;
+__device__ const int maxQ3Turn = 522;
 __device__ const int nTenKFloors = 4;
 __device__ float tenKFloors[nTenKFloors][9] = {
     { -613.0, -306.0, -4607.0, -4453.0, -3071.0, -2661.0, -0.9361413717, 0.351623833, 0.0 },
@@ -47,8 +47,8 @@ struct SKPhase1 {
     int x1;
     int z1;
     int q2;
-    double minSpeedQ;
-    double maxSpeedQ;
+    double minSpeed;
+    double maxSpeed;
     double minF1Dist;
     double maxF1Dist;
 };
@@ -3062,8 +3062,8 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
             }
         }
 
-        double minSpeed = fmaxf(sol1->minSpeedQ, 4.0 * minF2Dist / (float)sol1->q2);
-        double maxSpeed = fminf(sol1->maxSpeedQ, 4.0 * maxF2Dist / (float)sol1->q2);
+        double minSpeed = fmaxf(sol1->minSpeed, 4.0 * minF2Dist / (float)sol1->q2);
+        double maxSpeed = fminf(sol1->maxSpeed, 4.0 * maxF2Dist / (float)sol1->q2);
 
         if (minSpeed <= maxSpeed) {
             double minF3Dist = INFINITY;
@@ -3243,8 +3243,8 @@ __global__ void find_slide_kick_setupG3a(float platformMinZ, float platformMaxZ)
 
         int cosSign = (sol2->cosAngle > 0) - (sol2->cosAngle < 0);
 
-        double speed1 = ((cosSign + 1) >> 1) * sol1->minSpeedQ + (((cosSign + 1) >> 1) ^ 1) * sol1->maxSpeedQ;
-        double speed2 = ((cosSign + 1) >> 1) * sol1->maxSpeedQ + (((cosSign + 1) >> 1) ^ 1) * sol1->minSpeedQ;
+        double speed1 = ((cosSign + 1) >> 1) * sol1->minSpeed + (((cosSign + 1) >> 1) ^ 1) * sol1->maxSpeed;
+        double speed2 = ((cosSign + 1) >> 1) * sol1->maxSpeed + (((cosSign + 1) >> 1) ^ 1) * sol1->minSpeed;
 
         int minF2ZPU = (int)ceil((65536.0 * sol1->z1 + platformMinZ + speed1 * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][3]) / 65536.0);
         int maxF2ZPU = (int)floor((65536.0 * sol1->z1 + platformMaxZ + speed2 * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][2]) / 65536.0);
@@ -3276,8 +3276,8 @@ __global__ void find_slide_kick_setupG3b(float platformMinX, float platformMaxX)
 
         int sinSign = (sol2->sinAngle > 0) - (sol2->sinAngle < 0);
 
-        double speed1 = ((sinSign + 1) >> 1) * sol1->minSpeedQ + (((sinSign + 1) >> 1) ^ 1) * sol1->maxSpeedQ;
-        double speed2 = ((sinSign + 1) >> 1) * sol1->maxSpeedQ + (((sinSign + 1) >> 1) ^ 1) * sol1->minSpeedQ;
+        double speed1 = ((sinSign + 1) >> 1) * sol1->minSpeed + (((sinSign + 1) >> 1) ^ 1) * sol1->maxSpeed;
+        double speed2 = ((sinSign + 1) >> 1) * sol1->maxSpeed + (((sinSign + 1) >> 1) ^ 1) * sol1->minSpeed;
 
         int minF2XPU = (int)ceil((65536.0 * sol1->x1 + platformMinX + speed1 * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][1]) / 65536.0);
         int maxF2XPU = (int)floor((65536.0 * sol1->x1 + platformMaxX + speed2 * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][0]) / 65536.0);
@@ -3312,8 +3312,8 @@ __global__ void find_slide_kick_setupG3c(float platformMinX, float platformMaxX,
         int cosSign = (sol2->cosAngle > 0) - (sol2->cosAngle < 0);
         int cotSign = (cotAngle > 0) - (cotAngle < 0);
 
-        double speed1 = ((sinSign + 1) >> 1) * sol1->minSpeedQ + (((sinSign + 1) >> 1) ^ 1) * sol1->maxSpeedQ;
-        double speed2 = ((sinSign + 1) >> 1) * sol1->maxSpeedQ + (((sinSign + 1) >> 1) ^ 1) * sol1->minSpeedQ;
+        double speed1 = ((sinSign + 1) >> 1) * sol1->minSpeed + (((sinSign + 1) >> 1) ^ 1) * sol1->maxSpeed;
+        double speed2 = ((sinSign + 1) >> 1) * sol1->maxSpeed + (((sinSign + 1) >> 1) ^ 1) * sol1->minSpeed;
 
         int minF2XPU = (int)ceil((65536.0 * sol1->x1 + platformMinX + speed1 * sol2->sinAngle * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][1]) / 65536.0);
         int maxF2XPU = (int)floor((65536.0 * sol1->x1 + platformMaxX + speed2 * sol2->sinAngle * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][0]) / 65536.0);
@@ -3321,8 +3321,8 @@ __global__ void find_slide_kick_setupG3c(float platformMinX, float platformMaxX,
         minF2XPU += (sol1->q2 + ((sol1->x1 - minF2XPU) % sol1->q2)) % sol1->q2;
         maxF2XPU -= (sol1->q2 + ((minF2XPU - sol1->x1) % sol1->q2)) % sol1->q2;
 
-        speed1 = ((cosSign + 1) >> 1) * sol1->minSpeedQ + (((cosSign + 1) >> 1) ^ 1) * sol1->maxSpeedQ;
-        speed2 = ((cosSign + 1) >> 1) * sol1->maxSpeedQ + (((cosSign + 1) >> 1) ^ 1) * sol1->minSpeedQ;
+        speed1 = ((cosSign + 1) >> 1) * sol1->minSpeed + (((cosSign + 1) >> 1) ^ 1) * sol1->maxSpeed;
+        speed2 = ((cosSign + 1) >> 1) * sol1->maxSpeed + (((cosSign + 1) >> 1) ^ 1) * sol1->minSpeed;
 
         int minF2ZPU = (int)ceil((65536.0 * sol1->z1 + platformMinZ + speed1 * sol2->cosAngle * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][3]) / 65536.0);
         int maxF2ZPU = (int)floor((65536.0 * sol1->z1 + platformMaxZ + speed2 * sol2->cosAngle * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][2]) / 65536.0);
@@ -3376,8 +3376,8 @@ __global__ void find_slide_kick_setupG3d(float platformMinX, float platformMaxX,
         int cosSign = (sol2->cosAngle > 0) - (sol2->cosAngle < 0);
         int tanSign = (tanAngle > 0) - (tanAngle < 0);
 
-        double speed1 = ((sinSign + 1) >> 1) * sol1->minSpeedQ + (((sinSign + 1) >> 1) ^ 1) * sol1->maxSpeedQ;
-        double speed2 = ((sinSign + 1) >> 1) * sol1->maxSpeedQ + (((sinSign + 1) >> 1) ^ 1) * sol1->minSpeedQ;
+        double speed1 = ((sinSign + 1) >> 1) * sol1->minSpeed + (((sinSign + 1) >> 1) ^ 1) * sol1->maxSpeed;
+        double speed2 = ((sinSign + 1) >> 1) * sol1->maxSpeed + (((sinSign + 1) >> 1) ^ 1) * sol1->minSpeed;
 
         int minF2XPU = (int)ceil((65536.0 * sol1->x1 + platformMinX + speed1 * sol2->sinAngle * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][1]) / 65536.0);
         int maxF2XPU = (int)floor((65536.0 * sol1->x1 + platformMaxX + speed2 * sol2->sinAngle * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][0]) / 65536.0);
@@ -3385,8 +3385,8 @@ __global__ void find_slide_kick_setupG3d(float platformMinX, float platformMaxX,
         minF2XPU += (sol1->q2 + ((sol1->x1 - minF2XPU) % sol1->q2)) % sol1->q2;
         maxF2XPU -= (sol1->q2 + ((minF2XPU - sol1->x1) % sol1->q2)) % sol1->q2;
 
-        speed1 = ((cosSign + 1) >> 1) * sol1->minSpeedQ + (((cosSign + 1) >> 1) ^ 1) * sol1->maxSpeedQ;
-        speed2 = ((cosSign + 1) >> 1) * sol1->maxSpeedQ + (((cosSign + 1) >> 1) ^ 1) * sol1->minSpeedQ;
+        speed1 = ((cosSign + 1) >> 1) * sol1->minSpeed + (((cosSign + 1) >> 1) ^ 1) * sol1->maxSpeed;
+        speed2 = ((cosSign + 1) >> 1) * sol1->maxSpeed + (((cosSign + 1) >> 1) ^ 1) * sol1->minSpeed;
 
         int minF2ZPU = (int)ceil((65536.0 * sol1->z1 + platformMinZ + speed1 * sol2->cosAngle * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][3]) / 65536.0);
         int maxF2ZPU = (int)floor((65536.0 * sol1->z1 + platformMaxZ + speed2 * sol2->cosAngle * (double)sol1->q2 / 4.0 - tenKFloors[sol2->tenKFloorIdx][2]) / 65536.0);
@@ -3629,11 +3629,11 @@ __global__ void find_slide_kick_setupG(short* floorPoints, const int nPoints, fl
             }
         }
 
-        for (int q2 = 1; q2 <= 4; q2++) {
-            double minSpeedQ = minF1Dist * (double)q2 / (4.0 * floorNormalY);
-            double maxSpeedQ = fmin(maxSpeed, maxF1Dist * (double)q2 / (4.0 * floorNormalY));
+        double minSpeedF1 = minF1Dist / floorNormalY;
+        double maxSpeedF1 = fmin(maxSpeed, maxF1Dist / floorNormalY);
 
-            if (minSpeedQ < maxSpeedQ) {
+        if (minSpeedF1 < maxSpeedF1) {
+            for (int q2 = 1; q2 <= 4; q2++) {
                 int solIdx = atomicAdd(&nSK1Solutions, 1);
 
                 if (solIdx < MAX_SK_PHASE_ONE) {
@@ -3641,11 +3641,10 @@ __global__ void find_slide_kick_setupG(short* floorPoints, const int nPoints, fl
                     solution->x1 = x1;
                     solution->z1 = z1;
                     solution->q2 = q2;
-                    solution->minSpeedQ = minSpeedQ;
-                    solution->maxSpeedQ = maxSpeedQ;
+                    solution->minSpeed = minSpeedF1;
+                    solution->maxSpeed = maxSpeedF1;
                     solution->minF1Dist = minF1Dist;
                     solution->maxF1Dist = maxF1Dist;
-
                 }
             }
         }
