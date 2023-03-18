@@ -1046,7 +1046,7 @@ __global__ void test_skuw_solution(short* floorPoints, bool* squishEdges, const 
                         if (inBoundsTest) {
                             floorIdx = find_floor(frame1Position, startTriangles, startNormals, &floorHeight);
 
-                            if (floorIdx != -1 && floorHeight + (sol1->q2 * 20.0f / 4.0f) < frame2Position[1] && floorHeight > -3071.0f) {
+                            if (floorIdx != -1 && floorHeight + (sol1->q2 * 20.0f / 4.0f) < frame2Position[1] && floorHeight + (sol1->q2 * 20.0f / 4.0f) >= frame2Position[1] - 78.0f && floorHeight > -3071.0f) {
                                 frame1Position[1] = floorHeight;
 
                                 float startPositions[2][3];
