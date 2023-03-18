@@ -1025,7 +1025,7 @@ __global__ void test_skuw_solution(short* floorPoints, bool* squishEdges, const 
 
                     int floorIdx = find_floor(frame2Position, &floor, floorHeight, floorsG, total_floorsG);
 
-                    if (floorIdx != -1 && floor->normal[1] == tenKFloors[sol2->tenKFloorIdx][7] && floorHeight < platSol->returnPosition[1] && floorHeight > -2971.0f) {
+                    if (floorIdx != -1 && floor->normal[1] == tenKFloors[sol2->tenKFloorIdx][7] && floorHeight < platSol->returnPosition[1] && floorHeight >= platSol->returnPosition[1] - 78.0f && floorHeight > -2971.0f) {
                         frame2Position[1] = floorHeight;
 
                         float frame1Position[3] = { frame2Position[0], frame2Position[1], frame2Position[2] };
