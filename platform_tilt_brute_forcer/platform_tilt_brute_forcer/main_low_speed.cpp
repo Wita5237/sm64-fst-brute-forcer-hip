@@ -1029,7 +1029,12 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
             if (vel1a >= 0) {
                 bool searchLoop = true;
 
+                float upperSpeed = 2.0f * vel1a;
+                float lowerSpeed = 0.0f;
+
                 while (searchLoop) {
+                    vel1a = fmaxf((upperSpeed + lowerSpeed) / 2.0f, nextafterf(lowerSpeed, INFINITY));
+
                     xVel2a = vel1a * gSineTableG[angle >> 4];
                     zVel2a = vel1a * gCosineTableG[angle >> 4];
 
@@ -1053,20 +1058,24 @@ __device__ bool test_stick_position(int solIdx, int x, int y, float endSpeed, fl
 
                     float vel2b = -sqrtf(xVel2a * xVel2a + zVel2a * zVel2a);
 
-                    if (vel2b > endSpeed) {
-                        vel1a = fmaxf(vel1a + 0.25f, nextafterf(vel1a, INFINITY));
+                    if (vel2b == endSpeed) {
+                        vel2a = vel2b;
+                        vel1 = vel1a;
+                        xVel1 = vel1 * gSineTableG[angle >> 4];
+                        zVel1 = vel1 * gCosineTableG[angle >> 4];
+                        searchLoop = false;
                     }
                     else {
-                        if (vel2b == endSpeed) {
-                            vel2a = vel2b;
-                            vel1 = vel1a;
-                            xVel1 = vel1 * gSineTableG[angle >> 4];
-                            zVel1 = vel1 * gCosineTableG[angle >> 4];
-                            searchLoop = false;
+                        if (vel2b < endSpeed) {
+                            upperSpeed = vel1a;
                         }
                         else {
+                            lowerSpeed = vel1a;
+                        }
+
+                        if (nextafterf(lowerSpeed, INFINITY) == upperSpeed) {
+                            searchLoop = false;
                             speedTest = false;
-                            break;
                         }
                     }
                 }
