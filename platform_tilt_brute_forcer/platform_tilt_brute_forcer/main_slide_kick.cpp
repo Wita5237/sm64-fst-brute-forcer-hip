@@ -977,7 +977,12 @@ __global__ void test_skuw_solution(short* floorPoints, bool* squishEdges, const 
                 float returnVelX;
                 float returnVelZ;
 
+                float upperSpeed = 2.0f*startSpeed;
+                float lowerSpeed = 0.0f;
+
                 while (searchLoop) {
+                    startSpeed = fmaxf((upperSpeed + lowerSpeed) / 2.0f, nextafterf(lowerSpeed, INFINITY));
+
                     startVelX = startSpeed * gSineTableG[sol2->f2Angle >> 4];
                     startVelZ = startSpeed * gCosineTableG[sol2->f2Angle >> 4];
 
@@ -1005,13 +1010,19 @@ __global__ void test_skuw_solution(short* floorPoints, bool* squishEdges, const 
 
                     float returnSpeed = -sqrtf(returnVelX * returnVelX + returnVelZ * returnVelZ);
 
-                    if (returnSpeed > speedSol->returnSpeed) {
-                        startSpeed = fmaxf(startSpeed + 0.25f, nextafterf(startSpeed, INFINITY));
+                    if (returnSpeed == speedSol->returnSpeed) {
+                        searchLoop = false;
                     }
                     else {
-                        searchLoop = false;
+                        if (returnSpeed < speedSol->returnSpeed) {
+                            upperSpeed = startSpeed;
+                        }
+                        else {
+                            lowerSpeed = startSpeed;
+                        }
 
-                        if (returnSpeed != speedSol->returnSpeed) {
+                        if (nextafterf(lowerSpeed, INFINITY) == upperSpeed) {
+                            searchLoop = false;
                             speedTest = false;
                         }
                     }
