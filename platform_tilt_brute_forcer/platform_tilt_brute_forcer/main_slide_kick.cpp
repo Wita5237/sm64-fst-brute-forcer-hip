@@ -15,7 +15,7 @@
 #include "WallsFloors.hpp"
 
 # define M_PI                  3.14159265358979323846  /* pi */
-# define MAX_SPEED_SOLUTIONS   15000000
+
 # define MAX_UPWARP_SOLUTIONS  10000000
 # define MAX_PLAT_SOLUTIONS    200000
 
@@ -29,12 +29,14 @@
 # define MAX_SK_PHASE_FIVE 5000000
 # define MAX_SK_PHASE_SIX 200000
 
-# define MAX_SK_UPWARP_SOLUTIONS 5000000
+# define MAX_SK_UPWARP_SOLUTIONS 500000
+# define MAX_SPEED_SOLUTIONS   100000000
 # define MAX_10K_SOLUTIONS 50000
+# define MAX_SLIDE_SOLUTIONS   50000
 
 std::ofstream out_stream;
 
-__device__ const int maxQ3Turn = 522;
+__device__ const int maxF3Turn = 522;
 __device__ const int nTenKFloors = 4;
 __device__ float tenKFloors[nTenKFloors][9] = {
     { -613.0, -306.0, -4607.0, -4453.0, -3071.0, -2661.0, -0.9361413717, 0.351623833, 0.0 },
@@ -103,11 +105,6 @@ struct SKPhase6 {
     double angleDiff;
 };
 
-struct SKUpwarpSolution {
-    int skIdx;
-    int uwIdx;
-};
-
 __device__ struct SKPhase1 sk1Solutions[MAX_SK_PHASE_ONE];
 __device__ int nSK1Solutions;
 __device__ struct SKPhase2 sk2ASolutions[MAX_SK_PHASE_TWO_A];
@@ -127,34 +124,10 @@ __device__ int nSK5Solutions;
 __device__ struct SKPhase6 sk6Solutions[MAX_SK_PHASE_SIX];
 __device__ int nSK6Solutions;
 
-__device__ struct SKUpwarpSolution skuwSolutions[MAX_SK_UPWARP_SOLUTIONS];
-__device__ int nSKUWSolutions;
-
-struct TenKSolution {
-    int skuwSolutionIdx;
-    float pre10KSpeed;
-    float pre10KVel[2];
-    float returnVel[2];
-    float startPosition[3];
-    float frame1Position[3];
-    float frame2Position[3];
-};
-
-struct SpeedSolution {
-    int upwarpSolutionIdx;
-    float preUpwarpPosition[3];
-    float upwarpPosition[3];
-    float returnSpeed;
-    int angle;
-    float stickMag;
-    int intendedDYaw;
-};
-
 struct UpwarpSolution {
     int platformSolutionIdx;
     int pux;
     int puz;
-    bool slideKickValid;
 };
 
 struct PlatformSolution {
@@ -168,6 +141,52 @@ struct PlatformSolution {
     float penultimatePosition[3];
     int nFrames;
 };
+
+__device__ struct PlatformSolution platSolutions[MAX_PLAT_SOLUTIONS];
+__device__ int nPlatSolutions;
+__device__ struct UpwarpSolution upwarpSolutions[MAX_UPWARP_SOLUTIONS];
+__device__ int nUpwarpSolutions;
+
+struct SKUpwarpSolution {
+    int skIdx;
+    int uwIdx;
+    float minSpeed;
+    float maxSpeed;
+};;
+
+struct SpeedSolution {
+    int skuwSolutionIdx;
+    float returnSpeed;
+};
+
+struct TenKSolution {
+    int speedSolutionIdx;
+    float pre10KSpeed;
+    float pre10KVel[2];
+    float returnVel[2];
+    float startPosition[3];
+    float frame1Position[3];
+    float frame2Position[3];
+};
+
+struct SlideSolution {
+    int tenKSolutionIdx;
+    float preUpwarpPosition[3];
+    float upwarpPosition[3];
+    int angle;
+    float stickMag;
+    int intendedDYaw;
+    int postSlideAngle;
+};
+
+__device__ struct SKUpwarpSolution skuwSolutions[MAX_SK_UPWARP_SOLUTIONS];
+__device__ int nSKUWSolutions;
+__device__ struct SpeedSolution speedSolutions[MAX_SPEED_SOLUTIONS];
+__device__ int nSpeedSolutions;
+__device__ struct TenKSolution tenKSolutions[MAX_10K_SOLUTIONS];
+__device__ int n10KSolutions;
+__device__ struct SlideSolution slideSolutions[MAX_SLIDE_SOLUTIONS];
+__device__ int nSlideSolutions;
 
 class SurfaceG {
 public:
@@ -254,18 +273,6 @@ __device__ short startTriangles[2][3][3];
 __device__ float startNormals[2][3];
 __device__ bool squishCeilings[4];
 __device__ float platformNormal[3];
-
-__device__ struct PlatformSolution platSolutions[MAX_PLAT_SOLUTIONS];
-__device__ int nPlatSolutions;
-
-__device__ struct UpwarpSolution upwarpSolutions[MAX_UPWARP_SOLUTIONS];
-__device__ int nUpwarpSolutions;
-
-__device__ struct SpeedSolution speedSolutions[MAX_SPEED_SOLUTIONS];
-__device__ int nSpeedSolutions;
-
-__device__ struct TenKSolution tenKSolutions[MAX_10K_SOLUTIONS];
-__device__ int n10KSolutions;
 
 __device__ const int total_floorsG = 350;
 __device__ SurfaceG floorsG[total_floorsG];
@@ -919,14 +926,239 @@ __device__ int atan2b(double z, double x) {
     return lower;
 }
 
-__global__ void test_skuw_solution(short* floorPoints, bool* squishEdges, const int nPoints, float floorNormalY) {
+__device__ float find_pre10K_speed(float post10KSpeed, float& post10KVelX, float& post10KVelZ, int solIdx) {
+    struct SKPhase6* sol6 = &(sk6Solutions[solIdx]);
+    struct SKPhase5* sol5 = &(sk5Solutions[sol6->p5Idx]);
+    struct SKPhase4* sol4 = &(sk4Solutions[sol5->p4Idx]);
+    struct SKPhase3* sol3 = &(sk3Solutions[sol4->p3Idx]);
+    struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(sk2ASolutions[sol3->p2Idx]) : &(sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(sk2CSolutions[sol3->p2Idx]) : &(sk2DSolutions[sol3->p2Idx]));
+
+    float pre10KSpeed = NAN;
+    post10KVelX = NAN;
+    post10KVelZ = NAN;
+
+    int trueX = (sol5->stickX == 0) ? 0 : ((sol5->stickX < 0) ? sol5->stickX - 6 : sol5->stickX + 6);
+    int trueY = (sol5->stickY == 0) ? 0 : ((sol5->stickY < 0) ? sol5->stickY - 6 : sol5->stickY + 6);
+
+    float mag = sqrtf((float)(sol5->stickX * sol5->stickX + sol5->stickY * sol5->stickY));
+
+    float xS = sol5->stickX;
+    float yS = sol5->stickY;
+
+    if (mag > 64.0f) {
+        xS = xS * (64.0f / mag);
+        yS = yS * (64.0f / mag);
+        mag = 64.0f;
+    }
+
+    float intendedMag = ((mag / 64.0f) * (mag / 64.0f)) * 32.0f;
+    int intendedYaw = atan2sG(-yS, xS) + sol4->cameraYaw;
+    int intendedDYaw = intendedYaw - sol5->f1Angle;
+    intendedDYaw = (65536 + (intendedDYaw % 65536)) % 65536;
+
+    double w = intendedMag * gCosineTableG[intendedDYaw >> 4];
+    double eqB = (50.0 + 147200.0 / w);
+    double eqC = -(320000.0 / w) * post10KSpeed;
+    double eqDet = eqB * eqB - eqC;
+
+    if (eqDet >= 0) {
+        pre10KSpeed = sqrt(eqDet) - eqB;
+
+        if (pre10KSpeed >= 0) {
+            bool searchLoop = true;
+            bool speedTest = true;
+
+            float upperSpeed = 2.0f * pre10KSpeed;
+            float lowerSpeed = 0.0f;
+
+            while (searchLoop) {
+                pre10KSpeed = fmaxf((upperSpeed + lowerSpeed) / 2.0f, nextafterf(lowerSpeed, INFINITY));
+
+                float pre10KVelX = pre10KSpeed * gSineTableG[sol2->f2Angle >> 4];
+                float pre10KVelZ = pre10KSpeed * gCosineTableG[sol2->f2Angle >> 4];
+
+                post10KVelX = pre10KVelX;
+                post10KVelZ = pre10KVelZ;
+
+                float oldSpeed = sqrtf(post10KVelX * post10KVelX + post10KVelZ * post10KVelZ);
+
+                post10KVelX += post10KVelZ * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
+                post10KVelZ -= post10KVelX * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
+
+                float newSpeed = sqrtf(post10KVelX * post10KVelX + post10KVelZ * post10KVelZ);
+
+                post10KVelX = post10KVelX * oldSpeed / newSpeed;
+                post10KVelZ = post10KVelZ * oldSpeed / newSpeed;
+
+                post10KVelX += 7.0f * tenKFloors[sol2->tenKFloorIdx][6];
+                post10KVelZ += 7.0f * tenKFloors[sol2->tenKFloorIdx][8];
+
+                float forward = gCosineTableG[intendedDYaw >> 4] * (0.5f + 0.5f * pre10KSpeed / 100.0f);
+                float lossFactor = intendedMag / 32.0f * forward * 0.02f + 0.92f;
+
+                post10KVelX *= lossFactor;
+                post10KVelZ *= lossFactor;
+
+                float post10KSpeedTest = -sqrtf(post10KVelX * post10KVelX + post10KVelZ * post10KVelZ);
+
+                if (post10KSpeedTest == post10KSpeed) {
+                    searchLoop = false;
+                }
+                else {
+                    if (post10KSpeedTest < post10KSpeed) {
+                        upperSpeed = pre10KSpeed;
+                    }
+                    else {
+                        lowerSpeed = pre10KSpeed;
+                    }
+
+                    if (nextafterf(lowerSpeed, INFINITY) == upperSpeed) {
+                        searchLoop = false;
+                        pre10KSpeed = NAN;
+                        post10KVelX = NAN;
+                        post10KVelZ = NAN;
+                    }
+                }
+            }
+        }
+    }
+
+    return pre10KSpeed;
+}
+
+__global__ void test_speed_solution(short* floorPoints, bool* squishEdges, const int nPoints, float floorNormalY) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (idx < min(nSpeedSolutions, MAX_SPEED_SOLUTIONS)) {
+        struct SpeedSolution* sol = &(speedSolutions[idx]);
+        struct SKUpwarpSolution* skuwSol = &(skuwSolutions[sol->skuwSolutionIdx]);
+        struct UpwarpSolution* uwSol = &(upwarpSolutions[skuwSol->uwIdx]);
+        struct PlatformSolution* platSol = &(platSolutions[uwSol->platformSolutionIdx]);
+        struct SKPhase6* sol6 = &(sk6Solutions[skuwSol->skIdx]);
+        struct SKPhase5* sol5 = &(sk5Solutions[sol6->p5Idx]);
+        struct SKPhase4* sol4 = &(sk4Solutions[sol5->p4Idx]);
+        struct SKPhase3* sol3 = &(sk3Solutions[sol4->p3Idx]);
+        struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(sk2ASolutions[sol3->p2Idx]) : &(sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(sk2CSolutions[sol3->p2Idx]) : &(sk2DSolutions[sol3->p2Idx]));
+        struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
+
+        float returnVelX;
+        float returnVelZ;
+        float pre10KSpeed = find_pre10K_speed(sol->returnSpeed, returnVelX, returnVelZ, skuwSol->skIdx);
+
+        if (pre10KSpeed) {
+            float frame2Position[3] = { platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (returnVelX / 4.0f), platSol->returnPosition[1], platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (returnVelZ / 4.0f) };
+
+            SurfaceG* floor;
+            float floorHeight;
+
+            int floorIdx = find_floor(frame2Position, &floor, floorHeight, floorsG, total_floorsG);
+
+            if (floorIdx != -1 && floor->normal[1] == tenKFloors[sol2->tenKFloorIdx][7] && floorHeight < platSol->returnPosition[1] && floorHeight >= platSol->returnPosition[1] - 78.0f && floorHeight > -2971.0f) {
+                frame2Position[1] = floorHeight;
+
+                float startSpeed = pre10KSpeed + 1.0f;
+                startSpeed = startSpeed + 0.35f;
+
+                float startVelX = pre10KSpeed * gSineTableG[sol2->f2Angle >> 4];
+                float startVelZ = pre10KSpeed * gCosineTableG[sol2->f2Angle >> 4];
+
+                float frame1Position[3] = { frame2Position[0], frame2Position[1], frame2Position[2] };
+
+                bool inBoundsTest = true;
+
+                for (int q = 0; q < sol1->q2; q++) {
+                    frame1Position[0] = frame1Position[0] - (startVelX / 4.0f);
+                    frame1Position[2] = frame1Position[2] - (startVelZ / 4.0f);
+
+                    if (!check_inbounds(frame1Position)) {
+                        inBoundsTest = false;
+                        break;
+                    }
+                }
+
+                if (inBoundsTest) {
+                    floorIdx = find_floor(frame1Position, startTriangles, startNormals, &floorHeight);
+
+                    if (floorIdx != -1 && floorHeight + (sol1->q2 * 20.0f / 4.0f) < frame2Position[1] && floorHeight + (sol1->q2 * 20.0f / 4.0f) >= frame2Position[1] - 78.0f && floorHeight > -3071.0f) {
+                        frame1Position[1] = floorHeight;
+
+                        float startPositions[2][3];
+                        int intersections = 0;
+
+                        for (int i = 0; i < nPoints; i++) {
+                            if (squishEdges[i]) {
+                                double eqA = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) + ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]);
+                                double eqB = 2.0 * (((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * ((double)floorPoints[3 * i] - frame1Position[0]) + ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * ((double)floorPoints[3 * i + 2] - frame1Position[2]));
+                                double eqC = ((double)floorPoints[3 * i] - frame1Position[0]) * ((double)floorPoints[3 * i] - frame1Position[0]) + ((double)floorPoints[3 * i + 2] - frame1Position[2]) * ((double)floorPoints[3 * i + 2] - frame1Position[2]) - ((double)startSpeed * (double)floorNormalY) * ((double)startSpeed * (double)floorNormalY);
+                                double eqDet = eqB * eqB - 4.0 * eqA * eqC;
+
+                                if (eqDet >= 0) {
+                                    double t = (-eqB + sqrt(eqDet)) / (2.0 * eqA);
+
+                                    if (t >= 0.0 && t <= 1.0) {
+                                        startPositions[intersections][0] = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * t + (double)floorPoints[3 * i];
+                                        startPositions[intersections][1] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 1] - (double)floorPoints[3 * i + 1]) * t + (double)floorPoints[3 * i + 1];
+                                        startPositions[intersections][2] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * t + (double)floorPoints[3 * i + 2];
+                                        intersections++;
+                                        continue;
+                                    }
+
+                                    t = (-eqB - sqrt(eqDet)) / (2.0 * eqA);
+
+                                    if (t >= 0.0 && t <= 1.0) {
+                                        startPositions[intersections][0] = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * t + (double)floorPoints[3 * i];
+                                        startPositions[intersections][1] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 1] - (double)floorPoints[3 * i + 1]) * t + (double)floorPoints[3 * i + 1];
+                                        startPositions[intersections][2] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * t + (double)floorPoints[3 * i + 2];
+                                        intersections++;
+                                    }
+                                }
+                            }
+                        }
+
+                        for (int i = 0; i < intersections; i++) {
+                            if (startPositions[i][1] > -3071.0f) {
+                                int f1Angle = atan2sG(frame1Position[2] - startPositions[i][2], frame1Position[0] - startPositions[i][0]);
+                                f1Angle = (65536 + f1Angle) % 65536;
+
+                                if (f1Angle == sol5->f1Angle) {
+                                    int solIdx = atomicAdd(&n10KSolutions, 1);
+
+                                    if (solIdx < MAX_SK_UPWARP_SOLUTIONS) {
+                                        struct TenKSolution* solution = &(tenKSolutions[solIdx]);
+                                        solution->speedSolutionIdx = idx;
+                                        solution->pre10KSpeed = startSpeed;
+                                        solution->pre10KVel[0] = startVelX;
+                                        solution->pre10KVel[1] = startVelZ;
+                                        solution->returnVel[0] = returnVelX;
+                                        solution->returnVel[1] = returnVelZ;
+                                        solution->frame2Position[0] = frame2Position[0];
+                                        solution->frame2Position[1] = frame2Position[1];
+                                        solution->frame2Position[2] = frame2Position[2];
+                                        solution->frame1Position[0] = frame1Position[0];
+                                        solution->frame1Position[1] = frame1Position[1];
+                                        solution->frame1Position[2] = frame1Position[2];
+                                        solution->startPosition[0] = startPositions[i][0];
+                                        solution->startPosition[1] = startPositions[i][1];
+                                        solution->startPosition[2] = startPositions[i][2];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+__global__ void find_speed_solutions() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx < min(nSKUWSolutions, MAX_SK_UPWARP_SOLUTIONS)) {
         struct SKUpwarpSolution* sol = &(skuwSolutions[idx]);
-        struct SpeedSolution* speedSol = &(speedSolutions[sol->uwIdx]);
-        struct UpwarpSolution* uwSol = &(upwarpSolutions[speedSol->upwarpSolutionIdx]);
+        struct UpwarpSolution* uwSol = &(upwarpSolutions[sol->uwIdx]);
         struct PlatformSolution* platSol = &(platSolutions[uwSol->platformSolutionIdx]);
+
         struct SKPhase6* sol6 = &(sk6Solutions[sol->skIdx]);
         struct SKPhase5* sol5 = &(sk5Solutions[sol6->p5Idx]);
         struct SKPhase4* sol4 = &(sk4Solutions[sol5->p4Idx]);
@@ -934,192 +1166,269 @@ __global__ void test_skuw_solution(short* floorPoints, bool* squishEdges, const 
         struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(sk2ASolutions[sol3->p2Idx]) : &(sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(sk2CSolutions[sol3->p2Idx]) : &(sk2DSolutions[sol3->p2Idx]));
         struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
 
-        int trueX = (sol5->stickX == 0) ? 0 : ((sol5->stickX < 0) ? sol5->stickX - 6 : sol5->stickX + 6);
-        int trueY = (sol5->stickY == 0) ? 0 : ((sol5->stickY < 0) ? sol5->stickY - 6 : sol5->stickY + 6);
+        float minX = 65536.0f * sol3->x2 + tenKFloors[sol2->tenKFloorIdx][0];
+        float maxX = 65536.0f * sol3->x2 + tenKFloors[sol2->tenKFloorIdx][1];
+        float minZ = 65536.0f * sol3->z2 + tenKFloors[sol2->tenKFloorIdx][2];
+        float maxZ = 65536.0f * sol3->z2 + tenKFloors[sol2->tenKFloorIdx][3];
 
-        float mag = sqrtf((float)(sol5->stickX * sol5->stickX + sol5->stickY * sol5->stickY));
+        float minSpeed = sol->minSpeed;
+        float maxSpeed = sol->maxSpeed;
 
-        float xS = sol5->stickX;
-        float yS = sol5->stickY;
+        float minReturnVelX;
+        float minReturnVelZ;
+        float minPre10KSpeed = NAN;
+        
+        while (!minPre10KSpeed && minSpeed >= maxSpeed) {
+            minPre10KSpeed = find_pre10K_speed(minSpeed, minReturnVelX, minReturnVelZ, sol->skIdx);
 
-        if (mag > 64.0f) {
-            xS = xS * (64.0f / mag);
-            yS = yS * (64.0f / mag);
-            mag = 64.0f;
+            if (!minPre10KSpeed) {
+                minSpeed = nextafterf(minSpeed, -INFINITY);
+            }
         }
 
-        float intendedMag = ((mag / 64.0f) * (mag / 64.0f)) * 32.0f;
-        int intendedYaw = atan2sG(-yS, xS) + sol4->cameraYaw;
-        int intendedDYaw = intendedYaw - sol5->f1Angle;
-        intendedDYaw = (65536 + (intendedDYaw % 65536)) % 65536;
+        float maxReturnVelX;
+        float maxReturnVelZ;
+        float maxPre10KSpeed = NAN;
 
-        double w = intendedMag * gCosineTableG[intendedDYaw >> 4];
-        double eqB = (50.0 + 147200.0 / w);
-        double eqC = -(320000.0 / w) * speedSol->returnSpeed;
-        double eqDet = eqB * eqB - eqC;
+        while (!maxPre10KSpeed && maxSpeed <= minSpeed) {
+            maxPre10KSpeed = find_pre10K_speed(maxSpeed, maxReturnVelX, maxReturnVelZ, sol->skIdx);
 
-        if (eqDet >= 0) {
-            float pre10KSpeed = sqrt(eqDet) - eqB;
+            if (!maxPre10KSpeed) {
+                maxSpeed = nextafterf(maxSpeed, INFINITY);
+            }
+        }
 
-            if (pre10KSpeed >= 0) {
-                bool searchLoop = true;
-                bool speedTest = true;
+        if (minSpeed >= maxSpeed) {
+            float minSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
+            float minSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
 
-                float returnVelX;
-                float returnVelZ;
+            float maxSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0);
+            float maxSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0);
 
-                float upperSpeed = 2.0f * pre10KSpeed;
-                float lowerSpeed = 0.0f;
+            bool speedTest = true;
 
-                while (searchLoop) {
-                    pre10KSpeed = fmaxf((upperSpeed + lowerSpeed) / 2.0f, nextafterf(lowerSpeed, INFINITY));
+            if (minSpeedF2X < minX) {
+                if (maxSpeedF2X < minX) {
+                    speedTest = false;
+                }
+                else {
+                    float lowerSpeed = minSpeed;
+                    float upperSpeed = maxSpeed;
 
-                    float pre10KVelX = pre10KSpeed * gSineTableG[sol2->f2Angle >> 4];
-                    float pre10KVelZ = pre10KSpeed * gCosineTableG[sol2->f2Angle >> 4];
+                    while (nextafter(lowerSpeed, -INFINITY) > upperSpeed) {
+                        float midSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
 
-                    returnVelX = pre10KVelX;
-                    returnVelZ = pre10KVelZ;
+                        minPre10KSpeed = find_pre10K_speed(midSpeed, minReturnVelX, minReturnVelZ, sol->skIdx);
 
-                    float oldSpeed = sqrtf(returnVelX * returnVelX + returnVelZ * returnVelZ);
+                        if (minPre10KSpeed) {
+                            minSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
 
-                    returnVelX += returnVelZ * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
-                    returnVelZ -= returnVelX * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
-
-                    float newSpeed = sqrtf(returnVelX * returnVelX + returnVelZ * returnVelZ);
-
-                    returnVelX = returnVelX * oldSpeed / newSpeed;
-                    returnVelZ = returnVelZ * oldSpeed / newSpeed;
-
-                    returnVelX += 7.0f * tenKFloors[sol2->tenKFloorIdx][6];
-                    returnVelZ += 7.0f * tenKFloors[sol2->tenKFloorIdx][8];
-
-                    float forward = gCosineTableG[intendedDYaw >> 4] * (0.5f + 0.5f * pre10KSpeed / 100.0f);
-                    float lossFactor = intendedMag / 32.0f * forward * 0.02f + 0.92f;
-
-                    returnVelX *= lossFactor;
-                    returnVelZ *= lossFactor;
-
-                    float returnSpeed = -sqrtf(returnVelX * returnVelX + returnVelZ * returnVelZ);
-
-                    if (returnSpeed == speedSol->returnSpeed) {
-                        searchLoop = false;
+                            if (minSpeedF2X < minX) {
+                                lowerSpeed = midSpeed;
+                            }
+                            else {
+                                upperSpeed = midSpeed;
+                            }
+                        }
                     }
-                    else {
-                        if (returnSpeed < speedSol->returnSpeed) {
-                            upperSpeed = pre10KSpeed;
+
+                    minSpeed = upperSpeed;
+                }
+            }
+            else if (maxSpeedF2X < maxX) {
+                float lowerSpeed = minSpeed;
+                float upperSpeed = maxSpeed;
+
+                while (nextafter(lowerSpeed, -INFINITY) > upperSpeed) {
+                    float midSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
+
+                    maxPre10KSpeed = find_pre10K_speed(midSpeed, maxReturnVelX, maxReturnVelZ, sol->skIdx);
+
+                    if (maxPre10KSpeed) {
+                        maxSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
+
+                        if (maxSpeedF2X < minX) {
+                            upperSpeed = midSpeed;
                         }
                         else {
-                            lowerSpeed = pre10KSpeed;
-                        }
-
-                        if (nextafterf(lowerSpeed, INFINITY) == upperSpeed) {
-                            searchLoop = false;
-                            speedTest = false;
+                            lowerSpeed = midSpeed;
                         }
                     }
                 }
 
-                if (speedTest) {
-                    float frame2Position[3] = { platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (returnVelX / 4.0f), platSol->returnPosition[1], platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (returnVelZ / 4.0f) };
+                maxSpeed = lowerSpeed;
+            }
 
-                    SurfaceG *floor;
-                    float floorHeight;
+            if (speedTest) {
+                if (minSpeedF2X > maxX) {
+                    if (maxSpeedF2X > maxX) {
+                        speedTest = false;
+                    }
+                    else {
+                        float lowerSpeed = minSpeed;
+                        float upperSpeed = maxSpeed;
 
-                    int floorIdx = find_floor(frame2Position, &floor, floorHeight, floorsG, total_floorsG);
+                        while (nextafter(lowerSpeed, -INFINITY) > upperSpeed) {
+                            float midSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
 
-                    if (floorIdx != -1 && floor->normal[1] == tenKFloors[sol2->tenKFloorIdx][7] && floorHeight < platSol->returnPosition[1] && floorHeight >= platSol->returnPosition[1] - 78.0f && floorHeight > -2971.0f) {
-                        frame2Position[1] = floorHeight;
+                            minPre10KSpeed = find_pre10K_speed(midSpeed, minReturnVelX, minReturnVelZ, sol->skIdx);
 
-                        float startSpeed = pre10KSpeed + 1.0f;
-                        startSpeed = startSpeed + 0.35f;
+                            if (minPre10KSpeed) {
+                                minSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
 
-                        float startVelX = pre10KSpeed * gSineTableG[sol2->f2Angle >> 4];
-                        float startVelZ = pre10KSpeed * gCosineTableG[sol2->f2Angle >> 4];
-
-                        float frame1Position[3] = { frame2Position[0], frame2Position[1], frame2Position[2] };
-
-                        bool inBoundsTest = true;
-
-                        for (int q = 0; q < sol1->q2; q++) {
-                            frame1Position[0] = frame1Position[0] - (startVelX / 4.0f);
-                            frame1Position[2] = frame1Position[2] - (startVelZ / 4.0f);
-
-                            if (!check_inbounds(frame1Position)) {
-                                inBoundsTest = false;
-                                break;
-                            }
-                        }
-
-                        if (inBoundsTest) {
-                            floorIdx = find_floor(frame1Position, startTriangles, startNormals, &floorHeight);
-
-                            if (floorIdx != -1 && floorHeight + (sol1->q2 * 20.0f / 4.0f) < frame2Position[1] && floorHeight + (sol1->q2 * 20.0f / 4.0f) >= frame2Position[1] - 78.0f && floorHeight > -3071.0f) {
-                                frame1Position[1] = floorHeight;
-
-                                float startPositions[2][3];
-                                int intersections = 0;
-
-                                for (int i = 0; i < nPoints; i++) {
-                                    if (squishEdges[i]) {
-                                        double eqA = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) + ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]);
-                                        double eqB = 2.0 * (((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * ((double)floorPoints[3 * i] - frame1Position[0]) + ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * ((double)floorPoints[3 * i + 2] - frame1Position[2]));
-                                        double eqC = ((double)floorPoints[3 * i] - frame1Position[0]) * ((double)floorPoints[3 * i] - frame1Position[0]) + ((double)floorPoints[3 * i + 2] - frame1Position[2]) * ((double)floorPoints[3 * i + 2] - frame1Position[2]) - ((double)startSpeed * (double)floorNormalY) * ((double)startSpeed * (double)floorNormalY);
-                                        double eqDet = eqB * eqB - 4.0 * eqA * eqC;
-
-                                        if (eqDet >= 0) {
-                                            double t = (-eqB + sqrt(eqDet)) / (2.0 * eqA);
-
-                                            if (t >= 0.0 && t <= 1.0) {
-                                                startPositions[intersections][0] = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * t + (double)floorPoints[3 * i];
-                                                startPositions[intersections][1] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 1] - (double)floorPoints[3 * i + 1]) * t + (double)floorPoints[3 * i + 1];
-                                                startPositions[intersections][2] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * t + (double)floorPoints[3 * i + 2];
-                                                intersections++;
-                                                continue;
-                                            }
-
-                                            t = (-eqB - sqrt(eqDet)) / (2.0 * eqA);
-
-                                            if (t >= 0.0 && t <= 1.0) {
-                                                startPositions[intersections][0] = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * t + (double)floorPoints[3 * i];
-                                                startPositions[intersections][1] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 1] - (double)floorPoints[3 * i + 1]) * t + (double)floorPoints[3 * i + 1];
-                                                startPositions[intersections][2] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * t + (double)floorPoints[3 * i + 2];
-                                                intersections++;
-                                            }
-                                        }
-                                    }
+                                if (minSpeedF2X > maxX) {
+                                    lowerSpeed = midSpeed;
                                 }
-
-                                for (int i = 0; i < intersections; i++) {
-                                    if (startPositions[i][1] > -3071.0f) {
-                                        int f1Angle = atan2sG(frame1Position[2] - startPositions[i][2], frame1Position[0] - startPositions[i][0]);
-                                        f1Angle = (65536 + f1Angle) % 65536;
-
-                                        if (f1Angle == sol5->f1Angle) {
-                                            int solIdx = atomicAdd(&n10KSolutions, 1);
-
-                                            if (solIdx < MAX_SK_UPWARP_SOLUTIONS) {
-                                                struct TenKSolution* solution = &(tenKSolutions[solIdx]);
-                                                solution->skuwSolutionIdx = idx;
-                                                solution->pre10KSpeed = startSpeed;
-                                                solution->pre10KVel[0] = startVelX;
-                                                solution->pre10KVel[1] = startVelZ;
-                                                solution->returnVel[0] = returnVelX;
-                                                solution->returnVel[1] = returnVelZ;
-                                                solution->frame2Position[0] = frame2Position[0];
-                                                solution->frame2Position[1] = frame2Position[1];
-                                                solution->frame2Position[2] = frame2Position[2];
-                                                solution->frame1Position[0] = frame1Position[0];
-                                                solution->frame1Position[1] = frame1Position[1];
-                                                solution->frame1Position[2] = frame1Position[2];
-                                                solution->startPosition[0] = startPositions[i][0];
-                                                solution->startPosition[1] = startPositions[i][1];
-                                                solution->startPosition[2] = startPositions[i][2];
-                                            }
-                                        }
-                                    }
+                                else {
+                                    upperSpeed = midSpeed;
                                 }
                             }
                         }
+
+                        minSpeed = upperSpeed;
+                    }
+                }
+                else if (maxSpeedF2X > maxX) {
+                    float lowerSpeed = minSpeed;
+                    float upperSpeed = maxSpeed;
+
+                    while (nextafter(lowerSpeed, -INFINITY) > upperSpeed) {
+                        float midSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
+
+                        maxPre10KSpeed = find_pre10K_speed(midSpeed, maxReturnVelX, maxReturnVelZ, sol->skIdx);
+
+                        if (maxPre10KSpeed) {
+                            maxSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
+
+                            if (maxSpeedF2X > maxX) {
+                                upperSpeed = midSpeed;
+                            }
+                            else {
+                                lowerSpeed = midSpeed;
+                            }
+                        }
+                    }
+
+                    minSpeed = lowerSpeed;
+                }
+            }
+
+            if (speedTest) {
+                if (minSpeedF2Z < minZ) {
+                    if (maxSpeedF2Z < minZ) {
+                        speedTest = false;
+                    }
+                    else {
+                        float lowerSpeed = minSpeed;
+                        float upperSpeed = maxSpeed;
+
+                        while (nextafter(lowerSpeed, -INFINITY) > upperSpeed) {
+                            float midSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
+
+                            minPre10KSpeed = find_pre10K_speed(midSpeed, minReturnVelX, minReturnVelZ, sol->skIdx);
+
+                            if (minPre10KSpeed) {
+                                minSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+
+                                if (minSpeedF2Z < minZ) {
+                                    lowerSpeed = midSpeed;
+                                }
+                                else {
+                                    upperSpeed = midSpeed;
+                                }
+                            }
+                        }
+
+                        minSpeed = upperSpeed;
+                    }
+                }
+                else if (maxSpeedF2Z < maxZ) {
+                    float lowerSpeed = minSpeed;
+                    float upperSpeed = maxSpeed;
+
+                    while (nextafter(lowerSpeed, -INFINITY) > upperSpeed) {
+                        float midSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
+
+                        maxPre10KSpeed = find_pre10K_speed(midSpeed, maxReturnVelX, maxReturnVelZ, sol->skIdx);
+
+                        if (maxPre10KSpeed) {
+                            maxSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+
+                            if (maxSpeedF2Z < minZ) {
+                                upperSpeed = midSpeed;
+                            }
+                            else {
+                                lowerSpeed = midSpeed;
+                            }
+                        }
+                    }
+
+                    maxSpeed = lowerSpeed;
+                }
+            }
+
+            if (speedTest) {
+                if (minSpeedF2Z > maxZ) {
+                    if (maxSpeedF2Z > maxZ) {
+                        speedTest = false;
+                    }
+                    else {
+                        float lowerSpeed = minSpeed;
+                        float upperSpeed = maxSpeed;
+
+                        while (nextafter(lowerSpeed, -INFINITY) > upperSpeed) {
+                            float midSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
+
+                            minPre10KSpeed = find_pre10K_speed(midSpeed, minReturnVelX, minReturnVelZ, sol->skIdx);
+
+                            if (minPre10KSpeed) {
+                                minSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+
+                                if (minSpeedF2Z > maxZ) {
+                                    lowerSpeed = midSpeed;
+                                }
+                                else {
+                                    upperSpeed = midSpeed;
+                                }
+                            }
+                        }
+
+                        minSpeed = upperSpeed;
+                    }
+                }
+                else if (maxSpeedF2Z > maxZ) {
+                    float lowerSpeed = minSpeed;
+                    float upperSpeed = maxSpeed;
+
+                    while (nextafter(lowerSpeed, -INFINITY) > upperSpeed) {
+                        float midSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
+
+                        maxPre10KSpeed = find_pre10K_speed(midSpeed, maxReturnVelX, maxReturnVelZ, sol->skIdx);
+
+                        if (maxPre10KSpeed) {
+                            maxSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+
+                            if (maxSpeedF2Z > maxZ) {
+                                upperSpeed = midSpeed;
+                            }
+                            else {
+                                lowerSpeed = midSpeed;
+                            }
+                        }
+                    }
+
+                    minSpeed = lowerSpeed;
+                }
+            }
+
+            if (speedTest) {
+                for (float speed = minSpeed; speed >= maxSpeed; speed = nextafterf(speed, -INFINITY)) {
+                    int solIdx = atomicAdd(&nSpeedSolutions, 1);
+
+                    if (solIdx < MAX_SPEED_SOLUTIONS) {
+                        struct SpeedSolution* solution = &(speedSolutions[solIdx]);
+                        solution->skuwSolutionIdx = idx;
+                        solution->returnSpeed = speed;
                     }
                 }
             }
@@ -1127,31 +1436,7 @@ __global__ void test_skuw_solution(short* floorPoints, bool* squishEdges, const 
     }
 }
 
-__global__ void test_speed_solution() {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (idx < min(nSpeedSolutions, MAX_SPEED_SOLUTIONS)) {
-        struct SpeedSolution* sol = &(speedSolutions[idx]);
-
-        for (int i = 0; i < min(nSK6Solutions, MAX_SK_PHASE_SIX); i++) {
-            SKPhase6* sk6Sol = &(sk6Solutions[i]);
-
-            if (sol->returnSpeed >= sk6Sol->maxPost10KSpeed && sol->returnSpeed <= sk6Sol->minPost10KSpeed) {
-                if (nSKUWSolutions < MAX_SK_UPWARP_SOLUTIONS) {
-                    int solIdx = atomicAdd(&nSKUWSolutions, 1);
-
-                    if (solIdx < MAX_SK_UPWARP_SOLUTIONS) {
-                        struct SKUpwarpSolution* solution = &(skuwSolutions[solIdx]);
-                        solution->skIdx = i;
-                        solution->uwIdx = idx;
-                    }
-                }
-            }
-        }
-    }
-}
-
-__global__ void test_sk_upwarp_solution() {
+__global__ void find_sk_upwarp_solutions() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx < min(nUpwarpSolutions, MAX_UPWARP_SOLUTIONS)) {
@@ -1160,19 +1445,43 @@ __global__ void test_sk_upwarp_solution() {
 
         float speedBuffer = 1000.0;
 
-        float baseSpeed = 65536.0 * sqrt((double)(uwSol->pux * uwSol->pux + uwSol->puz * uwSol->puz));
+        double maxDist = -INFINITY;
+        double minDist = INFINITY;
 
-        float upperSpeed = -(baseSpeed / platSol->endTriangleNormals[platSol->endFloorIdx][1]) / 0.9 - speedBuffer;
-        float lowerSpeed = -(baseSpeed / platSol->endTriangleNormals[platSol->endFloorIdx][1]) / 0.94 + speedBuffer;
+        for (int i = 0; i < 3; i++) {
+            double xDist = 65536.0f * uwSol->pux + platSol->endTriangles[platSol->endFloorIdx][i][0] - platSol->returnPosition[0];
+            double zDist = 65536.0f * uwSol->puz + platSol->endTriangles[platSol->endFloorIdx][i][2] - platSol->returnPosition[2];
 
-        uwSol->slideKickValid = false;
+            double dist = sqrt(xDist * xDist + zDist * zDist);
+
+            minDist = fmin(dist, minDist);
+            maxDist = fmax(dist, maxDist);
+        }
+
+        float upperSpeed = -(maxDist / platSol->endTriangleNormals[platSol->endFloorIdx][1]) / 0.9 - speedBuffer;
+        float lowerSpeed = -(minDist / platSol->endTriangleNormals[platSol->endFloorIdx][1]) / 0.94 + speedBuffer;
 
         for (int i = 0; i < min(nSK6Solutions, MAX_SK_PHASE_SIX); i++) {
             SKPhase6* sk6Sol = &(sk6Solutions[i]);
+            struct SKPhase5* sol5 = &(sk5Solutions[sk6Sol->p5Idx]);
+            struct SKPhase4* sol4 = &(sk4Solutions[sol5->p4Idx]);
+            struct SKPhase3* sol3 = &(sk3Solutions[sol4->p3Idx]);
+            struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(sk2ASolutions[sol3->p2Idx]) : &(sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(sk2CSolutions[sol3->p2Idx]) : &(sk2DSolutions[sol3->p2Idx]));
+            struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
 
-            if (lowerSpeed >= sk6Sol->maxPost10KSpeed && upperSpeed <= sk6Sol->minPost10KSpeed) {
-                uwSol->slideKickValid = true;
-                break;
+            float minSpeed = fminf(lowerSpeed, sk6Sol->minPost10KSpeed);
+            float maxSpeed = fmaxf(upperSpeed, sk6Sol->maxPost10KSpeed);
+            
+            if (minSpeed >= maxSpeed) {
+                int solIdx = atomicAdd(&nSKUWSolutions, 1);
+
+                if (solIdx < MAX_SK_UPWARP_SOLUTIONS) {
+                    struct SKUpwarpSolution* solution = &(skuwSolutions[solIdx]);
+                    solution->skIdx = i;
+                    solution->uwIdx = idx;
+                    solution->minSpeed = minSpeed;
+                    solution->maxSpeed = maxSpeed;
+                }
             }
         }
     }
@@ -1405,89 +1714,272 @@ __device__ void platform_logic(float* platform_normal, float* mario_pos, short(&
     mario_pos[2] = mz;
 }
 
-__device__ void try_pu_slide_angle(struct PlatformSolution* sol, int solIdx, int angle, int floorIdx, double s, float xVel1, float zVel1) {
-    double t = tan(2.0 * M_PI * (double)angle / 65536.0);
+__device__ void try_upwarp_slide(int solIdx, int angle, int intendedDYaw, float intendedMag) {
+    struct TenKSolution* tenKSol = &(tenKSolutions[solIdx]);
+    struct SpeedSolution* speedSol = &(speedSolutions[tenKSol->speedSolutionIdx]);
+    struct SKUpwarpSolution* skuwSol = &(skuwSolutions[speedSol->skuwSolutionIdx]);
+    struct UpwarpSolution* uwSol = &(upwarpSolutions[skuwSol->uwIdx]);
+    struct PlatformSolution* platSol = &(platSolutions[uwSol->platformSolutionIdx]);
 
-    double n = (-(s * t) - 1.0 + sqrt((s * t - 1.0) * (s * t - 1.0) + 4.0 * s * s)) / (2.0 * s);
-    float nTestX = gCosineTableG[angle >> 4] + n * gSineTableG[angle >> 4];
+    float lossFactor = intendedMag / 32.0f * gCosineTableG[intendedDYaw >> 4] * 0.02f + 0.92f;
+    int slopeAngle = atan2sG(platSol->endTriangleNormals[platSol->endFloorIdx][2], platSol->endTriangleNormals[platSol->endFloorIdx][0]);
+    float steepness = sqrtf(platSol->endTriangleNormals[platSol->endFloorIdx][0] * platSol->endTriangleNormals[platSol->endFloorIdx][0] + platSol->endTriangleNormals[platSol->endFloorIdx][2] * platSol->endTriangleNormals[platSol->endFloorIdx][2]);
 
-    if ((xVel1 < 0 && nTestX > 0) || (xVel1 > 0 && nTestX < 0)) {
-        n = (-(s * t) - 1.0 - sqrt((s * t - 1.0) * (s * t - 1.0) + 4.0 * s * s)) / (2.0 * s);
+    float xVel0 = speedSol->returnSpeed * gSineTableG[angle >> 4];
+    float zVel0 = speedSol->returnSpeed * gCosineTableG[angle >> 4];
+
+    float xVel1 = xVel0;
+    float zVel1 = zVel0;
+
+    float oldSpeed = sqrtf(xVel1 * xVel1 + zVel1 * zVel1);
+
+    xVel1 += zVel1 * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
+    zVel1 -= xVel1 * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
+
+    float newSpeed = sqrtf(xVel1 * xVel1 + zVel1 * zVel1);
+
+    xVel1 = xVel1 * oldSpeed / newSpeed;
+    zVel1 = zVel1 * oldSpeed / newSpeed;
+
+    xVel1 += 7.0f * steepness * gSineTableG[slopeAngle >> 4];
+    zVel1 += 7.0f * steepness * gCosineTableG[slopeAngle >> 4];
+
+    xVel1 *= lossFactor;
+    zVel1 *= lossFactor;
+
+    float intendedPos[3] = { platSol->endPosition[0], platSol->endPosition[1], platSol->endPosition[2] };
+
+    int floorIdx = platSol->endFloorIdx;
+    bool slideCheck = true;
+
+    for (int s = 0; s < 4; s++) {
+        intendedPos[0] = intendedPos[0] + platSol->endTriangleNormals[floorIdx][1] * (xVel1 / 4.0f);
+        intendedPos[2] = intendedPos[2] + platSol->endTriangleNormals[floorIdx][1] * (zVel1 / 4.0f);
+
+        float floorHeight;
+        floorIdx = find_floor(intendedPos, platSol->endTriangles, platSol->endTriangleNormals, &floorHeight);
+
+        if (floorIdx == -1 || floorHeight <= -3071.0f) {
+            slideCheck = false;
+            break;
+        }
+        else {
+            intendedPos[1] = floorHeight;
+        }
     }
 
-    double n1 = n / 0.05;
+    if (slideCheck) {
+        float prePositionTest[3] = { platSol->penultimatePosition[0] + platSol->penultimateFloorNormalY * xVel0 / 4.0f, platSol->penultimatePosition[1], platSol->penultimatePosition[2] + platSol->penultimateFloorNormalY * zVel0 / 4.0f };
 
-    if (fabs(n1) <= 1.01) {
-        int minAngle = (int)round(65536.0 * asin(fabs(n1 / 1.01)) / (2.0 * M_PI));
-        minAngle = minAngle + ((16 - (minAngle % 16)) % 16);
+        if (!check_inbounds(prePositionTest)) {
+            float test_normal[3] = { platSol->endNormal[0], platSol->endNormal[1], platSol->endNormal[2] };
+            float mario_pos[3] = { intendedPos[0], intendedPos[1], intendedPos[2]};
 
-        for (int j = minAngle; j <= 32768 - minAngle; j += 16) {
-            int j1 = (n1 >= 0) ? j : (65536 - j) % 65536;
+            short triangles[2][3][3];
+            float normals[2][3];
+            float mat[4][4];
 
-            float idealMag = 32.0f * n1 / gSineTableG[j1 >> 4];
+            platform_logic(test_normal, mario_pos, triangles, normals, mat);
 
-            float mag = find_closest_mag(idealMag);
+            bool upwarpPositionTest = false;
 
-            float vel0 = (float)(sqrt((double)xVel1 * (double)xVel1 + (double)zVel1 * (double)zVel1) / ((double)(mag / 32.0f) * (double)gCosineTableG[j1 >> 4] * 0.02 + 0.92));
-            vel0 = (vel0 < 0) ? vel0 : -vel0;
-
-            float xVel0 = vel0 * gSineTableG[angle >> 4];
-            float zVel0 = vel0 * gCosineTableG[angle >> 4];
-
-            float xVel1a = xVel0;
-            float zVel1a = zVel0;
-
-            float oldSpeed = sqrtf(xVel1a * xVel1a + zVel1a * zVel1a);
-
-            xVel1a += zVel1a * (mag / 32.0f) * gSineTableG[j1 >> 4] * 0.05f;
-            zVel1a -= xVel1a * (mag / 32.0f) * gSineTableG[j1 >> 4] * 0.05f;
-
-            float newSpeed = sqrtf(xVel1a * xVel1a + zVel1a * zVel1a);
-
-            xVel1a = xVel1a * oldSpeed / newSpeed;
-            zVel1a = zVel1a * oldSpeed / newSpeed;
-
-            xVel1a *= mag / 32.0f * gCosineTableG[j1 >> 4] * 0.02f + 0.92f;
-            zVel1a *= mag / 32.0f * gCosineTableG[j1 >> 4] * 0.02f + 0.92f;
-
-            float positionTest[3] = { sol->endPosition[0], 1000.0f, sol->endPosition[2] };
-
-            for (int s = 0; s < 4; s++) {
-                positionTest[0] = positionTest[0] + sol->endTriangleNormals[floorIdx][1] * (xVel1a / 4.0f);
-                positionTest[2] = positionTest[2] + sol->endTriangleNormals[floorIdx][1] * (zVel1a / 4.0f);
+            for (int i = 0; i < n_y_ranges && !upwarpPositionTest; i++) {
+                if (mario_pos[1] >= lower_y[i] && mario_pos[1] <= upper_y[i]) {
+                    upwarpPositionTest = true;
+                }
             }
 
-            float floorHeight;
-            int floorIdx1 = find_floor(positionTest, sol->endTriangles, sol->endTriangleNormals, &floorHeight);
+            upwarpPositionTest = upwarpPositionTest && check_inbounds(mario_pos);
 
-            if (floorIdx1 != -1 && floorHeight > -3061.0) {
-                float prePositionTest[3] = { sol->penultimatePosition[0] + sol->penultimateFloorNormalY * xVel0 / 4.0f, sol->penultimatePosition[1], sol->penultimatePosition[2] + sol->penultimateFloorNormalY * zVel0 / 4.0f };
+            if (upwarpPositionTest) {
+                int idx = atomicAdd(&nSlideSolutions, 1);
+                if (idx < MAX_SLIDE_SOLUTIONS) {
+                    int slideYaw = atan2sG(xVel1, xVel1);
+                    int facingDYaw = angle - slideYaw;
+                    int newFacingDYaw = facingDYaw;
 
-                if (!check_inbounds(prePositionTest)) {
-                    float test_normal[3] = { sol->endNormal[0], sol->endNormal[1], sol->endNormal[2] };
-                    float mario_pos[3] = { positionTest[0], floorHeight, positionTest[2] };
+                    if (newFacingDYaw > 0 && newFacingDYaw <= 0x4000) {
+                        if ((newFacingDYaw -= 0x200) < 0) {
+                            newFacingDYaw = 0;
+                        }
+                    }
+                    else if (newFacingDYaw > -0x4000 && newFacingDYaw < 0) {
+                        if ((newFacingDYaw += 0x200) > 0) {
+                            newFacingDYaw = 0;
+                        }
+                    }
+                    else if (newFacingDYaw > 0x4000 && newFacingDYaw < 0x8000) {
+                        if ((newFacingDYaw += 0x200) > 0x8000) {
+                            newFacingDYaw = 0x8000;
+                        }
+                    }
+                    else if (newFacingDYaw > -0x8000 && newFacingDYaw < -0x4000) {
+                        if ((newFacingDYaw -= 0x200) < -0x8000) {
+                            newFacingDYaw = -0x8000;
+                        }
+                    }
 
-                    short triangles[2][3][3];
-                    float normals[2][3];
-                    float mat[4][4];
+                    int postSlideAngle = slideYaw + newFacingDYaw;
 
-                    platform_logic(test_normal, mario_pos, triangles, normals, mat);
+                    SlideSolution* solution = &(slideSolutions[idx]);
+                    solution->tenKSolutionIdx = solIdx;
+                    solution->preUpwarpPosition[0] = intendedPos[0];
+                    solution->preUpwarpPosition[1] = intendedPos[1];
+                    solution->preUpwarpPosition[2] = intendedPos[2];
+                    solution->upwarpPosition[0] = mario_pos[0];
+                    solution->upwarpPosition[1] = mario_pos[1];
+                    solution->upwarpPosition[2] = mario_pos[2];
+                    solution->angle = angle;
+                    solution->intendedDYaw = intendedDYaw;
+                    solution->stickMag = intendedMag;
+                    solution->postSlideAngle = postSlideAngle;
+                }
+            }
+        }
+    }
+}
 
-                    int idx = atomicAdd(&nSpeedSolutions, 1);
-                    if (idx < MAX_SPEED_SOLUTIONS) {
-                        SpeedSolution solution;
-                        solution.upwarpSolutionIdx = solIdx;
-                        solution.returnSpeed = vel0;
-                        solution.preUpwarpPosition[0] = positionTest[0];
-                        solution.preUpwarpPosition[1] = floorHeight;
-                        solution.preUpwarpPosition[2] = positionTest[2];
-                        solution.upwarpPosition[0] = mario_pos[0];
-                        solution.upwarpPosition[1] = mario_pos[1];
-                        solution.upwarpPosition[2] = mario_pos[2];
-                        solution.angle = angle;
-                        solution.intendedDYaw = j1;
-                        solution.stickMag = mag;
-                        speedSolutions[idx] = solution;
+__device__ void try_pu_slide_angle(int solIdx, int angle, double minEndAngle, double maxEndAngle, double minM1, double maxM1) {
+    double minAngleDiff = fmax(minEndAngle - angle, -(double)522);
+    double maxAngleDiff = fmax(maxEndAngle - angle, (double)522);
+
+    if (minAngleDiff <= maxAngleDiff) {
+        double minEndAngleA = minAngleDiff + angle;
+        double maxEndAngleA = maxAngleDiff + angle;
+
+        double minN;
+        double maxN;
+
+        if (angle == 0 || angle == 32768) {
+            double sinStartAngle = sin(2.0 * M_PI * (double)angle / 65536.0);
+
+            minN = -cos(2.0 * M_PI * minEndAngleA / 65536.0) / sinStartAngle;
+            maxN = -cos(2.0 * M_PI * maxEndAngleA / 65536.0) / sinStartAngle;
+        }
+        else {
+            double sinStartAngle = gSineTableG[angle >> 4];
+            double cosStartAngle = gCosineTableG[angle >> 4];
+
+            double sinMinEndAngle = sin(2.0 * M_PI * minEndAngleA / 65536.0);
+            double cosMinEndAngle = cos(2.0 * M_PI * minEndAngleA / 65536.0);
+
+            double sinMaxEndAngle = sin(2.0 * M_PI * maxEndAngleA / 65536.0);
+            double cosMaxEndAngle = cos(2.0 * M_PI * maxEndAngleA / 65536.0);
+
+            double t = sinStartAngle / cosStartAngle;
+            double s = sinMinEndAngle / cosMinEndAngle;
+
+            bool signTest = (cosStartAngle > 0 && cosMinEndAngle > 0) || (cosStartAngle < 0 && cosMinEndAngle < 0);
+
+            if (signTest) {
+                minN = (-((double)s * (double)t) - 1.0 + sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
+            }
+            else {
+                minN = (-((double)s * (double)t) - 1.0 - sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
+            }
+
+            s = sinMaxEndAngle / cosMaxEndAngle;
+
+            signTest = (cosStartAngle > 0 && cosMaxEndAngle > 0) || (cosStartAngle < 0 && cosMaxEndAngle < 0);
+
+            if (signTest) {
+                maxN = (-((double)s * (double)t) - 1.0 + sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
+            }
+            else {
+                maxN = (-((double)s * (double)t) - 1.0 - sqrt(((double)s * (double)t - 1.0) * ((double)s * (double)t - 1.0) + 4.0 * (double)s * (double)s)) / (2.0 * (double)s);
+            }
+        }
+
+        double minN1 = 32.0 * minN / 0.05;
+        double maxN1 = 32.0 * maxN / 0.05;
+
+        if (minN1 > maxN1) {
+            double temp = minN1;
+            minN1 = maxN1;
+            maxN1 = temp;
+        }
+
+        minN1 = fmax(minN1, -32.0);
+        maxN1 = fmin(maxN1, 32.0);
+
+        if (minN1 <= maxN1) {
+            double minMag = INFINITY;
+            double maxMag = -INFINITY;
+
+            double minYaw = INFINITY;
+            double maxYaw = -INFINITY;
+
+            for (int i = 0; i < 4; i++) {
+                double m1;
+                double n1;
+
+                if (i % 2 == 0) {
+                    m1 = minM1;
+                }
+                else {
+                    m1 = maxM1;
+                }
+
+                if (i / 2 == 0) {
+                    n1 = minN1;
+                }
+                else {
+                    n1 = maxN1;
+                }
+
+                double mag = sqrt(m1 * m1 + n1 * n1);
+                double yaw = 65536.0 * (atan2(n1, m1) / (2.0 * M_PI));
+                yaw = fmod(65536.0 + yaw, 65536.0);
+
+                minMag = fmin(minMag, mag);
+                maxMag = fmax(maxMag, mag);
+                minYaw = fmin(minYaw, yaw - angle);
+                maxYaw = fmax(maxYaw, yaw - angle);
+            }
+
+            maxMag = fmin(maxMag, 32.0);
+
+            if (minMag <= maxMag) {
+                int minIntendedDYaw = 16 * (int)ceil((minYaw + angle) / 16);
+                int maxIntendedDYaw = 16 * (int)floor((maxYaw + angle) / 16);
+
+                int minIdx = -1;
+                int maxIdx = magCount;
+
+                while (maxIdx > minIdx + 1) {
+                    int midIdx = (maxIdx + minIdx) / 2;
+
+                    if (minMag - 0.001 < magSet[midIdx]) {
+                        maxIdx = midIdx;
+                    }
+                    else {
+                        minIdx = midIdx;
+                    }
+                }
+
+                int startMagIdx = maxIdx;
+
+                minIdx = -1;
+                maxIdx = magCount;
+
+                while (maxIdx > minIdx + 1) {
+                    int midIdx = (maxIdx + minIdx) / 2;
+
+                    if (maxMag + 0.001 < magSet[midIdx]) {
+                        maxIdx = midIdx;
+                    }
+                    else {
+                        minIdx = midIdx;
+                    }
+                }
+
+                int endMagIdx = minIdx;
+
+                for (int intendedDYaw = minIntendedDYaw; intendedDYaw <= maxIntendedDYaw; intendedDYaw += 16) {
+                    for (int magIdx = startMagIdx; magIdx <= endMagIdx; magIdx++) {
+                        float intendedMag = magSet[magIdx];
+
+                        try_upwarp_slide(solIdx, angle, intendedDYaw, intendedMag);
                     }
                 }
             }
@@ -1495,27 +1987,84 @@ __device__ void try_pu_slide_angle(struct PlatformSolution* sol, int solIdx, int
     }
 }
 
-__device__ void find_pu_slide_setup(int solIdx) {
-    struct UpwarpSolution* uwSol = &(upwarpSolutions[solIdx]);
-    struct PlatformSolution* platSol = &(platSolutions[uwSol->platformSolutionIdx]);
-
-    if (uwSol->slideKickValid) {
-        double s = (double)uwSol->pux / (double)uwSol->puz;
-
-        float xVel1 = (float)(65536.0 * (double)uwSol->pux / (double)platSol->endTriangleNormals[platSol->endFloorIdx][1]);
-        float zVel1 = (float)(65536.0 * (double)uwSol->puz / (double)platSol->endTriangleNormals[platSol->endFloorIdx][1]);
-
-        for (int i = 0; i < 65536; i+=16) {
-            try_pu_slide_angle(platSol, solIdx, i, platSol->endFloorIdx, s, xVel1, zVel1);
-        }
-    }
-}
-
-__global__ void test_upwarp_solution() {
+__global__ void find_slide_solutions() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nUpwarpSolutions, MAX_UPWARP_SOLUTIONS)) {
-        find_pu_slide_setup(idx);
+    if (idx < min(n10KSolutions, MAX_10K_SOLUTIONS)) {
+        struct TenKSolution* tenKSol = &(tenKSolutions[idx]);
+        struct SpeedSolution* speedSol = &(speedSolutions[tenKSol->speedSolutionIdx]);
+        struct SKUpwarpSolution* skuwSol = &(skuwSolutions[speedSol->skuwSolutionIdx]);
+        struct UpwarpSolution* uwSol = &(upwarpSolutions[skuwSol->uwIdx]);
+        struct PlatformSolution* platSol = &(platSolutions[uwSol->platformSolutionIdx]);
+
+        int maxTurnAngle = 522;
+
+        double minDist = INFINITY;
+        double maxDist = -INFINITY;
+
+        double baseAngle = 0.0;
+
+        double minEndAngle = 0.0;
+        double maxEndAngle = 0.0;
+
+        for (int i = 0; i < 3; i++) {
+            double xDist = 65536.0 * uwSol->pux + platSol->endTriangles[platSol->endFloorIdx][i][0] - platSol->endPosition[0];
+            double zDist = 65536.0 * uwSol->puz + platSol->endTriangles[platSol->endFloorIdx][i][2] - platSol->endPosition[2];
+
+            double dist = sqrt(xDist * xDist + zDist * zDist);
+
+            double angle = atan2(-xDist, -zDist);
+            angle = fmod(2.0 * M_PI + angle, 2.0 * M_PI);
+
+            if (i == 0) {
+                baseAngle = angle;
+            }
+            else {
+                minEndAngle = fmin(minEndAngle, angle - baseAngle);
+                maxEndAngle = fmax(maxEndAngle, angle - baseAngle);
+            }
+
+            minDist = fmin(minDist, dist);
+            maxDist = fmax(maxDist, dist);
+        }
+
+        double minSpeed = -minDist / (double)platSol->endTriangleNormals[platSol->endFloorIdx][1];
+        double maxSpeed = -maxDist / (double)platSol->endTriangleNormals[platSol->endFloorIdx][1];
+
+        double minM = minSpeed / (double)speedSol->returnSpeed;
+        double maxM = maxSpeed / (double)speedSol->returnSpeed;
+
+        double minM1 = 32.0 * ((minM - 0.92) / 0.02);
+        double maxM1 = 32.0 * ((maxM - 0.92) / 0.02);
+
+        if (minM1 > maxM1) {
+            double temp = minM1;
+            minM1 = maxM1;
+            maxM1 = temp;
+        }
+
+        minM1 = fmax(minM1, -32.0);
+        maxM1 = fmin(maxM1, 32.0);
+
+        if (minM1 <= maxM1) {
+            minEndAngle = minEndAngle + baseAngle;
+            maxEndAngle = maxEndAngle + baseAngle;
+
+            minEndAngle = 65536.0 * minEndAngle / (2.0 * M_PI);
+            maxEndAngle = 65536.0 * maxEndAngle / (2.0 * M_PI);
+
+            int minStartAngle = (int)ceil(minEndAngle) - maxTurnAngle;
+            int maxStartAngle = (int)floor(maxEndAngle) + maxTurnAngle;
+
+            minStartAngle = minStartAngle + 15;
+            minStartAngle = minStartAngle - (minStartAngle % 16);
+
+            for (int a = minStartAngle; a <= maxStartAngle; a += 16) {
+                int angle = a % 65536;
+
+                try_pu_slide_angle(idx, angle, minEndAngle, maxEndAngle, minM1, maxM1);
+            }
+        }
     }
 }
 
@@ -3134,8 +3683,8 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
                 }
             }
 
-            minAngleDiff = fmax(minAngleDiff, -(double)maxQ3Turn);
-            maxAngleDiff = fmin(maxAngleDiff, (double)maxQ3Turn);
+            minAngleDiff = fmax(minAngleDiff, -(double)maxF3Turn);
+            maxAngleDiff = fmin(maxAngleDiff, (double)maxF3Turn);
 
             if (minAngleDiff <= maxAngleDiff) {
                 double minF3Angle = minAngleDiff + sol2->f2Angle;
@@ -3480,8 +4029,8 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
         
         int puAngleClosest = (65536 + atan2sG(sol->z1, sol->x1)) % 65536;
 
-        double sinMaxAngle = sin(2.0 * M_PI * (double)maxQ3Turn / 65536.0);
-        double maxF2AngleChange = fmod(32768.0 - (65536.0 * asin(sol->q2 * sinMaxAngle / (4.0 * floorNormalY)) / (2.0 * M_PI)) - maxQ3Turn, 32768.0);
+        double sinMaxAngle = sin(2.0 * M_PI * (double)maxF3Turn / 65536.0);
+        double maxF2AngleChange = fmod(32768.0 - (65536.0 * asin(sol->q2 * sinMaxAngle / (4.0 * floorNormalY)) / (2.0 * M_PI)) - maxF3Turn, 32768.0);
         maxF2AngleChange = fabs(fmod(maxF2AngleChange + 16384.0, 32768.0) - 16384.0);
 
         int minF2AngleIdx = gReverseArctanTable[puAngleClosest];
@@ -3906,23 +4455,16 @@ int main(int argc, char* argv[]) {
     int nThreads = 256;
     size_t memorySize = 10000000;
 
-    int minQ1 = 1;
-    int maxQ1 = 2;
-    int minQ2 = 1;
-    int maxQ2 = 4;
-    int minQ3 = 1;
-    int maxQ3 = 2;
-
     int nPUFrames = 3;
     int maxFrames = 100;
-
+    
     float minNX = -0.4f;
     float maxNX = -0.0f;
     float minNZ = 0.2f;
     float maxNZ = 0.6f;
     float minNY = 0.85f;
     float maxNY = 0.85f;
-
+    
     int nSamplesNX = 1601;
     int nSamplesNZ = 1601;
     int nSamplesNY = 1;
@@ -3934,7 +4476,8 @@ int main(int argc, char* argv[]) {
     float deltaX = 0.5f;
     float deltaZ = 0.5f;
 
-    Vec3f platformPos = { -1945.0f, -3225.0f, -715.0f };
+    //Vec3f platformPos = { -1945.0f, -3225.0f, -715.0f };
+    Vec3f platformPos = { -2866.0f, -3225.0f, -715.0f };
 
     double maxSpeed = 6553600.0;
 
@@ -3950,12 +4493,6 @@ int main(int argc, char* argv[]) {
             printf("             Default: %d\n", maxFrames);
             printf("-p <frames>: Number of frames of PU movement for 10k glitch\n");
             printf("             Default: %d\n", nPUFrames);
-            printf("-q1 <min_q1> <max_q1>: Range of q-frames to test for frame 1 of 10k PU route.\n");
-            printf("                       Default: %d %d\n", minQ1, maxQ1);
-            printf("-q2 <min_q2> <max_q2>: Range of q-frames to test for frame 2 of 10k PU route.\n");
-            printf("                       Default: %d %d\n", minQ2, maxQ2);
-            printf("-q3 <min_q3> <max_q3>: Range of q-frames to test for frame 3 of 10k PU route.\n");
-            printf("                       Default: %d %d\n", minQ3, maxQ3);
             printf("-nx <min_nx> <max_nx> <n_samples>: Inclusive range of x normals to be considered, and the number of normals to sample.\n");
             printf("                                   If min_nx==max_nx then n_samples will be set to 1.\n");
             printf("                                   Default: %g %g %d\n", minNX, maxNX, nSamplesNX);
@@ -3986,24 +4523,6 @@ int main(int argc, char* argv[]) {
             maxFrames = std::stoi(argv[i + 1]);
 
             i += 1;
-        }
-        else if (!strcmp(argv[i], "-q1")) {
-            minQ1 = std::stoi(argv[i + 1]);
-            maxQ1 = std::stoi(argv[i + 2]);
-
-            i += 2;
-        }
-        else if (!strcmp(argv[i], "-q2")) {
-            minQ2 = std::stoi(argv[i + 1]);
-            maxQ2 = std::stoi(argv[i + 2]);
-
-            i += 2;
-        }
-        else if (!strcmp(argv[i], "-q3")) {
-            minQ3 = std::stoi(argv[i + 1]);
-            maxQ3 = std::stoi(argv[i + 2]);
-
-            i += 2;
         }
         else if (!strcmp(argv[i], "-p")) {
             nPUFrames = std::stoi(argv[i + 1]);
@@ -4089,11 +4608,6 @@ int main(int argc, char* argv[]) {
 
     if (verbose) {
         printf("Max Frames: %d\n", maxFrames);
-        printf("10K Frame 1 Q-Frames: (%d, %d)\n", minQ1, maxQ1);
-        printf("10K Frame 2 Q-Frames: (%d, %d)\n", minQ2, maxQ2);
-        printf("10K Frame 3 Q-Frames: (%d, %d)\n", minQ3, maxQ3);
-        printf("Off Platform Frames: %d\n", nPUFrames);
-        printf("Off Platform Frames: %d\n", nPUFrames);
         printf("Off Platform Frames: %d\n", nPUFrames);
         printf("X Normal Range: (%g, %g)\n", minNX, maxNX);
         printf("Z Normal Range: (%g, %g)\n", minNZ, maxNZ);
@@ -4111,8 +4625,6 @@ int main(int argc, char* argv[]) {
     init_mag_set<<<1, 1>>>();
     initialise_floors<<<1, 1>>>();
     set_platform_pos<<<1, 1>>>(platformPos[0], platformPos[1], platformPos[2]);
-
-    unordered_map<uint64_t, SpeedSolution> speedSolutionLookup;
 
     short* dev_tris;
     float* dev_norms;
@@ -4134,7 +4646,7 @@ int main(int argc, char* argv[]) {
     wf << "Frame 1 Position X, Frame 1 Position Y, Frame 1 Position Z, ";
     wf << "Frame 2 Position X, Frame 2 Position Y, Frame 2 Position Z, ";
     wf << "Return Position X, Return Position Y, Return Position Z, ";
-    wf << "Pre-10K Speed, Pre-10K X Velocity, Pre-10K Z Velocity, ";
+    wf << "Departure Speed, Pre-10K X Velocity, Pre-10K Z Velocity, ";
     wf << "Return Speed, Return X Velocity, Return Z Velocity, ";
     wf << "Frame 1 Q-steps, Frame 2 Q-steps, Frame 3 Q-steps, ";
     wf << "10K Stick X, 10K Stick Y, ";
@@ -4146,7 +4658,7 @@ int main(int argc, char* argv[]) {
     wf << "Pre-Upwarp Position X, Pre-Upwarp Position Y, Pre-Upwarp Position Z, ";
     wf << "Post-Upwarp Position X, Post-Upwarp Position Y, Post-Upwarp Position Z, ";
     wf << "Upwarp PU X, Upwarp PU Z, ";
-    wf << "Upwarp Slide Facing Angle, Upwarp Slide IntendedMag, Upwarp Slide IntendedDYaw" << endl;
+    wf << "Upwarp Slide Facing Angle, Upwarp Slide IntendedMag, Upwarp Slide IntendedDYaw, Post-Upwarp Slide Angle" << endl;
 
     short* floorPoints = (short*)std::malloc(4 * 3 * sizeof(short));
     short* devFloorPoints;
@@ -4165,7 +4677,7 @@ int main(int argc, char* argv[]) {
                 float normZ = minNZ + j * deltaNZ;
                 float normY = minNY + h * deltaNY;
 
-                if (fabsf(normX) + fabsf(normZ) > 0.65) continue;
+                if (fabsf(normX) + fabsf(normZ) > 0.63) continue;
 
                 Vec3f startNormal = { normX, normY, normZ };
                 set_platform_normal<<<1, 1>>>(normX, normY, normZ);
@@ -4176,303 +4688,320 @@ int main(int argc, char* argv[]) {
                     float ceilingNormals[4] = { platform.ceilings[0].normal[1], platform.ceilings[1].normal[1], platform.ceilings[2].normal[1], platform.ceilings[3].normal[1] };
                     bool squishTest = (ceilingNormals[0] > -0.5f) || (ceilingNormals[1] > -0.5f) || (ceilingNormals[2] > -0.5f) || (ceilingNormals[3] > -0.5f);
 
-                    if (squishTest) {
-                        set_squish_ceilings<<<1, 1>>>(ceilingNormals[0], ceilingNormals[1], ceilingNormals[2], ceilingNormals[3]);
-                        Vec3f position = { 0.0f, 0.0f, 0.0f };
+                    if (!squishTest) {
+                        break;
+                    }
 
+                    set_squish_ceilings<<<1, 1>>>(ceilingNormals[0], ceilingNormals[1], ceilingNormals[2], ceilingNormals[3]);
+                    Vec3f position = { 0.0f, 0.0f, 0.0f };
+
+                    platform.platform_logic(position);
+
+                    for (int x = 0; x < 2; x++) {
+                        for (int y = 0; y < 3; y++) {
+                            host_tris[9 * x + 3 * y] = platform.triangles[x].vectors[y][0];
+                            host_tris[9 * x + 3 * y + 1] = platform.triangles[x].vectors[y][1];
+                            host_tris[9 * x + 3 * y + 2] = platform.triangles[x].vectors[y][2];
+                            host_norms[3 * x + y] = platform.triangles[x].normal[y];
+                        }
+                    }
+
+                    cudaMemcpy(dev_tris, host_tris, 18 * sizeof(short), cudaMemcpyHostToDevice);
+                    cudaMemcpy(dev_norms, host_norms, 6 * sizeof(float), cudaMemcpyHostToDevice);
+
+                    set_start_triangle<<<1, 1>>>(dev_tris, dev_norms);
+
+                    platform.normal[0] += normal_offsets_cpu[t][0];
+                    platform.normal[1] += normal_offsets_cpu[t][1];
+                    platform.normal[2] += normal_offsets_cpu[t][2];
+
+                    for (int k = 2; k < nPUFrames; k++) {
                         platform.platform_logic(position);
+                    }
 
-                        for (int x = 0; x < 2; x++) {
+                    float minX = INT16_MAX;
+                    float maxX = INT16_MIN;
+                    float minZ = INT16_MAX;
+                    float maxZ = INT16_MIN;
+
+                    for (int k = 0; k < platform.triangles.size(); k++) {
+                        minX = fminf(fminf(fminf(minX, platform.triangles[k].vectors[0][0]), platform.triangles[k].vectors[1][0]), platform.triangles[k].vectors[2][0]);
+                        maxX = fmaxf(fmaxf(fmaxf(maxX, platform.triangles[k].vectors[0][0]), platform.triangles[k].vectors[1][0]), platform.triangles[k].vectors[2][0]);
+                        minZ = fminf(fminf(fminf(minZ, platform.triangles[k].vectors[0][2]), platform.triangles[k].vectors[1][2]), platform.triangles[k].vectors[2][2]);
+                        maxZ = fmaxf(fmaxf(fmaxf(maxZ, platform.triangles[k].vectors[0][2]), platform.triangles[k].vectors[1][2]), platform.triangles[k].vectors[2][2]);
+                    }
+
+                    int nX = round((maxX - minX) / deltaX) + 1;
+                    int nZ = round((maxZ - minZ) / deltaZ) + 1;
+
+                    if (nX * nZ > memorySize) {
+                        printf("Warning: GPU buffer too small for normal (%g, %g), skipping.\n", normX, normZ);
+                        continue;
+                    }
+
+                    int nPlatSolutionsCPU = 0;
+                    int nUpwarpSolutionsCPU = 0;
+
+                    cudaMemcpyToSymbol(nPlatSolutions, &nPlatSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
+
+                    long long int nBlocks = (nX * nZ + nThreads - 1) / nThreads;
+
+                    cudaFunc<<<nBlocks, nThreads>>>(minX, deltaX, minZ, deltaZ, nX, nZ, platform.normal[0], platform.normal[1], platform.normal[2], maxFrames);
+
+                    cudaMemcpyFromSymbol(&nPlatSolutionsCPU, nPlatSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+
+                    if (nPlatSolutionsCPU > 0) {
+                        if (nPlatSolutionsCPU > MAX_PLAT_SOLUTIONS) {
+                            fprintf(stderr, "Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                            nPlatSolutionsCPU = MAX_PLAT_SOLUTIONS;
+                        }
+
+                        printf("---------------------------------------\nTesting Normal: %g, %g, %g\n        Index: %d, %d, %d\n", normX, normY, normZ, h, i, j);
+                        printf("        # Platform Solutions: %d\n", nPlatSolutionsCPU);
+
+                        nBlocks = (nPlatSolutionsCPU + nThreads - 1) / nThreads;
+
+                        cudaMemcpyToSymbol(nUpwarpSolutions, &nUpwarpSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
+
+                        find_upwarp_solutions<<<nBlocks, nThreads>>>(1000000000.0f);
+
+                        cudaMemcpyFromSymbol(&nUpwarpSolutionsCPU, nUpwarpSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                    }
+
+                    if (nUpwarpSolutionsCPU > 0) {
+                        if (nUpwarpSolutionsCPU > MAX_UPWARP_SOLUTIONS) {
+                            fprintf(stderr, "Warning: Number of upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                            nUpwarpSolutionsCPU = MAX_UPWARP_SOLUTIONS;
+                        }
+
+                        printf("        # Upwarp Solutions: %d\n", nUpwarpSolutionsCPU);
+
+                        bool sameNormal = host_norms[1] == host_norms[4];
+
+                        for (int x = 0; x < (sameNormal ? 1 : 2); x++) {
                             for (int y = 0; y < 3; y++) {
-                                host_tris[9 * x + 3 * y] = platform.triangles[x].vectors[y][0];
-                                host_tris[9 * x + 3 * y + 1] = platform.triangles[x].vectors[y][1];
-                                host_tris[9 * x + 3 * y + 2] = platform.triangles[x].vectors[y][2];
-                                host_norms[3 * x + y] = platform.triangles[x].normal[y];
-                            }
-                        }
-
-                        cudaMemcpy(dev_tris, host_tris, 18 * sizeof(short), cudaMemcpyHostToDevice);
-                        cudaMemcpy(dev_norms, host_norms, 6 * sizeof(float), cudaMemcpyHostToDevice);
-
-                        set_start_triangle<<<1, 1>>>(dev_tris, dev_norms);
-
-                        platform.normal[0] += normal_offsets_cpu[t][0];
-                        platform.normal[1] += normal_offsets_cpu[t][1];
-                        platform.normal[2] += normal_offsets_cpu[t][2];
-
-                        for (int k = 2; k < nPUFrames; k++) {
-                            platform.platform_logic(position);
-                        }
-
-                        float minX = INT16_MAX;
-                        float maxX = INT16_MIN;
-                        float minZ = INT16_MAX;
-                        float maxZ = INT16_MIN;
-
-                        for (int k = 0; k < platform.triangles.size(); k++) {
-                            minX = fminf(fminf(fminf(minX, platform.triangles[k].vectors[0][0]), platform.triangles[k].vectors[1][0]), platform.triangles[k].vectors[2][0]);
-                            maxX = fmaxf(fmaxf(fmaxf(maxX, platform.triangles[k].vectors[0][0]), platform.triangles[k].vectors[1][0]), platform.triangles[k].vectors[2][0]);
-                            minZ = fminf(fminf(fminf(minZ, platform.triangles[k].vectors[0][2]), platform.triangles[k].vectors[1][2]), platform.triangles[k].vectors[2][2]);
-                            maxZ = fmaxf(fmaxf(fmaxf(maxZ, platform.triangles[k].vectors[0][2]), platform.triangles[k].vectors[1][2]), platform.triangles[k].vectors[2][2]);
-                        }
-
-                        int nX = round((maxX - minX) / deltaX) + 1;
-                        int nZ = round((maxZ - minZ) / deltaZ) + 1;
-
-                        if (nX * nZ > memorySize) {
-                            printf("Warning: GPU buffer too small for normal (%g, %g), skipping.\n", normX, normZ);
-                            continue;
-                        }
-
-                        int nPlatSolutionsCPU = 0;
-                        int nUpwarpSolutionsCPU = 0;
-
-                        cudaMemcpyToSymbol(nPlatSolutions, &nPlatSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
-
-                        long long int nBlocks = (nX * nZ + nThreads - 1) / nThreads;
-
-                        cudaFunc<<<nBlocks, nThreads>>>(minX, deltaX, minZ, deltaZ, nX, nZ, platform.normal[0], platform.normal[1], platform.normal[2], maxFrames);
-
-                        cudaMemcpyFromSymbol(&nPlatSolutionsCPU, nPlatSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-
-                        if (nPlatSolutionsCPU > 0) {
-                            if (nPlatSolutionsCPU > MAX_PLAT_SOLUTIONS) {
-                                fprintf(stderr, "Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                                nPlatSolutionsCPU = MAX_PLAT_SOLUTIONS;
-                            }
-                            nBlocks = (nPlatSolutionsCPU + nThreads - 1) / nThreads;
-
-                            cudaMemcpyToSymbol(nUpwarpSolutions, &nUpwarpSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
-
-                            find_upwarp_solutions<<<nBlocks, nThreads>>>(1000000000.0f);
-
-                            cudaMemcpyFromSymbol(&nUpwarpSolutionsCPU, nUpwarpSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-                        }
-
-                        if (nUpwarpSolutionsCPU > 0) {
-                            if (nUpwarpSolutionsCPU > MAX_UPWARP_SOLUTIONS) {
-                                fprintf(stderr, "Warning: Number of upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                                nUpwarpSolutionsCPU = MAX_UPWARP_SOLUTIONS;
+                                floorPoints[3 * y] = host_tris[9 * x + 3 * y];
+                                floorPoints[3 * y + 1] = host_tris[9 * x + 3 * y + 1];
+                                floorPoints[3 * y + 2] = host_tris[9 * x + 3 * y + 2];
                             }
 
-                            bool sameNormal = host_norms[1] == host_norms[4];
+                            if (sameNormal) {
+                                floorPoints[9] = host_tris[15];
+                                floorPoints[10] = host_tris[16];
+                                floorPoints[11] = host_tris[17];
+                            }
 
-                            for (int x = 0; x < (sameNormal ? 1 : 2); x++) {
-                                for (int y = 0; y < 3; y++) {
-                                    floorPoints[3 * y] = host_tris[9 * x + 3 * y];
-                                    floorPoints[3 * y + 1] = host_tris[9 * x + 3 * y + 1];
-                                    floorPoints[3 * y + 2] = host_tris[9 * x + 3 * y + 2];
+                            squishEdges[0] = (i == 0) ? ceilingNormals[2] > -0.5f : false;
+                            squishEdges[1] = ceilingNormals[(i == 0) ? 0 : 1] > -0.5f;
+                            squishEdges[2] = (sameNormal || i == 1) ? ceilingNormals[sameNormal ? 1 : 3] > -0.5f : false;
+                            squishEdges[3] = sameNormal ? ceilingNormals[3] > -0.5f : false;
+
+                            cudaMemcpy(devSquishEdges, squishEdges, 4 * sizeof(bool), cudaMemcpyHostToDevice);
+
+                            int nSK6SolutionsCPU = 0;
+                            int nSKUWSolutionsCPU = 0;
+                            int nSpeedSolutionsCPU = 0;
+                            int n10KSolutionsCPU = 0;
+                            int nSlideSolutionsCPU = 0;
+
+                            find_slide_kick_setup_triangle(floorPoints, devFloorPoints, sameNormal ? 4 : 3, host_norms[3 * x + 1], t, maxSpeed, nThreads);
+
+                            cudaMemcpyFromSymbol(&nSK6SolutionsCPU, nSK6Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+
+                            if (nSK6SolutionsCPU > 0) {
+                                if (nSK6SolutionsCPU > MAX_SK_PHASE_SIX) {
+                                    fprintf(stderr, "Warning: Number of phase 6 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                                    nSK6SolutionsCPU = MAX_SK_PHASE_SIX;
                                 }
 
-                                if (sameNormal) {
-                                    floorPoints[9] = host_tris[15];
-                                    floorPoints[10] = host_tris[16];
-                                    floorPoints[11] = host_tris[17];
+                                printf("        # Slide Kick Routes: %d\n", nSK6SolutionsCPU);
+
+                                nBlocks = (nUpwarpSolutionsCPU + nThreads - 1) / nThreads;
+
+                                cudaMemcpyToSymbol(nSKUWSolutions, &nSKUWSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
+                                
+                                find_sk_upwarp_solutions<<<nBlocks, nThreads>>>();
+
+                                cudaMemcpyFromSymbol(&nSKUWSolutionsCPU, nSKUWSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                            }
+
+                            if (nSKUWSolutionsCPU > 0) {
+                                if (nSKUWSolutionsCPU > MAX_SK_UPWARP_SOLUTIONS) {
+                                    fprintf(stderr, "Warning: Number of slide kick upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                                    nSKUWSolutionsCPU = MAX_SK_UPWARP_SOLUTIONS;
                                 }
 
-                                squishEdges[0] = (i == 0) ? ceilingNormals[2] > -0.5f : false;
-                                squishEdges[1] = ceilingNormals[(i == 0) ? 0 : 1] > -0.5f;
-                                squishEdges[2] = (sameNormal || i == 1) ? ceilingNormals[sameNormal ? 1 : 3] > -0.5f : false;
-                                squishEdges[3] = sameNormal ? ceilingNormals[3] > -0.5f : false;
+                                printf("        # Slide Kick Upwarp Solutions: %d\n", nSKUWSolutionsCPU);
 
-                                cudaMemcpy(devSquishEdges, squishEdges, 4 * sizeof(bool), cudaMemcpyHostToDevice);
+                                nBlocks = (nSKUWSolutionsCPU + nThreads - 1) / nThreads;
 
-                                int nSpeedSolutionsCPU = 0;
+                                cudaMemcpyToSymbol(nSpeedSolutions, &nSpeedSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
+
+                                find_speed_solutions<<<nBlocks, nThreads>>>();
+
+                                cudaMemcpyFromSymbol(&nSpeedSolutionsCPU, nSpeedSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                            }
+
+                            if (nSpeedSolutionsCPU > 0) {
+                                if (nSpeedSolutionsCPU > MAX_SPEED_SOLUTIONS) {
+                                    fprintf(stderr, "Warning: Number of speed solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                                    nSpeedSolutionsCPU = MAX_SPEED_SOLUTIONS;
+                                }
+
+                                printf("        # Speed Solutions: %d\n", nSpeedSolutionsCPU);
+
+                                nBlocks = (nSpeedSolutionsCPU + nThreads - 1) / nThreads;
+
+                                cudaMemcpyToSymbol(n10KSolutions, &n10KSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
+
+                                test_speed_solution<<<nBlocks, nThreads>>>(devFloorPoints, devSquishEdges, sameNormal ? 4 : 3, host_norms[3 * x + 1]);
+
+                                cudaMemcpyFromSymbol(&n10KSolutionsCPU, n10KSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                            }
+
+                            if (n10KSolutionsCPU > 0) {
+                                if (n10KSolutionsCPU > MAX_10K_SOLUTIONS) {
+                                    fprintf(stderr, "Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                                    n10KSolutionsCPU = MAX_10K_SOLUTIONS;
+                                }
+
+                                printf("        # 10K Solutions: %d\n", n10KSolutionsCPU);
+
+                                nBlocks = (n10KSolutionsCPU + nThreads - 1) / nThreads;
+
+                                cudaMemcpyToSymbol(nSlideSolutions, &nSlideSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
+
+                                find_slide_solutions<<<nBlocks, nThreads>>>();
+
+                                cudaMemcpyFromSymbol(&nSlideSolutionsCPU, nSlideSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                            }
+
+                            if (nSlideSolutionsCPU > 0) {
+                                if (nSlideSolutionsCPU > MAX_SLIDE_SOLUTIONS) {
+                                    fprintf(stderr, "Warning: Number of slide solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                                    nSlideSolutionsCPU = MAX_SLIDE_SOLUTIONS;
+                                }
+
+                                printf("        # Slide Solutions: %d\n", nSlideSolutionsCPU);
+
+                                int nSK1SolutionsCPU = 0;
+                                int nSK2ASolutionsCPU = 0;
+                                int nSK2BSolutionsCPU = 0;
+                                int nSK2CSolutionsCPU = 0;
+                                int nSK2DSolutionsCPU = 0;
+                                int nSK3SolutionsCPU = 0;
+                                int nSK4SolutionsCPU = 0;
+                                int nSK5SolutionsCPU = 0;
                                 int nSK6SolutionsCPU = 0;
-                                int nSKUWSolutionsCPU = 0;
-                                int n10KSolutionsCPU = 0;
 
-                                find_slide_kick_setup_triangle(floorPoints, devFloorPoints, sameNormal ? 4 : 3, host_norms[3 * x + 1], t, maxSpeed, nThreads);
-
+                                cudaMemcpyFromSymbol(&nSK1SolutionsCPU, nSK1Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(&nSK2ASolutionsCPU, nSK2ASolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(&nSK2BSolutionsCPU, nSK2BSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(&nSK2CSolutionsCPU, nSK2CSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(&nSK2DSolutionsCPU, nSK2DSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(&nSK3SolutionsCPU, nSK3Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(&nSK4SolutionsCPU, nSK4Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(&nSK5SolutionsCPU, nSK5Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
                                 cudaMemcpyFromSymbol(&nSK6SolutionsCPU, nSK6Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
-                                if (nSK6SolutionsCPU > 0) {
-                                    if (nSK6SolutionsCPU > MAX_SK_PHASE_SIX) {
-                                        fprintf(stderr, "Warning: Number of phase 6 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                                        nSK6SolutionsCPU = MAX_SK_PHASE_SIX;
-                                    }
+                                nSK1SolutionsCPU = min(nSK1SolutionsCPU, MAX_SK_PHASE_ONE);
+                                nSK2ASolutionsCPU = min(nSK2ASolutionsCPU, MAX_SK_PHASE_TWO_A);
+                                nSK2BSolutionsCPU = min(nSK2BSolutionsCPU, MAX_SK_PHASE_TWO_B);
+                                nSK2CSolutionsCPU = min(nSK2CSolutionsCPU, MAX_SK_PHASE_TWO_C);
+                                nSK2DSolutionsCPU = min(nSK2DSolutionsCPU, MAX_SK_PHASE_TWO_D);
+                                nSK3SolutionsCPU = min(nSK3SolutionsCPU, MAX_SK_PHASE_THREE);
+                                nSK4SolutionsCPU = min(nSK4SolutionsCPU, MAX_SK_PHASE_FOUR);
+                                nSK5SolutionsCPU = min(nSK5SolutionsCPU, MAX_SK_PHASE_FIVE);
+                                nSK6SolutionsCPU = min(nSK6SolutionsCPU, MAX_SK_PHASE_SIX);
 
-                                    nBlocks = (nUpwarpSolutionsCPU + nThreads - 1) / nThreads;
+                                struct SlideSolution* slideSolutionsCPU = (struct SlideSolution*)std::malloc(nSlideSolutionsCPU * sizeof(struct SlideSolution));
+                                struct TenKSolution* tenKSolutionsCPU = (struct TenKSolution*)std::malloc(n10KSolutionsCPU * sizeof(struct TenKSolution));
+                                struct SpeedSolution* speedSolutionsCPU = (struct SpeedSolution*)std::malloc(nSpeedSolutionsCPU * sizeof(struct SpeedSolution));
+                                struct SKUpwarpSolution* skuwSolutionsCPU = (struct SKUpwarpSolution*)std::malloc(nSKUWSolutionsCPU * sizeof(struct SKUpwarpSolution));
 
-                                    cudaMemcpyToSymbol(nSpeedSolutions, &nSpeedSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
-                                
-                                    test_sk_upwarp_solution<<<nBlocks, nThreads>>>();
-                                    test_upwarp_solution<<<nBlocks, nThreads>>>();
+                                struct PlatformSolution* platSolutionsCPU = (struct PlatformSolution*)std::malloc(nPlatSolutionsCPU * sizeof(struct PlatformSolution));
+                                struct UpwarpSolution* upwarpSolutionsCPU = (struct UpwarpSolution*)std::malloc(nUpwarpSolutionsCPU * sizeof(struct UpwarpSolution));
 
-                                    cudaMemcpyFromSymbol(&nSpeedSolutionsCPU, nSpeedSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-                                }
+                                struct SKPhase1* sk1SolutionsCPU = (struct SKPhase1*)std::malloc(nSK1SolutionsCPU * sizeof(struct SKPhase1));
+                                struct SKPhase2* sk2ASolutionsCPU = (struct SKPhase2*)std::malloc(nSK2ASolutionsCPU * sizeof(struct SKPhase2));
+                                struct SKPhase2* sk2BSolutionsCPU = (struct SKPhase2*)std::malloc(nSK2BSolutionsCPU * sizeof(struct SKPhase2));
+                                struct SKPhase2* sk2CSolutionsCPU = (struct SKPhase2*)std::malloc(nSK2CSolutionsCPU * sizeof(struct SKPhase2));
+                                struct SKPhase2* sk2DSolutionsCPU = (struct SKPhase2*)std::malloc(nSK2DSolutionsCPU * sizeof(struct SKPhase2));
+                                struct SKPhase3* sk3SolutionsCPU = (struct SKPhase3*)std::malloc(nSK3SolutionsCPU * sizeof(struct SKPhase3));
+                                struct SKPhase4* sk4SolutionsCPU = (struct SKPhase4*)std::malloc(nSK4SolutionsCPU * sizeof(struct SKPhase4));
+                                struct SKPhase5* sk5SolutionsCPU = (struct SKPhase5*)std::malloc(nSK5SolutionsCPU * sizeof(struct SKPhase5));
+                                struct SKPhase6* sk6SolutionsCPU = (struct SKPhase6*)std::malloc(nSK6SolutionsCPU * sizeof(struct SKPhase6));
 
-                                if (nSpeedSolutionsCPU > 0) {
-                                    if (nSpeedSolutionsCPU > MAX_SPEED_SOLUTIONS) {
-                                        fprintf(stderr, "Warning: Number of speed solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                                        nSpeedSolutionsCPU = MAX_SPEED_SOLUTIONS;
-                                    }
+                                cudaMemcpyFromSymbol(slideSolutionsCPU, slideSolutions, nSlideSolutionsCPU * sizeof(struct SlideSolution), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(tenKSolutionsCPU, tenKSolutions, n10KSolutionsCPU * sizeof(struct TenKSolution), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(speedSolutionsCPU, speedSolutions, nSpeedSolutionsCPU * sizeof(struct SpeedSolution), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(skuwSolutionsCPU, skuwSolutions, nSKUWSolutionsCPU * sizeof(struct SKUpwarpSolution), 0, cudaMemcpyDeviceToHost);
 
-                                    speedSolutionLookup.clear();
+                                cudaMemcpyFromSymbol(upwarpSolutionsCPU, upwarpSolutions, nUpwarpSolutionsCPU * sizeof(struct UpwarpSolution), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(platSolutionsCPU, platSolutions, nPlatSolutionsCPU * sizeof(struct PlatformSolution), 0, cudaMemcpyDeviceToHost);
 
-                                    struct SpeedSolution* speedSolutionsCPU = (struct SpeedSolution*)std::malloc(nSpeedSolutionsCPU * sizeof(struct SpeedSolution));
+                                cudaMemcpyFromSymbol(sk1SolutionsCPU, sk1Solutions, nSK1SolutionsCPU * sizeof(struct SKPhase1), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(sk2ASolutionsCPU, sk2ASolutions, nSK2ASolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(sk2BSolutionsCPU, sk2BSolutions, nSK2BSolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(sk2CSolutionsCPU, sk2CSolutions, nSK2CSolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(sk2DSolutionsCPU, sk2DSolutions, nSK2DSolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(sk3SolutionsCPU, sk3Solutions, nSK3SolutionsCPU * sizeof(struct SKPhase3), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(sk4SolutionsCPU, sk4Solutions, nSK4SolutionsCPU * sizeof(struct SKPhase4), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(sk5SolutionsCPU, sk5Solutions, nSK5SolutionsCPU * sizeof(struct SKPhase5), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpyFromSymbol(sk6SolutionsCPU, sk6Solutions, nSK6SolutionsCPU * sizeof(struct SKPhase6), 0, cudaMemcpyDeviceToHost);
 
-                                    cudaMemcpyFromSymbol(speedSolutionsCPU, speedSolutions, nSpeedSolutionsCPU * sizeof(struct SpeedSolution), 0, cudaMemcpyDeviceToHost);
+                                for (int l = 0; l < nSlideSolutionsCPU; l++) {
+                                    struct SlideSolution* slideSol = &(slideSolutionsCPU[l]);
+                                    struct TenKSolution* tenKSol = &(tenKSolutionsCPU[slideSol->tenKSolutionIdx]);
+                                    struct SpeedSolution* speedSol = &(speedSolutionsCPU[tenKSol->speedSolutionIdx]);
+                                    struct SKUpwarpSolution* skuwSol = &(skuwSolutionsCPU[speedSol->skuwSolutionIdx]);
+                                    struct UpwarpSolution* uwSol = &(upwarpSolutionsCPU[skuwSol->uwIdx]);
+                                    struct PlatformSolution* platSol = &(platSolutionsCPU[uwSol->platformSolutionIdx]);
+                                    struct SKPhase6* p6Sol = &(sk6SolutionsCPU[skuwSol->skIdx]);
+                                    struct SKPhase5* p5Sol = &(sk5SolutionsCPU[p6Sol->p5Idx]);
+                                    struct SKPhase4* p4Sol = &(sk4SolutionsCPU[p5Sol->p4Idx]);
+                                    struct SKPhase3* p3Sol = &(sk3SolutionsCPU[p4Sol->p3Idx]);
+                                    struct SKPhase2* p2Sol = (p3Sol->p2Type / 2 == 0) ? ((p3Sol->p2Type % 2 == 0) ? &(sk2ASolutionsCPU[p3Sol->p2Idx]) : &(sk2BSolutionsCPU[p3Sol->p2Idx])) : ((p3Sol->p2Type % 2 == 0) ? &(sk2CSolutionsCPU[p3Sol->p2Idx]) : &(sk2DSolutionsCPU[p3Sol->p2Idx]));
+                                    struct SKPhase1* p1Sol = &(sk1SolutionsCPU[p2Sol->p1Idx]);
 
-                                    for (int l = 0; l < nSpeedSolutionsCPU; l++) {
-                                        uint64_t key = (((uint64_t)speedSolutionsCPU[l].upwarpSolutionIdx) << 32) | (reinterpret_cast<uint32_t&>(speedSolutionsCPU[l].returnSpeed));
-                                        speedSolutionLookup[key] = speedSolutionsCPU[l];
-                                    }
-
-                                    nSpeedSolutionsCPU = 0;
-
-                                    for (std::pair<const uint64_t, SpeedSolution> p : speedSolutionLookup) {
-                                        speedSolutionsCPU[nSpeedSolutionsCPU] = p.second;
-                                        nSpeedSolutionsCPU++;
-                                    }
-
-                                    cudaMemcpyToSymbol(nSpeedSolutions, &nSpeedSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
-                                    cudaMemcpyToSymbol(speedSolutions, speedSolutionsCPU, nSpeedSolutionsCPU * sizeof(SpeedSolution), 0, cudaMemcpyHostToDevice);
-
-                                    nBlocks = (nSpeedSolutionsCPU + nThreads - 1) / nThreads;
-
-                                    cudaMemcpyToSymbol(nSKUWSolutions, &nSKUWSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
-
-                                    test_speed_solution<<<nBlocks, nThreads>>>();
-
-                                    cudaMemcpyFromSymbol(&nSKUWSolutionsCPU, nSKUWSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-                                
-                                    if (nSKUWSolutionsCPU > 0) {
-                                        if (nSKUWSolutionsCPU > MAX_SK_UPWARP_SOLUTIONS) {
-                                            fprintf(stderr, "Warning: Number of slide kick upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                                            nSpeedSolutionsCPU = MAX_SK_UPWARP_SOLUTIONS;
-                                        }
-
-                                        nBlocks = (nSKUWSolutionsCPU + nThreads - 1) / nThreads;
-
-                                        cudaMemcpyToSymbol(n10KSolutions, &n10KSolutionsCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
-
-                                        test_skuw_solution<<<nBlocks, nThreads>>>(devFloorPoints, devSquishEdges, sameNormal ? 4 : 3, host_norms[3 * x + 1]);
-
-                                        cudaMemcpyFromSymbol(&n10KSolutionsCPU, n10KSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-
-                                        if (n10KSolutionsCPU > 0) {
-                                            if (n10KSolutionsCPU > MAX_10K_SOLUTIONS) {
-                                                fprintf(stderr, "Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                                                n10KSolutionsCPU = MAX_10K_SOLUTIONS;
-
-                                            }
-
-                                            int nSK1SolutionsCPU = 0;
-                                            int nSK2ASolutionsCPU = 0;
-                                            int nSK2BSolutionsCPU = 0;
-                                            int nSK2CSolutionsCPU = 0;
-                                            int nSK2DSolutionsCPU = 0;
-                                            int nSK3SolutionsCPU = 0;
-                                            int nSK4SolutionsCPU = 0;
-                                            int nSK5SolutionsCPU = 0;
-                                            int nSK6SolutionsCPU = 0;
-
-                                            cudaMemcpyFromSymbol(&nSK1SolutionsCPU, nSK1Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(&nSK2ASolutionsCPU, nSK2ASolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(&nSK2BSolutionsCPU, nSK2BSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(&nSK2CSolutionsCPU, nSK2CSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(&nSK2DSolutionsCPU, nSK2DSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(&nSK3SolutionsCPU, nSK3Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(&nSK4SolutionsCPU, nSK4Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(&nSK5SolutionsCPU, nSK5Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(&nSK6SolutionsCPU, nSK6Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-
-                                            nSK1SolutionsCPU = min(nSK1SolutionsCPU, MAX_SK_PHASE_ONE);
-                                            nSK2ASolutionsCPU = min(nSK2ASolutionsCPU, MAX_SK_PHASE_TWO_A);
-                                            nSK2BSolutionsCPU = min(nSK2BSolutionsCPU, MAX_SK_PHASE_TWO_B);
-                                            nSK2CSolutionsCPU = min(nSK2CSolutionsCPU, MAX_SK_PHASE_TWO_C);
-                                            nSK2DSolutionsCPU = min(nSK2DSolutionsCPU, MAX_SK_PHASE_TWO_D);
-                                            nSK3SolutionsCPU = min(nSK3SolutionsCPU, MAX_SK_PHASE_THREE);
-                                            nSK4SolutionsCPU = min(nSK4SolutionsCPU, MAX_SK_PHASE_FOUR);
-                                            nSK5SolutionsCPU = min(nSK5SolutionsCPU, MAX_SK_PHASE_FIVE);
-                                            nSK6SolutionsCPU = min(nSK6SolutionsCPU, MAX_SK_PHASE_SIX);
-
-                                            struct PlatformSolution* platSolutionsCPU = (struct PlatformSolution*)std::malloc(nPlatSolutionsCPU * sizeof(struct PlatformSolution));
-                                            struct UpwarpSolution* upwarpSolutionsCPU = (struct UpwarpSolution*)std::malloc(nUpwarpSolutionsCPU * sizeof(struct UpwarpSolution));
-                                            struct TenKSolution* tenKSolutionsCPU = (struct TenKSolution*)std::malloc(n10KSolutionsCPU * sizeof(struct TenKSolution));
-                                            struct SKUpwarpSolution* skuwSolutionsCPU = (struct SKUpwarpSolution*)std::malloc(nSKUWSolutionsCPU * sizeof(struct SKUpwarpSolution));
-
-                                            struct SKPhase1* sk1SolutionsCPU = (struct SKPhase1*)std::malloc(nSK1SolutionsCPU * sizeof(struct SKPhase1));
-                                            struct SKPhase2* sk2ASolutionsCPU = (struct SKPhase2*)std::malloc(nSK2ASolutionsCPU * sizeof(struct SKPhase2));
-                                            struct SKPhase2* sk2BSolutionsCPU = (struct SKPhase2*)std::malloc(nSK2BSolutionsCPU * sizeof(struct SKPhase2));
-                                            struct SKPhase2* sk2CSolutionsCPU = (struct SKPhase2*)std::malloc(nSK2CSolutionsCPU * sizeof(struct SKPhase2));
-                                            struct SKPhase2* sk2DSolutionsCPU = (struct SKPhase2*)std::malloc(nSK2DSolutionsCPU * sizeof(struct SKPhase2));
-                                            struct SKPhase3* sk3SolutionsCPU = (struct SKPhase3*)std::malloc(nSK3SolutionsCPU * sizeof(struct SKPhase3));
-                                            struct SKPhase4* sk4SolutionsCPU = (struct SKPhase4*)std::malloc(nSK4SolutionsCPU * sizeof(struct SKPhase4));
-                                            struct SKPhase5* sk5SolutionsCPU = (struct SKPhase5*)std::malloc(nSK5SolutionsCPU * sizeof(struct SKPhase5));
-                                            struct SKPhase6* sk6SolutionsCPU = (struct SKPhase6*)std::malloc(nSK6SolutionsCPU * sizeof(struct SKPhase6));
-
-                                            cudaMemcpyFromSymbol(tenKSolutionsCPU, tenKSolutions, n10KSolutionsCPU * sizeof(struct TenKSolution), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(upwarpSolutionsCPU, upwarpSolutions, nUpwarpSolutionsCPU * sizeof(struct UpwarpSolution), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(platSolutionsCPU, platSolutions, nPlatSolutionsCPU * sizeof(struct PlatformSolution), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(skuwSolutionsCPU, skuwSolutions, nSKUWSolutionsCPU * sizeof(struct SKUpwarpSolution), 0, cudaMemcpyDeviceToHost);
-
-                                            cudaMemcpyFromSymbol(sk1SolutionsCPU, sk1Solutions, nSK1SolutionsCPU * sizeof(struct SKPhase1), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(sk2ASolutionsCPU, sk2ASolutions, nSK2ASolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(sk2BSolutionsCPU, sk2BSolutions, nSK2BSolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(sk2CSolutionsCPU, sk2CSolutions, nSK2CSolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(sk2DSolutionsCPU, sk2DSolutions, nSK2DSolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(sk3SolutionsCPU, sk3Solutions, nSK3SolutionsCPU * sizeof(struct SKPhase3), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(sk4SolutionsCPU, sk4Solutions, nSK4SolutionsCPU * sizeof(struct SKPhase4), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(sk5SolutionsCPU, sk5Solutions, nSK5SolutionsCPU * sizeof(struct SKPhase5), 0, cudaMemcpyDeviceToHost);
-                                            cudaMemcpyFromSymbol(sk6SolutionsCPU, sk6Solutions, nSK6SolutionsCPU * sizeof(struct SKPhase6), 0, cudaMemcpyDeviceToHost);
-
-                                            for (int l = 0; l < n10KSolutionsCPU; l++) {
-                                                struct TenKSolution* tenKSol = &(tenKSolutionsCPU[l]);
-                                                struct SKUpwarpSolution* skuwSol = &(skuwSolutionsCPU[tenKSol->skuwSolutionIdx]);
-                                                struct SpeedSolution* speedSol = &(speedSolutionsCPU[skuwSol->uwIdx]);
-                                                struct UpwarpSolution* uwSol = &(upwarpSolutionsCPU[speedSol->upwarpSolutionIdx]);
-                                                struct PlatformSolution* platSol = &(platSolutionsCPU[uwSol->platformSolutionIdx]);
-                                                struct SKPhase6* p6Sol = &(sk6SolutionsCPU[skuwSol->skIdx]);
-                                                struct SKPhase5* p5Sol = &(sk5SolutionsCPU[p6Sol->p5Idx]);
-                                                struct SKPhase4* p4Sol = &(sk4SolutionsCPU[p5Sol->p4Idx]);
-                                                struct SKPhase3* p3Sol = &(sk3SolutionsCPU[p4Sol->p3Idx]);
-                                                struct SKPhase2* p2Sol = (p3Sol->p2Type / 2 == 0) ? ((p3Sol->p2Type % 2 == 0) ? &(sk2ASolutionsCPU[p3Sol->p2Idx]) : &(sk2BSolutionsCPU[p3Sol->p2Idx])) : ((p3Sol->p2Type % 2 == 0) ? &(sk2CSolutionsCPU[p3Sol->p2Idx]) : &(sk2DSolutionsCPU[p3Sol->p2Idx]));
-                                                struct SKPhase1* p1Sol = &(sk1SolutionsCPU[p2Sol->p1Idx]);
-
-                                                printf("---------------------------------------\nFound Solution:\n---------------------------------------\n    Start Position: %.10g, %.10g, %.10g\n    Frame 1 Position: %.10g, %.10g, %.10g\n    Frame 2 Position: %.10g, %.10g, %.10g\n    Return Position: %.10g, %.10g, %.10g\n    PU Route Speed: %.10g (x=%.10g, z=%.10g)\n    PU Return Speed: %.10g (x=%.10g, z=%.10g)\n    Frame 1 Q-steps: %d\n    Frame 2 Q-steps: %d\n    Frame 3 Q-steps: %d\n", tenKSol->startPosition[0], tenKSol->startPosition[1], tenKSol->startPosition[2], tenKSol->frame1Position[0], tenKSol->frame1Position[1], tenKSol->frame1Position[2], tenKSol->frame2Position[0], tenKSol->frame2Position[1], tenKSol->frame2Position[2], platSol->returnPosition[0], platSol->returnPosition[1], platSol->returnPosition[2], tenKSol->pre10KSpeed, tenKSol->pre10KVel[0], tenKSol->pre10KVel[1], speedSol->returnSpeed, tenKSol->returnVel[0], tenKSol->returnVel[1], 4, p1Sol->q2, 1);
-                                                printf("    10k Stick X: %d\n    10k Stick Y: %d\n    Frame 2 HAU: %d\n    10k Camera Yaw: %d\n    Start Floor Normal: %.10g, %.10g, %.10g\n", ((p5Sol->stickX == 0) ? 0 : ((p5Sol->stickX < 0) ? p5Sol->stickX - 6 : p5Sol->stickX + 6)), ((p5Sol->stickY == 0) ? 0 : ((p5Sol->stickY < 0) ? p5Sol->stickY - 6 : p5Sol->stickY + 6)), p2Sol->f2Angle, p4Sol->cameraYaw, host_norms[3 * x], host_norms[3 * x + 1], host_norms[3 * x + 2]);
-                                                printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Pre-Upwarp Position: %.10g, %.10g, %.10g\n    Post-Upwarp Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Intended DYaw: %d\n---------------------------------------\n\n\n", platSol->nFrames, platSol->endNormal[0], platSol->endNormal[1], platSol->endNormal[2], platSol->endPosition[0], platSol->endPosition[1], platSol->endPosition[2], speedSol->preUpwarpPosition[0], speedSol->preUpwarpPosition[1], speedSol->preUpwarpPosition[2], speedSol->upwarpPosition[0], speedSol->upwarpPosition[1], speedSol->upwarpPosition[2], uwSol->pux, uwSol->puz, speedSol->angle, speedSol->stickMag, speedSol->intendedDYaw);
+                                    printf("---------------------------------------\nFound Solution:\n---------------------------------------\n    Start Position: %.10g, %.10g, %.10g\n    Frame 1 Position: %.10g, %.10g, %.10g\n    Frame 2 Position: %.10g, %.10g, %.10g\n    Return Position: %.10g, %.10g, %.10g\n    PU Departure Speed: %.10g (x=%.10g, z=%.10g)\n    PU Return Speed: %.10g (x=%.10g, z=%.10g)\n    Frame 1 Q-steps: %d\n    Frame 2 Q-steps: %d\n    Frame 3 Q-steps: %d\n", tenKSol->startPosition[0], tenKSol->startPosition[1], tenKSol->startPosition[2], tenKSol->frame1Position[0], tenKSol->frame1Position[1], tenKSol->frame1Position[2], tenKSol->frame2Position[0], tenKSol->frame2Position[1], tenKSol->frame2Position[2], platSol->returnPosition[0], platSol->returnPosition[1], platSol->returnPosition[2], tenKSol->pre10KSpeed, tenKSol->pre10KVel[0], tenKSol->pre10KVel[1], speedSol->returnSpeed, tenKSol->returnVel[0], tenKSol->returnVel[1], 4, p1Sol->q2, 1);
+                                    printf("    10k Stick X: %d\n    10k Stick Y: %d\n    Frame 2 HAU: %d\n    10k Camera Yaw: %d\n    Start Floor Normal: %.10g, %.10g, %.10g\n", ((p5Sol->stickX == 0) ? 0 : ((p5Sol->stickX < 0) ? p5Sol->stickX - 6 : p5Sol->stickX + 6)), ((p5Sol->stickY == 0) ? 0 : ((p5Sol->stickY < 0) ? p5Sol->stickY - 6 : p5Sol->stickY + 6)), p2Sol->f2Angle, p4Sol->cameraYaw, host_norms[3 * x], host_norms[3 * x + 1], host_norms[3 * x + 2]);
+                                    printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Pre-Upwarp Position: %.10g, %.10g, %.10g\n    Post-Upwarp Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Intended DYaw: %d\n    Post-Upwarp Slide Angle: %d\n---------------------------------------\n\n\n", platSol->nFrames, platSol->endNormal[0], platSol->endNormal[1], platSol->endNormal[2], platSol->endPosition[0], platSol->endPosition[1], platSol->endPosition[2], slideSol->preUpwarpPosition[0], slideSol->preUpwarpPosition[1], slideSol->preUpwarpPosition[2], slideSol->upwarpPosition[0], slideSol->upwarpPosition[1], slideSol->upwarpPosition[2], uwSol->pux, uwSol->puz, slideSol->angle, slideSol->stickMag, slideSol->intendedDYaw, slideSol->postSlideAngle);
                                             
-                                                wf << normX << ", " << normY << ", " << normZ << ", ";
-                                                wf << tenKSol->startPosition[0] << ", " << tenKSol->startPosition[1] << ", " << tenKSol->startPosition[2] << ", ";
-                                                wf << tenKSol->frame1Position[0] << ", " << tenKSol->frame1Position[1] << ", " << tenKSol->frame1Position[2] << ", ";
-                                                wf << tenKSol->frame2Position[0] << ", " << tenKSol->frame2Position[1] << ", " << tenKSol->frame2Position[2] << ", ";
-                                                wf << platSol->returnPosition[0] << ", " << platSol->returnPosition[1] << ", " << platSol->returnPosition[2] << ", ";
-                                                wf << tenKSol->pre10KSpeed << ", " << tenKSol->pre10KVel[0] << ", " << tenKSol->pre10KVel[1] << ", ";
-                                                wf << speedSol->returnSpeed << ", " << tenKSol->returnVel[0] << ", " << tenKSol->returnVel[1] << ", ";
-                                                wf << 4 << ", " << p1Sol->q2 << ", " << 1 << ", ";
-                                                wf << ((p5Sol->stickX == 0) ? 0 : ((p5Sol->stickX < 0) ? p5Sol->stickX - 6 : p5Sol->stickX + 6)) << ", " << ((p5Sol->stickY == 0) ? 0 : ((p5Sol->stickY < 0) ? p5Sol->stickY - 6 : p5Sol->stickY + 6)) << ", ";
-                                                wf << p2Sol->f2Angle << ", " << p4Sol->cameraYaw << ", ";
-                                                wf << host_norms[3 * x] << ", " << host_norms[3 * x + 1] << ", " << host_norms[3 * x + 2] << ", ";
-                                                wf << platSol->nFrames << ", ";
-                                                wf << platSol->endNormal[0] << ", " << platSol->endNormal[1] << ", " << platSol->endNormal[2] << ", ";
-                                                wf << platSol->endPosition[0] << ", " << platSol->endPosition[1] << ", " << platSol->endPosition[2] << ", ";
-                                                wf << speedSol->preUpwarpPosition[0] << ", " << speedSol->preUpwarpPosition[1] << ", " << speedSol->preUpwarpPosition[2] << ", ";
-                                                wf << speedSol->upwarpPosition[0] << ", " << speedSol->upwarpPosition[1] << ", " << speedSol->upwarpPosition[2] << ", ";
-                                                wf << uwSol->pux << ", " << uwSol->puz << ", ";
-                                                wf << speedSol->angle << ", " << speedSol->stickMag << ", " << speedSol->intendedDYaw << endl;
-                                            }
-
-                                            free(tenKSolutionsCPU);
-                                            free(skuwSolutionsCPU);
-                                            free(upwarpSolutionsCPU);
-                                            free(platSolutionsCPU);
-                                            free(sk1SolutionsCPU);
-                                            free(sk2ASolutionsCPU);
-                                            free(sk2BSolutionsCPU);
-                                            free(sk2CSolutionsCPU);
-                                            free(sk2DSolutionsCPU);
-                                            free(sk3SolutionsCPU);
-                                            free(sk4SolutionsCPU);
-                                            free(sk5SolutionsCPU);
-                                            free(sk6SolutionsCPU);
-                                        }
-                                    }
-
-                                    free(speedSolutionsCPU);
+                                    wf << normX << ", " << normY << ", " << normZ << ", ";
+                                    wf << tenKSol->startPosition[0] << ", " << tenKSol->startPosition[1] << ", " << tenKSol->startPosition[2] << ", ";
+                                    wf << tenKSol->frame1Position[0] << ", " << tenKSol->frame1Position[1] << ", " << tenKSol->frame1Position[2] << ", ";
+                                    wf << tenKSol->frame2Position[0] << ", " << tenKSol->frame2Position[1] << ", " << tenKSol->frame2Position[2] << ", ";
+                                    wf << platSol->returnPosition[0] << ", " << platSol->returnPosition[1] << ", " << platSol->returnPosition[2] << ", ";
+                                    wf << tenKSol->pre10KSpeed << ", " << tenKSol->pre10KVel[0] << ", " << tenKSol->pre10KVel[1] << ", ";
+                                    wf << speedSol->returnSpeed << ", " << tenKSol->returnVel[0] << ", " << tenKSol->returnVel[1] << ", ";
+                                    wf << 4 << ", " << p1Sol->q2 << ", " << 1 << ", ";
+                                    wf << ((p5Sol->stickX == 0) ? 0 : ((p5Sol->stickX < 0) ? p5Sol->stickX - 6 : p5Sol->stickX + 6)) << ", " << ((p5Sol->stickY == 0) ? 0 : ((p5Sol->stickY < 0) ? p5Sol->stickY - 6 : p5Sol->stickY + 6)) << ", ";
+                                    wf << p2Sol->f2Angle << ", " << p4Sol->cameraYaw << ", ";
+                                    wf << host_norms[3 * x] << ", " << host_norms[3 * x + 1] << ", " << host_norms[3 * x + 2] << ", ";
+                                    wf << platSol->nFrames << ", ";
+                                    wf << platSol->endNormal[0] << ", " << platSol->endNormal[1] << ", " << platSol->endNormal[2] << ", ";
+                                    wf << platSol->endPosition[0] << ", " << platSol->endPosition[1] << ", " << platSol->endPosition[2] << ", ";
+                                    wf << slideSol->preUpwarpPosition[0] << ", " << slideSol->preUpwarpPosition[1] << ", " << slideSol->preUpwarpPosition[2] << ", ";
+                                    wf << slideSol->upwarpPosition[0] << ", " << slideSol->upwarpPosition[1] << ", " << slideSol->upwarpPosition[2] << ", ";
+                                    wf << uwSol->pux << ", " << uwSol->puz << ", ";
+                                    wf << slideSol->angle << ", " << slideSol->stickMag << ", " << slideSol->intendedDYaw << ", " << slideSol->postSlideAngle << endl;
                                 }
+
+                                free(tenKSolutionsCPU);
+                                free(speedSolutionsCPU);
+                                free(skuwSolutionsCPU);
+                                free(upwarpSolutionsCPU);
+                                free(platSolutionsCPU);
+                                free(sk1SolutionsCPU);
+                                free(sk2ASolutionsCPU);
+                                free(sk2BSolutionsCPU);
+                                free(sk2CSolutionsCPU);
+                                free(sk2DSolutionsCPU);
+                                free(sk3SolutionsCPU);
+                                free(sk4SolutionsCPU);
+                                free(sk5SolutionsCPU);
+                                free(sk6SolutionsCPU);
                             }
                         }
                     }
