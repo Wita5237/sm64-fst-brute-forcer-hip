@@ -1814,7 +1814,8 @@ __device__ void try_upwarp_slide(int solIdx, int angle, int intendedDYaw, float 
                 if (idx < MAX_SLIDE_SOLUTIONS) {
                     int slideYaw = atan2sG(xVel1, xVel1);
                     int facingDYaw = angle - slideYaw;
-                    int newFacingDYaw = facingDYaw;
+                    
+                    int newFacingDYaw = (short)facingDYaw;
 
                     if (newFacingDYaw > 0 && newFacingDYaw <= 0x4000) {
                         if ((newFacingDYaw -= 0x200) < 0) {
@@ -1838,6 +1839,7 @@ __device__ void try_upwarp_slide(int solIdx, int angle, int intendedDYaw, float 
                     }
 
                     int postSlideAngle = slideYaw + newFacingDYaw;
+                    postSlideAngle = (65536 + postSlideAngle) % 65536;
 
                     SlideSolution* solution = &(slideSolutions[idx]);
                     solution->tenKSolutionIdx = solIdx;
