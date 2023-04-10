@@ -30,7 +30,7 @@
 # define MAX_SK_PHASE_SIX 200000
 
 # define MAX_SK_UPWARP_SOLUTIONS 500000
-# define MAX_SPEED_SOLUTIONS   100000000
+# define MAX_SPEED_SOLUTIONS   300000000
 # define MAX_10K_SOLUTIONS 50000
 # define MAX_SLIDE_SOLUTIONS   50000
 
@@ -43,6 +43,24 @@ __device__ float tenKFloors[nTenKFloors][9] = {
     { -613.0, -306.0, -4146.0, -3993.0, -2661.0, -3071.0, 0.936891377, 0.349620432, 0.0 },
     { -7065.0, -6041.0, 307.0, 322.0, -2866.0, -3071.0, 0.0146370763, 0.03655698895, 0.9992243648 },
     { -7065.0, -6553.0, 307.0, 322.0, -2866.0, -3071.0, 0, 0.07297563553, 0.9973337054 }
+};
+
+struct SolStruct {
+    struct SKPhase1* sk1Solutions;
+    struct SKPhase2* sk2ASolutions;
+    struct SKPhase2* sk2BSolutions;
+    struct SKPhase2* sk2CSolutions;
+    struct SKPhase2* sk2DSolutions;
+    struct SKPhase3* sk3Solutions;
+    struct SKPhase4* sk4Solutions;
+    struct SKPhase5* sk5Solutions;
+    struct SKPhase6* sk6Solutions;
+    struct PlatformSolution* platSolutions;
+    struct UpwarpSolution* upwarpSolutions;
+    struct SKUpwarpSolution* skuwSolutions;
+    struct SpeedSolution* speedSolutions;
+    struct TenKSolution* tenKSolutions;
+    struct SlideSolution* slideSolutions;
 };
 
 struct SKPhase1 {
@@ -105,23 +123,23 @@ struct SKPhase6 {
     double angleDiff;
 };
 
-__device__ struct SKPhase1 sk1Solutions[MAX_SK_PHASE_ONE];
+__device__ struct SKPhase1* sk1Solutions;
 __device__ int nSK1Solutions;
-__device__ struct SKPhase2 sk2ASolutions[MAX_SK_PHASE_TWO_A];
+__device__ struct SKPhase2* sk2ASolutions;
 __device__ int nSK2ASolutions;
-__device__ struct SKPhase2 sk2BSolutions[MAX_SK_PHASE_TWO_B];
+__device__ struct SKPhase2* sk2BSolutions;
 __device__ int nSK2BSolutions;
-__device__ struct SKPhase2 sk2CSolutions[MAX_SK_PHASE_TWO_C];
+__device__ struct SKPhase2* sk2CSolutions;
 __device__ int nSK2CSolutions;
-__device__ struct SKPhase2 sk2DSolutions[MAX_SK_PHASE_TWO_D];
+__device__ struct SKPhase2* sk2DSolutions;
 __device__ int nSK2DSolutions;
-__device__ struct SKPhase3 sk3Solutions[MAX_SK_PHASE_THREE];
+__device__ struct SKPhase3* sk3Solutions;
 __device__ int nSK3Solutions;
-__device__ struct SKPhase4 sk4Solutions[MAX_SK_PHASE_FOUR];
+__device__ struct SKPhase4* sk4Solutions;
 __device__ int nSK4Solutions;
-__device__ struct SKPhase5 sk5Solutions[MAX_SK_PHASE_FIVE];
+__device__ struct SKPhase5* sk5Solutions;
 __device__ int nSK5Solutions;
-__device__ struct SKPhase6 sk6Solutions[MAX_SK_PHASE_SIX];
+__device__ struct SKPhase6* sk6Solutions;
 __device__ int nSK6Solutions;
 
 struct UpwarpSolution {
@@ -142,9 +160,9 @@ struct PlatformSolution {
     int nFrames;
 };
 
-__device__ struct PlatformSolution platSolutions[MAX_PLAT_SOLUTIONS];
+__device__ struct PlatformSolution* platSolutions;
 __device__ int nPlatSolutions;
-__device__ struct UpwarpSolution upwarpSolutions[MAX_UPWARP_SOLUTIONS];
+__device__ struct UpwarpSolution* upwarpSolutions;
 __device__ int nUpwarpSolutions;
 
 struct SKUpwarpSolution {
@@ -179,13 +197,13 @@ struct SlideSolution {
     int postSlideAngle;
 };
 
-__device__ struct SKUpwarpSolution skuwSolutions[MAX_SK_UPWARP_SOLUTIONS];
+__device__ struct SKUpwarpSolution* skuwSolutions;
 __device__ int nSKUWSolutions;
-__device__ struct SpeedSolution speedSolutions[MAX_SPEED_SOLUTIONS];
+__device__ struct SpeedSolution* speedSolutions;
 __device__ int nSpeedSolutions;
-__device__ struct TenKSolution tenKSolutions[MAX_10K_SOLUTIONS];
+__device__ struct TenKSolution* tenKSolutions;
 __device__ int n10KSolutions;
-__device__ struct SlideSolution slideSolutions[MAX_SLIDE_SOLUTIONS];
+__device__ struct SlideSolution* slideSolutions;
 __device__ int nSlideSolutions;
 
 class SurfaceG {
@@ -4447,17 +4465,73 @@ void find_slide_kick_setup_triangle(short* floorPoints, short* devFloorPoints, i
     }
 }
 
+__global__ void copy_solution_pointers(SolStruct s) {
+    sk1Solutions = s.sk1Solutions;
+    sk2ASolutions = s.sk2ASolutions;
+    sk2BSolutions = s.sk2BSolutions;
+    sk2CSolutions = s.sk2CSolutions;
+    sk2DSolutions = s.sk2DSolutions;
+    sk3Solutions = s.sk3Solutions;
+    sk4Solutions = s.sk4Solutions;
+    sk5Solutions = s.sk5Solutions;
+    sk6Solutions = s.sk6Solutions;
+    platSolutions = s.platSolutions;
+    upwarpSolutions = s.upwarpSolutions;
+    skuwSolutions = s.skuwSolutions;
+    speedSolutions = s.speedSolutions;
+    tenKSolutions = s.tenKSolutions;
+    slideSolutions = s.slideSolutions;
+}
+
+void init_solution_structs(SolStruct* s) {
+    cudaMalloc((void**)&s->sk1Solutions, MAX_SK_PHASE_ONE * sizeof(SKPhase1));
+    cudaMalloc((void**)&s->sk2ASolutions, MAX_SK_PHASE_TWO_A * sizeof(SKPhase2));
+    cudaMalloc((void**)&s->sk2BSolutions, MAX_SK_PHASE_TWO_B * sizeof(SKPhase2));
+    cudaMalloc((void**)&s->sk2CSolutions, MAX_SK_PHASE_TWO_C * sizeof(SKPhase2));
+    cudaMalloc((void**)&s->sk2DSolutions, MAX_SK_PHASE_TWO_D * sizeof(SKPhase2));
+    cudaMalloc((void**)&s->sk3Solutions, MAX_SK_PHASE_THREE * sizeof(SKPhase3));
+    cudaMalloc((void**)&s->sk4Solutions, MAX_SK_PHASE_FOUR * sizeof(SKPhase4));
+    cudaMalloc((void**)&s->sk5Solutions, MAX_SK_PHASE_FIVE * sizeof(SKPhase5));
+    cudaMalloc((void**)&s->sk6Solutions, MAX_SK_PHASE_SIX * sizeof(SKPhase6));
+    cudaMalloc((void**)&s->platSolutions, MAX_PLAT_SOLUTIONS * sizeof(PlatformSolution));
+    cudaMalloc((void**)&s->upwarpSolutions, MAX_UPWARP_SOLUTIONS * sizeof(UpwarpSolution));
+    cudaMalloc((void**)&s->skuwSolutions, MAX_SK_UPWARP_SOLUTIONS * sizeof(SKUpwarpSolution));
+    cudaMalloc((void**)&s->speedSolutions, MAX_SPEED_SOLUTIONS * sizeof(SpeedSolution));
+    cudaMalloc((void**)&s->tenKSolutions, MAX_10K_SOLUTIONS * sizeof(TenKSolution));
+    cudaMalloc((void**)&s->slideSolutions, MAX_SLIDE_SOLUTIONS * sizeof(SlideSolution));
+
+    copy_solution_pointers<<<1, 1>>>(*s);
+}
+
+void free_solution_pointers(SolStruct* s) {
+    cudaFree(s->sk1Solutions);
+    cudaFree(s->sk2ASolutions);
+    cudaFree(s->sk2BSolutions);
+    cudaFree(s->sk2CSolutions);
+    cudaFree(s->sk2DSolutions);
+    cudaFree(s->sk3Solutions);
+    cudaFree(s->sk4Solutions);
+    cudaFree(s->sk5Solutions);
+    cudaFree(s->sk6Solutions);
+    cudaFree(s->platSolutions);
+    cudaFree(s->upwarpSolutions);
+    cudaFree(s->skuwSolutions);
+    cudaFree(s->speedSolutions);
+    cudaFree(s->tenKSolutions);
+    cudaFree(s->slideSolutions);
+
+}
+
 __global__ void print_success() {
     printf("CUDA code completed successfully.\n");
 }
 
 int main(int argc, char* argv[]) {
     int nThreads = 256;
-    size_t memorySize = 10000000;
 
     int nPUFrames = 3;
     int maxFrames = 100;
-    
+
     float minNX = -0.4f;
     float maxNX = -0.0f;
     float minNZ = 0.2f;
@@ -4512,8 +4586,6 @@ int main(int argc, char* argv[]) {
             printf("    Default: %s\n", outFile.c_str());
             printf("-t <threads>: Number of CUDA threads to assign to the program.\n");
             printf("              Default: %d\n", nThreads);
-            printf("-m <memory>: Amount of GPU memory to assign to the program.\n");
-            printf("             Default: %d\n", memorySize);
             printf("-v: Verbose mode. Prints all parameters used in brute force.\n");
             printf("    Default: off\n");
             printf("-h --help: Prints this text.\n");
@@ -4531,11 +4603,6 @@ int main(int argc, char* argv[]) {
         }
         else if (!strcmp(argv[i], "-t")) {
             nThreads = std::stoi(argv[i + 1]);
-
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-m")) {
-            memorySize = std::stoi(argv[i + 1]);
 
             i += 1;
         }
@@ -4625,6 +4692,9 @@ int main(int argc, char* argv[]) {
     init_mag_set<<<1, 1>>>();
     initialise_floors<<<1, 1>>>();
     set_platform_pos<<<1, 1>>>(platformPos[0], platformPos[1], platformPos[2]);
+
+    SolStruct s;
+    init_solution_structs(&s);
 
     short* dev_tris;
     float* dev_norms;
@@ -4733,11 +4803,6 @@ int main(int argc, char* argv[]) {
 
                     int nX = round((maxX - minX) / deltaX) + 1;
                     int nZ = round((maxZ - minZ) / deltaZ) + 1;
-
-                    if (nX * nZ > memorySize) {
-                        printf("Warning: GPU buffer too small for normal (%g, %g), skipping.\n", normX, normZ);
-                        continue;
-                    }
 
                     int nPlatSolutionsCPU = 0;
                     int nUpwarpSolutionsCPU = 0;
@@ -4932,23 +4997,23 @@ int main(int argc, char* argv[]) {
                                 struct SKPhase5* sk5SolutionsCPU = (struct SKPhase5*)std::malloc(nSK5SolutionsCPU * sizeof(struct SKPhase5));
                                 struct SKPhase6* sk6SolutionsCPU = (struct SKPhase6*)std::malloc(nSK6SolutionsCPU * sizeof(struct SKPhase6));
 
-                                cudaMemcpyFromSymbol(slideSolutionsCPU, slideSolutions, nSlideSolutionsCPU * sizeof(struct SlideSolution), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(tenKSolutionsCPU, tenKSolutions, n10KSolutionsCPU * sizeof(struct TenKSolution), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(speedSolutionsCPU, speedSolutions, nSpeedSolutionsCPU * sizeof(struct SpeedSolution), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(skuwSolutionsCPU, skuwSolutions, nSKUWSolutionsCPU * sizeof(struct SKUpwarpSolution), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpy(slideSolutionsCPU, s.slideSolutions, nSlideSolutionsCPU * sizeof(struct SlideSolution), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(tenKSolutionsCPU, s.tenKSolutions, n10KSolutionsCPU * sizeof(struct TenKSolution), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(speedSolutionsCPU, s.speedSolutions, nSpeedSolutionsCPU * sizeof(struct SpeedSolution), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(skuwSolutionsCPU, s.skuwSolutions, nSKUWSolutionsCPU * sizeof(struct SKUpwarpSolution), cudaMemcpyDeviceToHost);
 
-                                cudaMemcpyFromSymbol(upwarpSolutionsCPU, upwarpSolutions, nUpwarpSolutionsCPU * sizeof(struct UpwarpSolution), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(platSolutionsCPU, platSolutions, nPlatSolutionsCPU * sizeof(struct PlatformSolution), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpy(upwarpSolutionsCPU, s.upwarpSolutions, nUpwarpSolutionsCPU * sizeof(struct UpwarpSolution), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(platSolutionsCPU, s.platSolutions, nPlatSolutionsCPU * sizeof(struct PlatformSolution), cudaMemcpyDeviceToHost);
 
-                                cudaMemcpyFromSymbol(sk1SolutionsCPU, sk1Solutions, nSK1SolutionsCPU * sizeof(struct SKPhase1), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(sk2ASolutionsCPU, sk2ASolutions, nSK2ASolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(sk2BSolutionsCPU, sk2BSolutions, nSK2BSolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(sk2CSolutionsCPU, sk2CSolutions, nSK2CSolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(sk2DSolutionsCPU, sk2DSolutions, nSK2DSolutionsCPU * sizeof(struct SKPhase2), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(sk3SolutionsCPU, sk3Solutions, nSK3SolutionsCPU * sizeof(struct SKPhase3), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(sk4SolutionsCPU, sk4Solutions, nSK4SolutionsCPU * sizeof(struct SKPhase4), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(sk5SolutionsCPU, sk5Solutions, nSK5SolutionsCPU * sizeof(struct SKPhase5), 0, cudaMemcpyDeviceToHost);
-                                cudaMemcpyFromSymbol(sk6SolutionsCPU, sk6Solutions, nSK6SolutionsCPU * sizeof(struct SKPhase6), 0, cudaMemcpyDeviceToHost);
+                                cudaMemcpy(sk1SolutionsCPU, s.sk1Solutions, nSK1SolutionsCPU * sizeof(struct SKPhase1), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(sk2ASolutionsCPU, s.sk2ASolutions, nSK2ASolutionsCPU * sizeof(struct SKPhase2), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(sk2BSolutionsCPU, s.sk2BSolutions, nSK2BSolutionsCPU * sizeof(struct SKPhase2), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(sk2CSolutionsCPU, s.sk2CSolutions, nSK2CSolutionsCPU * sizeof(struct SKPhase2), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(sk2DSolutionsCPU, s.sk2DSolutions, nSK2DSolutionsCPU * sizeof(struct SKPhase2), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(sk3SolutionsCPU, s.sk3Solutions, nSK3SolutionsCPU * sizeof(struct SKPhase3), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(sk4SolutionsCPU, s.sk4Solutions, nSK4SolutionsCPU * sizeof(struct SKPhase4), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(sk5SolutionsCPU, s.sk5Solutions, nSK5SolutionsCPU * sizeof(struct SKPhase5), cudaMemcpyDeviceToHost);
+                                cudaMemcpy(sk6SolutionsCPU, s.sk6Solutions, nSK6SolutionsCPU * sizeof(struct SKPhase6), cudaMemcpyDeviceToHost);
 
                                 for (int l = 0; l < nSlideSolutionsCPU; l++) {
                                     struct SlideSolution* slideSol = &(slideSolutionsCPU[l]);
@@ -5020,5 +5085,6 @@ int main(int argc, char* argv[]) {
     cudaFree(dev_norms);
     cudaFree(devFloorPoints);
     cudaFree(devSquishEdges);
+    free_solution_pointers(&s);
     wf.close();
 }
