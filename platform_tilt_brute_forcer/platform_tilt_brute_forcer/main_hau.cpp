@@ -73,6 +73,8 @@ struct PlatformSolution {
     float endNormal[3];
     short endTriangles[2][3][3];
     float endTriangleNormals[2][3];
+    float landingFloorNormalsY[3];
+    float landingPositions[3][3];
     float penultimateFloorNormalY;
     float penultimatePosition[3];
     int nFrames;
@@ -1134,7 +1136,54 @@ __global__ void test_speed_solution() {
         oneUpPlatformPosition[0] = oneUpPlatformPosition[0] - (intendedPosition[0] - platSol->returnPosition[0]);
         oneUpPlatformPosition[2] = oneUpPlatformPosition[2] - (intendedPosition[2] - platSol->returnPosition[2]);
 
-        if ((short)(int)oneUpPlatformPosition[0] >= oneUpPlatformXMin && (short)(int)oneUpPlatformPosition[0] <= oneUpPlatformXMax && (short)(int)oneUpPlatformPosition[2] >= oneUpPlatformZMin && (short)(int)oneUpPlatformPosition[2] <= oneUpPlatformZMax) {
+        intendedPosition[0] = oneUpPlatformPosition[0];
+        intendedPosition[2] = oneUpPlatformPosition[2];
+
+        int returnSlideYaw = atan2sG(returnSpeedZ, returnSpeedX);
+        int newFacingDYaw = (short)(oupSol->angle - returnSlideYaw);
+
+        if (newFacingDYaw > 0 && newFacingDYaw <= 0x4000) {
+            if ((newFacingDYaw -= 0x200) < 0) {
+                newFacingDYaw = 0;
+            }
+        }
+        else if (newFacingDYaw > -0x4000 && newFacingDYaw < 0) {
+            if ((newFacingDYaw += 0x200) > 0) {
+                newFacingDYaw = 0;
+            }
+        }
+        else if (newFacingDYaw > 0x4000 && newFacingDYaw < 0x8000) {
+            if ((newFacingDYaw += 0x200) > 0x8000) {
+                newFacingDYaw = 0x8000;
+            }
+        }
+        else if (newFacingDYaw > -0x8000 && newFacingDYaw < -0x4000) {
+            if ((newFacingDYaw -= 0x200) < -0x8000) {
+                newFacingDYaw = -0x8000;
+            }
+        }
+
+        int returnFaceAngle = returnSlideYaw + newFacingDYaw;
+        returnFaceAngle = (65536 + returnFaceAngle) % 65536;
+
+        float postReturnVelX = returnSpeed * gSineTableG[returnFaceAngle >> 4];
+        float postReturnVelZ = returnSpeed * gCosineTableG[returnFaceAngle >> 4];
+
+        intendedPosition[0] = platSol->returnPosition[0] + postReturnVelX / 4.0;
+        intendedPosition[1] = platSol->returnPosition[1];
+        intendedPosition[2] = platSol->returnPosition[2] + postReturnVelZ / 4.0;
+
+        bool outOfBoundsTest = !check_inbounds(intendedPosition);
+
+        for (int f = 0; outOfBoundsTest && f < 3; f++) {
+            intendedPosition[0] = platSol->landingPositions[f][0] + platSol->landingFloorNormalsY[f] * (postReturnVelX / 4.0);
+            intendedPosition[1] = platSol->landingPositions[f][1];
+            intendedPosition[2] = platSol->landingPositions[f][2] + platSol->landingFloorNormalsY[f] * (postReturnVelZ / 4.0);
+
+            outOfBoundsTest = !check_inbounds(intendedPosition);
+        }
+
+        if (outOfBoundsTest && (short)(int)oneUpPlatformPosition[0] >= oneUpPlatformXMin && (short)(int)oneUpPlatformPosition[0] <= oneUpPlatformXMax && (short)(int)oneUpPlatformPosition[2] >= oneUpPlatformZMin && (short)(int)oneUpPlatformPosition[2] <= oneUpPlatformZMax) {
             oneUpPlatformPosition[1] = oneUpPlatformYMin + (oneUpPlatformYMax - oneUpPlatformYMin) * (((float)(short)(int)oneUpPlatformPosition[0] - oneUpPlatformXMin) / (oneUpPlatformXMax - oneUpPlatformXMin));
 
             bool fallTest = false;
@@ -1172,7 +1221,7 @@ __global__ void test_speed_solution() {
                 }
             }
 
-            if (fallTest && intendedPosition[1] < platSol->returnPosition[1]) {
+            if (fallTest && intendedPosition[1] < platSol->returnPosition[1] && intendedPosition[0] == platSol->returnPosition[0] && intendedPosition[0] == platSol->returnPosition[0] && intendedPosition[2] == platSol->returnPosition[2]) {
                 for (int q1 = max(1, stickSol->q1q2 - 4); q1 <= min(4, stickSol->q1q2 - 1); q1++) {
                     int q2 = stickSol->q1q2 - q1;
                     
@@ -2770,6 +2819,9 @@ __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
         float lastYNormal = triangleNormals[floor_idx][1];
         float lastPos[3] = { marioPos[0], marioPos[1], marioPos[2] };
 
+        float landingPositions[3][3];
+        float landingNormalsY[3];
+
         for (int f = 0; f < maxFrames; f++) {
             float dx;
             float dy;
@@ -2959,11 +3011,25 @@ __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
                 break;
             }
 
+            if (f < 3) {
+                if (floor_idx == -1) {
+                    landingNormalsY[f] = 1.0;
+                }
+                else {
+                    landingNormalsY[f] = triangleNormals[floor_idx][1];
+                }
+
+                landingPositions[f][0] = marioPos[0];
+                landingPositions[f][1] = marioPos[1];
+                landingPositions[f][2] = marioPos[2];
+            }
+
             bool oldOnPlatform = onPlatform;
             onPlatform = floor_idx != -1 && fabsf(marioPos[1] - floor_height) <= 4.0;
 
             //Check if Mario is under the lava, or too far below the platform for it to conceivably be in reach later
             if (marioPos[1] <= -3071.0f && (floor_idx != -1 || floor_height <= -3071.0f)
+                //if ((floor_idx != -1 || floor_height <= -3071.0f)
                 || (floor_idx != -1 && marioPos[1] - floor_height < -20.0f))
             {
                 break;
@@ -3039,6 +3105,12 @@ __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
                                 solution.endTriangles[j][k][1] = currentTriangles[j][k][1];
                                 solution.endTriangles[j][k][2] = currentTriangles[j][k][2];
                             }
+                        }
+                        for (int f = 0; f < 3; f++) {
+                            solution.landingPositions[f][0] = landingPositions[f][0];
+                            solution.landingPositions[f][1] = landingPositions[f][1];
+                            solution.landingPositions[f][2] = landingPositions[f][2];
+                            solution.landingFloorNormalsY[f] = landingNormalsY[f];
                         }
 
                         platSolutions[solIdx] = solution;
