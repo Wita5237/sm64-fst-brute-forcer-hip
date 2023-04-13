@@ -155,6 +155,8 @@ struct PlatformSolution {
     short endTriangles[2][3][3];
     float endTriangleNormals[2][3];
     int endFloorIdx;
+    float landingFloorNormalsY[3];
+    float landingPositions[3][3];
     float penultimateFloorNormalY;
     float penultimatePosition[3];
     int nFrames;
@@ -1083,92 +1085,136 @@ __global__ void test_speed_solution(short* floorPoints, bool* squishEdges, const
             int floorIdx = find_floor(frame2Position, &floor, floorHeight, floorsG, total_floorsG);
 
             if (floorIdx != -1 && floor->normal[1] == tenKFloors[sol2->tenKFloorIdx][7] && floorHeight < platSol->returnPosition[1] && floorHeight >= platSol->returnPosition[1] - 78.0f && floorHeight > -2971.0f) {
-                frame2Position[1] = floorHeight;
+                int returnSlideYaw = atan2sG(returnVelZ, returnVelX);
+                int newFacingDYaw = (short)(sol2->f2Angle - returnSlideYaw);
 
-                float startSpeed = pre10KSpeed + 1.0f;
-                startSpeed = startSpeed + 0.35f;
-
-                float startVelX = pre10KSpeed * gSineTableG[sol2->f2Angle >> 4];
-                float startVelZ = pre10KSpeed * gCosineTableG[sol2->f2Angle >> 4];
-
-                float frame1Position[3] = { frame2Position[0], frame2Position[1], frame2Position[2] };
-
-                bool inBoundsTest = true;
-
-                for (int q = 0; q < sol1->q2; q++) {
-                    frame1Position[0] = frame1Position[0] - (startVelX / 4.0f);
-                    frame1Position[2] = frame1Position[2] - (startVelZ / 4.0f);
-
-                    if (!check_inbounds(frame1Position)) {
-                        inBoundsTest = false;
-                        break;
+                if (newFacingDYaw > 0 && newFacingDYaw <= 0x4000) {
+                    if ((newFacingDYaw -= 0x200) < 0) {
+                        newFacingDYaw = 0;
+                    }
+                }
+                else if (newFacingDYaw > -0x4000 && newFacingDYaw < 0) {
+                    if ((newFacingDYaw += 0x200) > 0) {
+                        newFacingDYaw = 0;
+                    }
+                }
+                else if (newFacingDYaw > 0x4000 && newFacingDYaw < 0x8000) {
+                    if ((newFacingDYaw += 0x200) > 0x8000) {
+                        newFacingDYaw = 0x8000;
+                    }
+                }
+                else if (newFacingDYaw > -0x8000 && newFacingDYaw < -0x4000) {
+                    if ((newFacingDYaw -= 0x200) < -0x8000) {
+                        newFacingDYaw = -0x8000;
                     }
                 }
 
-                if (inBoundsTest) {
-                    floorIdx = find_floor(frame1Position, startTriangles, startNormals, &floorHeight);
+                int returnFaceAngle = returnSlideYaw + newFacingDYaw;
+                returnFaceAngle = (65536 + returnFaceAngle) % 65536;
 
-                    if (floorIdx != -1 && floorHeight + (sol1->q2 * 20.0f / 4.0f) < frame2Position[1] && floorHeight + (sol1->q2 * 20.0f / 4.0f) >= frame2Position[1] - 78.0f && floorHeight > -3071.0f) {
-                        frame1Position[1] = floorHeight;
+                float postReturnVelX = sol->returnSpeed * gSineTableG[returnFaceAngle >> 4];
+                float postReturnVelZ = sol->returnSpeed * gCosineTableG[returnFaceAngle >> 4];
 
-                        float startPositions[2][3];
-                        int intersections = 0;
+                float intendedPosition[3] = { platSol->returnPosition[0] + postReturnVelX / 4.0, platSol->returnPosition[1], platSol->returnPosition[2] + postReturnVelZ / 4.0 };
 
-                        for (int i = 0; i < nPoints; i++) {
-                            if (squishEdges[i]) {
-                                double eqA = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) + ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]);
-                                double eqB = 2.0 * (((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * ((double)floorPoints[3 * i] - frame1Position[0]) + ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * ((double)floorPoints[3 * i + 2] - frame1Position[2]));
-                                double eqC = ((double)floorPoints[3 * i] - frame1Position[0]) * ((double)floorPoints[3 * i] - frame1Position[0]) + ((double)floorPoints[3 * i + 2] - frame1Position[2]) * ((double)floorPoints[3 * i + 2] - frame1Position[2]) - ((double)startSpeed * (double)floorNormalY) * ((double)startSpeed * (double)floorNormalY);
-                                double eqDet = eqB * eqB - 4.0 * eqA * eqC;
+                bool outOfBoundsTest = !check_inbounds(intendedPosition);
 
-                                if (eqDet >= 0) {
-                                    double t = (-eqB + sqrt(eqDet)) / (2.0 * eqA);
+                for (int f = 0; outOfBoundsTest && f < 3; f++) {
+                    intendedPosition[0] = platSol->landingPositions[f][0] + platSol->landingFloorNormalsY[f] * (postReturnVelX / 4.0);
+                    intendedPosition[1] = platSol->landingPositions[f][1];
+                    intendedPosition[2] = platSol->landingPositions[f][2] + platSol->landingFloorNormalsY[f] * (postReturnVelZ / 4.0);
 
-                                    if (t >= 0.0 && t <= 1.0) {
-                                        startPositions[intersections][0] = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * t + (double)floorPoints[3 * i];
-                                        startPositions[intersections][1] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 1] - (double)floorPoints[3 * i + 1]) * t + (double)floorPoints[3 * i + 1];
-                                        startPositions[intersections][2] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * t + (double)floorPoints[3 * i + 2];
-                                        intersections++;
-                                        continue;
-                                    }
+                    outOfBoundsTest = !check_inbounds(intendedPosition);
+                }
 
-                                    t = (-eqB - sqrt(eqDet)) / (2.0 * eqA);
+                if (outOfBoundsTest) {
+                    frame2Position[1] = floorHeight;
 
-                                    if (t >= 0.0 && t <= 1.0) {
-                                        startPositions[intersections][0] = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * t + (double)floorPoints[3 * i];
-                                        startPositions[intersections][1] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 1] - (double)floorPoints[3 * i + 1]) * t + (double)floorPoints[3 * i + 1];
-                                        startPositions[intersections][2] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * t + (double)floorPoints[3 * i + 2];
-                                        intersections++;
+                    float startSpeed = pre10KSpeed + 1.0f;
+                    startSpeed = startSpeed + 0.35f;
+
+                    float startVelX = pre10KSpeed * gSineTableG[sol2->f2Angle >> 4];
+                    float startVelZ = pre10KSpeed * gCosineTableG[sol2->f2Angle >> 4];
+
+                    float frame1Position[3] = { frame2Position[0], frame2Position[1], frame2Position[2] };
+
+                    bool inBoundsTest = true;
+
+                    for (int q = 0; q < sol1->q2; q++) {
+                        frame1Position[0] = frame1Position[0] - (startVelX / 4.0f);
+                        frame1Position[2] = frame1Position[2] - (startVelZ / 4.0f);
+
+                        if (!check_inbounds(frame1Position)) {
+                            inBoundsTest = false;
+                            break;
+                        }
+                    }
+
+                    if (inBoundsTest) {
+                        floorIdx = find_floor(frame1Position, startTriangles, startNormals, &floorHeight);
+
+                        if (floorIdx != -1 && floorHeight + (sol1->q2 * 20.0f / 4.0f) < frame2Position[1] && floorHeight + (sol1->q2 * 20.0f / 4.0f) >= frame2Position[1] - 78.0f && floorHeight > -3071.0f) {
+                            frame1Position[1] = floorHeight;
+
+                            float startPositions[2][3];
+                            int intersections = 0;
+
+                            for (int i = 0; i < nPoints; i++) {
+                                if (squishEdges[i]) {
+                                    double eqA = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) + ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]);
+                                    double eqB = 2.0 * (((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * ((double)floorPoints[3 * i] - frame1Position[0]) + ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * ((double)floorPoints[3 * i + 2] - frame1Position[2]));
+                                    double eqC = ((double)floorPoints[3 * i] - frame1Position[0]) * ((double)floorPoints[3 * i] - frame1Position[0]) + ((double)floorPoints[3 * i + 2] - frame1Position[2]) * ((double)floorPoints[3 * i + 2] - frame1Position[2]) - ((double)startSpeed * (double)floorNormalY) * ((double)startSpeed * (double)floorNormalY);
+                                    double eqDet = eqB * eqB - 4.0 * eqA * eqC;
+
+                                    if (eqDet >= 0) {
+                                        double t = (-eqB + sqrt(eqDet)) / (2.0 * eqA);
+
+                                        if (t >= 0.0 && t <= 1.0) {
+                                            startPositions[intersections][0] = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * t + (double)floorPoints[3 * i];
+                                            startPositions[intersections][1] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 1] - (double)floorPoints[3 * i + 1]) * t + (double)floorPoints[3 * i + 1];
+                                            startPositions[intersections][2] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * t + (double)floorPoints[3 * i + 2];
+                                            intersections++;
+                                            continue;
+                                        }
+
+                                        t = (-eqB - sqrt(eqDet)) / (2.0 * eqA);
+
+                                        if (t >= 0.0 && t <= 1.0) {
+                                            startPositions[intersections][0] = ((double)floorPoints[3 * ((i + 1) % nPoints)] - (double)floorPoints[3 * i]) * t + (double)floorPoints[3 * i];
+                                            startPositions[intersections][1] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 1] - (double)floorPoints[3 * i + 1]) * t + (double)floorPoints[3 * i + 1];
+                                            startPositions[intersections][2] = ((double)floorPoints[3 * ((i + 1) % nPoints) + 2] - (double)floorPoints[3 * i + 2]) * t + (double)floorPoints[3 * i + 2];
+                                            intersections++;
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        for (int i = 0; i < intersections; i++) {
-                            if (startPositions[i][1] > -3071.0f) {
-                                int f1Angle = atan2sG(frame1Position[2] - startPositions[i][2], frame1Position[0] - startPositions[i][0]);
-                                f1Angle = (65536 + f1Angle) % 65536;
+                            for (int i = 0; i < intersections; i++) {
+                                if (startPositions[i][1] > -3071.0f) {
+                                    int f1Angle = atan2sG(frame1Position[2] - startPositions[i][2], frame1Position[0] - startPositions[i][0]);
+                                    f1Angle = (65536 + f1Angle) % 65536;
 
-                                if (f1Angle == sol5->f1Angle) {
-                                    int solIdx = atomicAdd(&n10KSolutions, 1);
+                                    if (f1Angle == sol5->f1Angle) {
+                                        int solIdx = atomicAdd(&n10KSolutions, 1);
 
-                                    if (solIdx < MAX_SK_UPWARP_SOLUTIONS) {
-                                        struct TenKSolution* solution = &(tenKSolutions[solIdx]);
-                                        solution->speedSolutionIdx = idx;
-                                        solution->pre10KSpeed = startSpeed;
-                                        solution->pre10KVel[0] = startVelX;
-                                        solution->pre10KVel[1] = startVelZ;
-                                        solution->returnVel[0] = returnVelX;
-                                        solution->returnVel[1] = returnVelZ;
-                                        solution->frame2Position[0] = frame2Position[0];
-                                        solution->frame2Position[1] = frame2Position[1];
-                                        solution->frame2Position[2] = frame2Position[2];
-                                        solution->frame1Position[0] = frame1Position[0];
-                                        solution->frame1Position[1] = frame1Position[1];
-                                        solution->frame1Position[2] = frame1Position[2];
-                                        solution->startPosition[0] = startPositions[i][0];
-                                        solution->startPosition[1] = startPositions[i][1];
-                                        solution->startPosition[2] = startPositions[i][2];
+                                        if (solIdx < MAX_SK_UPWARP_SOLUTIONS) {
+                                            struct TenKSolution* solution = &(tenKSolutions[solIdx]);
+                                            solution->speedSolutionIdx = idx;
+                                            solution->pre10KSpeed = startSpeed;
+                                            solution->pre10KVel[0] = startVelX;
+                                            solution->pre10KVel[1] = startVelZ;
+                                            solution->returnVel[0] = returnVelX;
+                                            solution->returnVel[1] = returnVelZ;
+                                            solution->frame2Position[0] = frame2Position[0];
+                                            solution->frame2Position[1] = frame2Position[1];
+                                            solution->frame2Position[2] = frame2Position[2];
+                                            solution->frame1Position[0] = frame1Position[0];
+                                            solution->frame1Position[1] = frame1Position[1];
+                                            solution->frame1Position[2] = frame1Position[2];
+                                            solution->startPosition[0] = startPositions[i][0];
+                                            solution->startPosition[1] = startPositions[i][1];
+                                            solution->startPosition[2] = startPositions[i][2];
+                                        }
                                     }
                                 }
                             }
@@ -3057,6 +3103,9 @@ __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
         float lastYNormal = triangleNormals[floor_idx][1];
         float lastPos[3] = { marioPos[0], marioPos[1], marioPos[2] };
 
+        float landingPositions[3][3];
+        float landingNormalsY[3];
+
         for (int f = 0; f < maxFrames; f++) {
             float dx;
             float dy;
@@ -3246,6 +3295,19 @@ __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
                 break;
             }
 
+            if (f < 3) {
+                if (floor_idx == -1) {
+                    landingNormalsY[f] = 1.0;
+                }
+                else {
+                    landingNormalsY[f] = triangleNormals[floor_idx][1];
+                }
+
+                landingPositions[f][0] = marioPos[0];
+                landingPositions[f][1] = marioPos[1];
+                landingPositions[f][2] = marioPos[2];
+            }
+
             bool oldOnPlatform = onPlatform;
             onPlatform = floor_idx != -1 && fabsf(marioPos[1] - floor_height) <= 4.0;
 
@@ -3327,6 +3389,12 @@ __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
                                 solution.endTriangles[j][k][1] = currentTriangles[j][k][1];
                                 solution.endTriangles[j][k][2] = currentTriangles[j][k][2];
                             }
+                        }
+                        for (int f = 0; f < 3; f++) {
+                            solution.landingPositions[f][0] = landingPositions[f][0];
+                            solution.landingPositions[f][1] = landingPositions[f][1];
+                            solution.landingPositions[f][2] = landingPositions[f][2];
+                            solution.landingFloorNormalsY[f] = landingNormalsY[f];
                         }
 
                         platSolutions[solIdx] = solution;
