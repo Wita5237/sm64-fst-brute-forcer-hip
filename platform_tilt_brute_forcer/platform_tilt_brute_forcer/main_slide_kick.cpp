@@ -1213,7 +1213,7 @@ __global__ void test_speed_solution(short* floorPoints, bool* squishEdges, const
                             }
 
                             for (int i = 0; i < intersections; i++) {
-                                if (startPositions[i][1] > -2971.0f && startPositions[i][1] < -2921.0f + (52.0f * sqrtf(1.0f - floorNormalY * floorNormalY) / floorNormalY)) {
+                                if (startPositions[i][1] > -2971.0f && startPositions[i][1] < -2921.0f - (52.0f * sqrtf(1.0f - floorNormalY * floorNormalY) / floorNormalY)) {
                                     int f1Angle = atan2sG(frame1Position[2] - startPositions[i][2], frame1Position[0] - startPositions[i][0]);
                                     f1Angle = (65536 + f1Angle) % 65536;
 
