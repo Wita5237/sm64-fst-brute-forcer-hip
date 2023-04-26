@@ -5427,6 +5427,7 @@ int main(int argc, char* argv[]) {
                                 }
 
                                 free(bdSolutionsCPU);
+                                free(slideSolutionsCPU);
                                 free(tenKSolutionsCPU);
                                 free(speedSolutionsCPU);
                                 free(skuwSolutionsCPU);
