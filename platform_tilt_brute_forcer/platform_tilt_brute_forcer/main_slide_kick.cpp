@@ -5203,9 +5203,9 @@ int main(int argc, char* argv[]) {
                                 floorPoints[11] = host_tris[17];
                             }
 
-                            squishEdges[0] = (i == 0) ? ceilingNormals[2] > -0.5f : false;
-                            squishEdges[1] = ceilingNormals[(i == 0) ? 0 : 1] > -0.5f;
-                            squishEdges[2] = (sameNormal || i == 1) ? ceilingNormals[sameNormal ? 1 : 3] > -0.5f : false;
+                            squishEdges[0] = (x == 0) ? ceilingNormals[2] > -0.5f : false;
+                            squishEdges[1] = ceilingNormals[(x == 0) ? 0 : 1] > -0.5f;
+                            squishEdges[2] = (sameNormal || x == 1) ? ceilingNormals[sameNormal ? 1 : 3] > -0.5f : false;
                             squishEdges[3] = sameNormal ? ceilingNormals[3] > -0.5f : false;
 
                             cudaMemcpy(devSquishEdges, squishEdges, 4 * sizeof(bool), cudaMemcpyHostToDevice);
