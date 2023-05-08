@@ -2017,7 +2017,7 @@ __global__ void find_breakdance_solutions() {
                                 if (solIdx < MAX_BD_SOLUTIONS) {
                                     BDSolution* solution = &(bdSolutions[solIdx]);
                                     solution->slideSolutionIdx = idx;
-                                    solution->cameraYaw;
+                                    solution->cameraYaw = cameraYaw;
                                     solution->stickX = rawX;
                                     solution->stickY = rawY;
                                     solution->landingPosition[0] = intendedPos[0];
