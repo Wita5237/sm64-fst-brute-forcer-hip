@@ -1826,7 +1826,7 @@ __global__ void find_breakdance_solutions() {
         int slopeAngle = atan2sG(floor->normal[2], floor->normal[0]);
         slopeAngle = (slopeAngle + 65536) % 65536;
 
-        float steepness = sqrtf(floor->normal[0] * floor->normal[0] + floor->normal[0] * floor->normal[0]);
+        float steepness = sqrtf(floor->normal[0] * floor->normal[0] + floor->normal[2] * floor->normal[2]);
 
         float cameraPositions[4][3] = { {-8192, -2918, -8192}, {-8192, -2918, 8191}, {8191, -2918, -8192}, {8191, -2918, 8191} };
 
