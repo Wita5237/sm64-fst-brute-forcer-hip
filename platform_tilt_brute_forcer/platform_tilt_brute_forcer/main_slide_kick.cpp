@@ -1547,8 +1547,8 @@ __global__ void find_sk_upwarp_solutions() {
         double minDist = INFINITY;
 
         for (int i = 0; i < 3; i++) {
-            double xDist = 65536.0f * uwSol->pux + platSol->endTriangles[platSol->endFloorIdx][i][0] - platSol->returnPosition[0];
-            double zDist = 65536.0f * uwSol->puz + platSol->endTriangles[platSol->endFloorIdx][i][2] - platSol->returnPosition[2];
+            double xDist = 65536.0f * uwSol->pux + platSol->endTriangles[platSol->endFloorIdx][i][0] - platSol->endPosition[0];
+            double zDist = 65536.0f * uwSol->puz + platSol->endTriangles[platSol->endFloorIdx][i][2] - platSol->endPosition[2];
 
             double dist = sqrt(xDist * xDist + zDist * zDist);
 
