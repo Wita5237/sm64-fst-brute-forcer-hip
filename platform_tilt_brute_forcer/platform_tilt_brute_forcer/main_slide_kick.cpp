@@ -3930,7 +3930,19 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
         struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(sk2ASolutions[sol3->p2Idx]) : &(sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(sk2CSolutions[sol3->p2Idx]) : &(sk2DSolutions[sol3->p2Idx]));
         struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
 
-        float cameraPositions[4][3] = { {-8192, -2918, -8192}, {-8192, -2918, 8191}, {8191, -2918, -8192}, {8191, -2918, 8191} };
+        //const int nCameraPositions = 4;
+        //float cameraPositions[nCameraPositions][3] = { {-8192, -2918, -8192}, {-8192, -2918, 8191}, {8191, -2918, -8192}, {8191, -2918, 8191} };
+        const int nCameraPositions = 8;
+        float cameraPositions[nCameraPositions][3] = {
+            {-32768, -2918, 0}, 
+            {-23170, -2918, -23170}, 
+            {0, -2918, -32768}, 
+            {23170, -2918, -23170}, 
+            {32768, -2918, 0}, 
+            {23170, -2918, 23170}, 
+            {0, -2918, 32768}, 
+            {-23170, -2918, 23170} 
+        };
 
         float tenKPosition[3] = { (65536.0 * sol3->x2) + (tenKFloors[sol2->tenKFloorIdx][0] + tenKFloors[sol2->tenKFloorIdx][1]) / 2.0f, (tenKFloors[sol2->tenKFloorIdx][4] + tenKFloors[sol2->tenKFloorIdx][5]) / 2.0f, (65536.0 * sol3->z2) + (tenKFloors[sol2->tenKFloorIdx][2] + tenKFloors[sol2->tenKFloorIdx][3]) / 2.0f };
 
@@ -4138,7 +4150,7 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
                         int refCameraYaw = calculate_camera_yaw(cameraFocus, cameraPositions[0]);
                         refCameraYaw = (65536 + refCameraYaw) % 65536;
 
-                        for (int k = 1; k < 4; k++) {
+                        for (int k = 1; k < nCameraPositions; k++) {
                             int cameraYaw = calculate_camera_yaw(cameraFocus, cameraPositions[k]);
                             cameraYaw = (short)(cameraYaw - refCameraYaw);
                             minCameraYaw = min(minCameraYaw, cameraYaw);
