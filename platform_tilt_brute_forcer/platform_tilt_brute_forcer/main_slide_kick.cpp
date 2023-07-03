@@ -5324,7 +5324,7 @@ int main(int argc, char* argv[]) {
                                     nBDSolutionsCPU = MAX_BD_SOLUTIONS;
                                 }
 
-                                printf("        # Breakdance Solutions: %d\n", nSlideSolutionsCPU);
+                                printf("        # Breakdance Solutions: %d\n", nBDSolutionsCPU);
 
                                 int nSK1SolutionsCPU = 0;
                                 int nSK2ASolutionsCPU = 0;
