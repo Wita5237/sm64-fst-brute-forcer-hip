@@ -5076,7 +5076,7 @@ int main(int argc, char* argv[]) {
         printf("\n");
     }
 
-    init_reverse_atan<<<1, 1>>>();
+    init_reverse_atanG<<<1, 1>>>();
     init_camera_angles<<<1, 1>>>();
     init_mag_set<<<1, 1>>>();
     initialise_floors<<<1, 1>>>();
