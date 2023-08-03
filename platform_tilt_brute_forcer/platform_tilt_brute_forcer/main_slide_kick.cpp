@@ -6517,7 +6517,7 @@ int main(int argc, char* argv[]) {
     short* dev_tris;
     float* dev_norms;
     short* host_tris = (short*)std::malloc(36 * sizeof(short));
-    float* host_norms = (float*)std::malloc(6 * sizeof(float));
+    float* host_norms = (float*)std::malloc(12 * sizeof(float));
 
     cudaMalloc((void**)&dev_tris, 36 * sizeof(short));
     cudaMalloc((void**)&dev_norms, 12 * sizeof(float));
