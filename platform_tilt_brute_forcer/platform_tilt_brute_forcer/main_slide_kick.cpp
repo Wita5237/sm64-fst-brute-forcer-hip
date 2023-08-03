@@ -1413,7 +1413,7 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                                         s = (-eqB1 - sqrt(eqDet1)) / (2.0 * eqA1);
                                         t = (-eqB2 - sqrt(eqDet2)) / (2.0 * eqA2);
 
-                                        if (t >= 0.0 && t <= 1.0) {
+                                        if (s >= 0.0 && s <= 1.0 || t >= 0.0 && t <= 1.0) {
                                             intersectionIdxs[intersections] = squishEdges[i];
                                             startPositions[intersections][0][0] = ((double)p[1][0] - (double)p[0][0]) * s + (double)p[0][0];
                                             startPositions[intersections][0][1] = ((double)p[1][1] - (double)p[0][1]) * s + (double)p[0][1];
@@ -6388,8 +6388,6 @@ int main(int argc, char* argv[]) {
             printf("               Default: %g\n", deltaZ);
             printf("-p <platform_x> <platform_y> <platform_z>: Position of the pyramid platform.\n");
             printf("                                           Default: %g %g %g\n", platformPos[0], platformPos[1], platformPos[2]);
-            printf("-q: Position of the pyramid platform.\n");
-            printf("                                           Default: %g %g %g\n", platformPos[0], platformPos[1], platformPos[2]);
             printf("-o: Path to the output file.\n");
             printf("    Default: %s\n", outFile.c_str());
             printf("-t <threads>: Number of CUDA threads to assign to the program.\n");
@@ -6582,7 +6580,7 @@ int main(int argc, char* argv[]) {
         for (int h = 0; h < nSamplesNY; h++) {
             printf("%d, %d: %.10g, %.10g\n", h, j, minNY + h * deltaNY, minNXZ + j * deltaNXZ);
             for (int i = 0; i < nSamplesNX; i++) {
-              for (int quad = 0; quad < 8; quad++) {
+              for (int quad = 0; quad < 8; quad++) { //Search all 8 "quadrants" simultaneously
                     float signX = 2.0 * (quad % 2) - 1.0;
                     float signZ = 2.0 * ((quad / 2) % 2) - 1.0;
                     platformPos[0] = (quad / 4) == 0 ? -1945.0f : -2866.0f;
