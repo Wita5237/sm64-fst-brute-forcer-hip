@@ -1301,14 +1301,14 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                 float postReturnVelX = sol->returnSpeed * gSineTableG[returnFaceAngle >> 4];
                 float postReturnVelZ = sol->returnSpeed * gCosineTableG[returnFaceAngle >> 4];
 
-                float intendedPosition[3] = { platSol->returnPosition[0] + postReturnVelX / 4.0, platSol->returnPosition[1], platSol->returnPosition[2] + postReturnVelZ / 4.0 };
+                float intendedPosition[3] = { platSol->returnPosition[0] + postReturnVelX / 4.0f, platSol->returnPosition[1], platSol->returnPosition[2] + postReturnVelZ / 4.0f };
 
                 bool outOfBoundsTest = !check_inbounds(intendedPosition);
 
                 for (int f = 0; outOfBoundsTest && f < 3; f++) {
-                    intendedPosition[0] = platSol->landingPositions[f][0] + platSol->landingFloorNormalsY[f] * (postReturnVelX / 4.0);
+                    intendedPosition[0] = platSol->landingPositions[f][0] + platSol->landingFloorNormalsY[f] * (postReturnVelX / 4.0f);
                     intendedPosition[1] = platSol->landingPositions[f][1];
-                    intendedPosition[2] = platSol->landingPositions[f][2] + platSol->landingFloorNormalsY[f] * (postReturnVelZ / 4.0);
+                    intendedPosition[2] = platSol->landingPositions[f][2] + platSol->landingFloorNormalsY[f] * (postReturnVelZ / 4.0f);
 
                     outOfBoundsTest = !check_inbounds(intendedPosition);
                 }
@@ -1791,11 +1791,11 @@ __global__ void find_speed_solutions() {
             }
 
             if (minSpeed >= maxSpeed) {
-                float minSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
-                float minSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+                float minSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0f);
+                float minSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0f);
 
-                float maxSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0);
-                float maxSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0);
+                float maxSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0f);
+                float maxSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0f);
 
                 bool speedTest = true;
 
@@ -1818,12 +1818,12 @@ __global__ void find_speed_solutions() {
                             }
 
                             if (!isnan(testPre10KSpeed)) {
-                                float newSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
+                                float newSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0f);
 
                                 if (newSpeedF2X < minX) {
                                     minPre10KSpeed = testPre10KSpeed;
                                     minSpeedF2X = newSpeedF2X;
-                                    minSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+                                    minSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0f);
                                     lowerSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
                                 }
                                 else {
@@ -1853,12 +1853,12 @@ __global__ void find_speed_solutions() {
                         }
 
                         if (!isnan(testPre10KSpeed)) {
-                            float newSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0);
+                            float newSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0f);
 
                             if (newSpeedF2X < minX) {
                                 maxPre10KSpeed = testPre10KSpeed;
                                 maxSpeedF2X = newSpeedF2X;
-                                maxSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0);
+                                maxSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0f);
                                 upperSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
                             }
                             else {
@@ -1893,12 +1893,12 @@ __global__ void find_speed_solutions() {
                                 }
 
                                 if (!isnan(testPre10KSpeed)) {
-                                    float newSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
+                                    float newSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0f);
 
                                     if (newSpeedF2X > maxX) {
                                         minPre10KSpeed = testPre10KSpeed;
                                         minSpeedF2X = newSpeedF2X;
-                                        minSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+                                        minSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0f);
                                         lowerSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
                                     }
                                     else {
@@ -1928,7 +1928,7 @@ __global__ void find_speed_solutions() {
                             }
 
                             if (!isnan(testPre10KSpeed)) {
-                                float newSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0);
+                                float newSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0f);
 
                                 if (newSpeedF2X > maxX) {
                                     upperSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
@@ -1936,7 +1936,7 @@ __global__ void find_speed_solutions() {
                                 else {
                                     maxPre10KSpeed = testPre10KSpeed;
                                     maxSpeedF2X = newSpeedF2X;
-                                    maxSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0);
+                                    maxSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0f);
                                     lowerSpeed = midSpeed;
                                 }
                             }
@@ -1969,7 +1969,7 @@ __global__ void find_speed_solutions() {
                                 }
 
                                 if (!isnan(testPre10KSpeed)) {
-                                    float newSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+                                    float newSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0f);
 
                                     if (newSpeedF2Z < minZ) {
                                         lowerSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
@@ -1977,7 +1977,7 @@ __global__ void find_speed_solutions() {
                                     else {
                                         minPre10KSpeed = testPre10KSpeed;
                                         minSpeedF2Z = newSpeedF2Z;
-                                        minSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
+                                        minSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0f);
                                         upperSpeed = midSpeed;
                                     }
                                 }
@@ -2004,7 +2004,7 @@ __global__ void find_speed_solutions() {
                             }
 
                             if (!isnan(testPre10KSpeed)) {
-                                float newSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0);
+                                float newSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0f);
 
                                 if (newSpeedF2Z < minZ) {
                                     upperSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
@@ -2012,7 +2012,7 @@ __global__ void find_speed_solutions() {
                                 else {
                                     maxPre10KSpeed = testPre10KSpeed;
                                     maxSpeedF2Z = newSpeedF2Z;
-                                    maxSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0);
+                                    maxSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0f);
                                     lowerSpeed = midSpeed;
                                 }
                             }
@@ -2045,7 +2045,7 @@ __global__ void find_speed_solutions() {
                                 }
 
                                 if (!isnan(testPre10KSpeed)) {
-                                    float newSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+                                    float newSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0f);
 
                                     if (newSpeedF2Z > maxZ) {
                                         lowerSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
@@ -2053,7 +2053,7 @@ __global__ void find_speed_solutions() {
                                     else {
                                         minPre10KSpeed = testPre10KSpeed;
                                         minSpeedF2Z = newSpeedF2Z;
-                                        minSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
+                                        minSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0f);
                                         upperSpeed = midSpeed;
                                     }
                                 }
@@ -2080,7 +2080,7 @@ __global__ void find_speed_solutions() {
                             }
 
                             if (!isnan(testPre10KSpeed)) {
-                                float newSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0);
+                                float newSpeedF2Z = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0f);
 
                                 if (newSpeedF2Z > maxZ) {
                                     upperSpeed = fminf((lowerSpeed + upperSpeed) / 2.0, nextafter(lowerSpeed, -INFINITY));
@@ -2088,7 +2088,7 @@ __global__ void find_speed_solutions() {
                                 else {
                                     maxPre10KSpeed = testPre10KSpeed;
                                     maxSpeedF2Z = newSpeedF2Z;
-                                    maxSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0);
+                                    maxSpeedF2X = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0f);
                                     lowerSpeed = midSpeed;
                                 }
                             }
@@ -2125,8 +2125,8 @@ __global__ void find_speed_solutions() {
                             }
 
                             if (!isnan(testPre10KSpeed)) {
-                                minPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
-                                minPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+                                minPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0f);
+                                minPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0f);
 
                                 SurfaceG* testFloor;
                                 float testFloorHeight;
@@ -2173,8 +2173,8 @@ __global__ void find_speed_solutions() {
                            }
 
                             if (!isnan(testPre10KSpeed)) {
-                                maxPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0);
-                                maxPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0);
+                                maxPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0f);
+                                maxPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0f);
 
                                 SurfaceG* testFloor;
                                 float testFloorHeight;
@@ -2224,8 +2224,8 @@ __global__ void find_speed_solutions() {
                                 }
 
                                 if (!isnan(testPre10KSpeed)) {
-                                    minPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
-                                    minPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+                                    minPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0f);
+                                    minPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0f);
 
                                     SurfaceG* testFloor;
                                     float testFloorHeight;
@@ -2276,8 +2276,8 @@ __global__ void find_speed_solutions() {
                                 }
 
                                 if (!isnan(testPre10KSpeed)) {
-                                    minPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0);
-                                    minPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0);
+                                    minPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelX / 4.0f);
+                                    minPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (minReturnVelZ / 4.0f);
 
                                     SurfaceG* testFloor;
                                     float testFloorHeight;
@@ -2324,8 +2324,8 @@ __global__ void find_speed_solutions() {
                             }
 
                             if (!isnan(testPre10KSpeed)) {
-                                maxPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0);
-                                maxPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0);
+                                maxPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0f);
+                                maxPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0f);
 
                                 SurfaceG* testFloor;
                                 float testFloorHeight;
@@ -2371,8 +2371,8 @@ __global__ void find_speed_solutions() {
                             }
 
                             if (!isnan(testPre10KSpeed)) {
-                                maxPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0);
-                                maxPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0);
+                                maxPos[0] = platSol->returnPosition[0] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelX / 4.0f);
+                                maxPos[2] = platSol->returnPosition[2] - tenKFloors[sol2->tenKFloorIdx][7] * (maxReturnVelZ / 4.0f);
 
                                 SurfaceG* testFloor;
                                 float testFloorHeight;
@@ -3409,7 +3409,7 @@ __device__ bool try_pu_xz(float* normal, float* position, short(&current_triangl
 
                     int closest_pu_dist = fmin(fmin(mario_pos[0] + pow(2, 31), pow(2, 31) - 1.0 - mario_pos[0]), fmin(mario_pos[2] + pow(2, 31), pow(2, 31) - 1.0 - mario_pos[2]));
 
-                    if (closest_pu_dist >= speed / 4.0) {
+                    if (closest_pu_dist >= speed / 4.0f) {
                         int total_falling_frames = (int)floor((pow(2, 32) - closest_pu_dist - 3.0 * speed / 2.0) / speed);
 
                         if (falling_frames <= total_falling_frames) {
@@ -5965,7 +5965,7 @@ __device__ float find_speed_boundary(float minValue, float maxValue, float targe
         float pos = midValue;
 
         for (int i = 0; i < 4; i++) {
-            pos = pos + yNormal * (vel / 4.0);
+            pos = pos + yNormal * (vel / 4.0f);
         }
 
         if (pos < target) {
