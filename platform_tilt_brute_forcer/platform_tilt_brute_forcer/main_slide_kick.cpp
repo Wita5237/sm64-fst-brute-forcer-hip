@@ -29,17 +29,17 @@
 # define MAX_SK_PHASE_FIVE           5000000
 # define MAX_SK_PHASE_SIX             200000
 
-# define MAX_SK_UPWARP_SOLUTIONS       50000
-# define MAX_SPEED_SOLUTIONS        50000000
+# define MAX_SK_UPWARP_SOLUTIONS      100000
+# define MAX_SPEED_SOLUTIONS       100000000
 # define MAX_10K_SOLUTIONS            500000
-# define MAX_SLIDE_SOLUTIONS          200000
+# define MAX_SLIDE_SOLUTIONS         2000000
 # define MAX_BD_SOLUTIONS              50000
 
 # define MAX_DOUBLE_10K_SOLUTIONS     300000
 # define MAX_BULLY_PUSH_SOLUTIONS     900000
 
 # define MAX_SQUISH_SPOTS               5000
-# define MAX_STRAIN_SETUPS             50000
+# define MAX_STRAIN_SETUPS            500000
 
 std::ofstream out_stream;
 
@@ -291,6 +291,8 @@ __device__ struct DoubleTenKSolution* doubleTenKSolutions;
 __device__ int nDouble10KSolutions;
 __device__ struct BullyPushSolution* bullyPushSolutions;
 __device__ int nBullyPushSolutions;
+
+__device__ int slideAngleSampleRate = 4;
 
 class SurfaceG {
 public:
@@ -2928,13 +2930,42 @@ __global__ void find_breakdance_solutions() {
                                 break;
                             }
                             else if (intendedPos[1] <= floorHeight) {
+                                yVel = 0.0f;
                                 intendedPos[1] = floorHeight;
+                                falling = false;
 
                                 if (!newFloor->is_lava) {
-                                    landed = true;
+                                    float nextPos[3] = { intendedPos[0], intendedPos[1], intendedPos[2] };
+
+                                    for (int k = 0; k < 12; k++) {
+                                        nextPos[0] = nextPos[0] + newFloor->normal[1] * (xVel / 4.0f);
+                                        nextPos[2] = nextPos[2] + newFloor->normal[1] * (zVel / 4.0f);
+
+                                        floorIdx = find_floor(nextPos, &newFloor, floorHeight, floorsG, total_floorsG);
+
+                                        if (floorIdx == -1) {
+                                            landed = true;
+                                            break;
+                                        }
+                                        else {
+                                            intendedPos[0] = nextPos[0];
+                                            intendedPos[2] = nextPos[2];
+                                            
+                                            if (intendedPos[1] > floorHeight + 100.0f) {
+                                                falling = true;
+                                                break;
+                                            }
+                                            else {
+                                                intendedPos[1] = floorHeight;
+                                            }
+                                        }
+                                    }
+
+                                    if (falling) {
+                                        continue;
+                                    }
                                 }
 
-                                falling = false;
                                 break;
                             }
                             else if (intendedPos[1] < -1357.0) {
@@ -3250,7 +3281,7 @@ __device__ void try_pu_slide_angle(int solIdx, int angle, double minEndAngle, do
 
                 int endMagIdx = minIdx;
                 
-                for (int intendedDYaw = minIntendedDYaw; intendedDYaw <= maxIntendedDYaw; intendedDYaw += 16) {
+                for (int intendedDYaw = minIntendedDYaw; intendedDYaw <= maxIntendedDYaw; intendedDYaw+=slideAngleSampleRate) {
                     for (int magIdx = startMagIdx; magIdx <= endMagIdx; magIdx++) {
                         float intendedMag = magSet[magIdx];
                         try_upwarp_slide(solIdx, angle, intendedDYaw, intendedMag);
@@ -3270,7 +3301,7 @@ __global__ void test_slide_angle() {
 
     if (idx < min(n10KSolutions, MAX_10K_SOLUTIONS)) {
         struct TenKSolution* tenKSol = &(tenKSolutions[idx]);
-        int angle = tenKSol->minStartAngle + angleIdx * 16;
+        int angle = tenKSol->minStartAngle + angleIdx * slideAngleSampleRate;
 
         if (angle <= tenKSol->maxStartAngle) {
             angle = angle % 65536;
@@ -3359,7 +3390,7 @@ __global__ void find_slide_solutions() {
             tenKSol->maxM1 = maxM1;
             tenKSol->minM1 = minM1;
 
-            int angleRange = ((maxStartAngle - minStartAngle) / 16) + 1;
+            int angleRange = ((maxStartAngle - minStartAngle)/slideAngleSampleRate) + 1;
             atomicMax(&maxAngleRange, angleRange);
         }
     }
@@ -6589,7 +6620,7 @@ int main(int argc, char* argv[]) {
                     float normZ = signZ * (fabs(minNXZ + j * deltaNXZ) - fabsf(normX));
                     float normY = minNY + h * deltaNY;
 
-                    Vec3f preStartNormal = { normX + (normX > 0 ? 0.02 : -0.02) , normY - 0.02, normZ + (normZ > 0 ? 0.02 : -0.02) };
+                    Vec3f preStartNormal = { (normX + (normX > 0 ? 0.01f : -0.01f)) + (normX > 0 ? 0.01f : -0.01f) , (normY - 0.01f) - 0.01f, (normZ + (normZ > 0 ? 0.01f : -0.01f)) + (normZ > 0 ? 0.01f : -0.01f) };
                     Vec3f offPlatformPosition = { platformPos[0], 2000.0f, platformPos[2] };
 
                     Platform platform0 = Platform(platformPos[0], platformPos[1], platformPos[2], preStartNormal);
@@ -6814,8 +6845,7 @@ int main(int argc, char* argv[]) {
                                         nSpeedSolutionsCPU = MAX_SPEED_SOLUTIONS;
                                     }
 
-                                    printf("---------------------------------------\nTesting Normal: %g, %g, %g\n        Index: %d, %d, %d\n", startNormal[0], startNormal[1], startNormal[2], h, i, j);
-                                    printf("        # Speed Solutions: %d\n", nSpeedSolutionsCPU);
+                                    //printf("        # Speed Solutions: %d\n", nSpeedSolutionsCPU);
 
                                     nBlocks = (nSpeedSolutionsCPU + nThreads - 1) / nThreads;
 
@@ -6832,6 +6862,7 @@ int main(int argc, char* argv[]) {
                                         n10KSolutionsCPU = MAX_10K_SOLUTIONS;
                                     }
 
+                                    printf("---------------------------------------\nTesting Normal: %g, %g, %g\n        Index: %d, %d, %d\n", startNormal[0], startNormal[1], startNormal[2], h, i, j);
                                     printf("        # 10K Solutions: %d\n", n10KSolutionsCPU);
 
                                     int maxAngleRangeCPU = 0;
