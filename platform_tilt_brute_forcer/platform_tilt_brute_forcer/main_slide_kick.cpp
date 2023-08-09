@@ -4927,20 +4927,6 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
         struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(sk2ASolutions[sol3->p2Idx]) : &(sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(sk2CSolutions[sol3->p2Idx]) : &(sk2DSolutions[sol3->p2Idx]));
         struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
 
-        //const int nCameraPositions = 4;
-        //float cameraPositions[nCameraPositions][3] = { {-8192, -2918, -8192}, {-8192, -2918, 8191}, {8191, -2918, -8192}, {8191, -2918, 8191} };
-        const int nCameraPositions = 8;
-        float cameraPositions[nCameraPositions][3] = {
-            {-32768, -2918, 0}, 
-            {-23170, -2918, -23170}, 
-            {0, -2918, -32768}, 
-            {23170, -2918, -23170}, 
-            {32768, -2918, 0}, 
-            {23170, -2918, 23170}, 
-            {0, -2918, 32768}, 
-            {-23170, -2918, 23170} 
-        };
-
         float tenKPosition[3] = { (65536.0 * sol3->x2) + (tenKFloors[sol2->tenKFloorIdx][0] + tenKFloors[sol2->tenKFloorIdx][1]) / 2.0f, (tenKFloors[sol2->tenKFloorIdx][4] + tenKFloors[sol2->tenKFloorIdx][5]) / 2.0f, (65536.0 * sol3->z2) + (tenKFloors[sol2->tenKFloorIdx][2] + tenKFloors[sol2->tenKFloorIdx][3]) / 2.0f };
 
         double minF2Dist = INFINITY;
@@ -5126,9 +5112,6 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
                     maxM1 = fmin(maxM1, 0.0);
 
                     if (minM1 <= maxM1) {
-                        int minCameraYaw = 0;
-                        int maxCameraYaw = 0;
-
                         float cameraFocus[3] = { 0.0f, 0.0f, 0.0f };
 
                         for (int i = 0; i < nPoints; i++) {
@@ -5144,18 +5127,28 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
                         cameraFocus[0] += 0.8 * 65536.0 * sol1->x1;
                         cameraFocus[2] += 0.8 * 65536.0 * sol1->z1;
 
-                        int refCameraYaw = calculate_camera_yaw(cameraFocus, cameraPositions[0]);
-                        refCameraYaw = (65536 + refCameraYaw) % 65536;
+                        float distToCamera = sqrtf(cameraFocus[0] * cameraFocus[0] + cameraFocus[2] * cameraFocus[2] - 1073741824.0f);
+                        float cameraPosition1[3];
+                        cameraPosition1[0] = 32768.0f * (32768.0f * cameraFocus[0] + distToCamera * cameraFocus[2]) / (distToCamera * distToCamera + 1073741824.0f);
+                        cameraPosition1[1] = -2918.0f;
+                        cameraPosition1[2] = 32768.0f * (32768.0f * cameraFocus[2] - distToCamera * cameraFocus[0]) / (distToCamera * distToCamera + 1073741824.0f);
 
-                        for (int k = 1; k < nCameraPositions; k++) {
-                            int cameraYaw = calculate_camera_yaw(cameraFocus, cameraPositions[k]);
-                            cameraYaw = (short)(cameraYaw - refCameraYaw);
-                            minCameraYaw = min(minCameraYaw, cameraYaw);
-                            maxCameraYaw = max(maxCameraYaw, cameraYaw);
+                        float cameraPosition2[3];
+                        cameraPosition2[0] = 32768.0f * (32768.0f * cameraFocus[0] - distToCamera * cameraFocus[2]) / (distToCamera * distToCamera + 1073741824.0f);
+                        cameraPosition2[1] = -2918.0f;
+                        cameraPosition2[2] = 32768.0f * (distToCamera * cameraFocus[0] + 32768.0f * cameraFocus[2]) / (distToCamera * distToCamera + 1073741824.0f);
+
+                        int minCameraYaw = calculate_camera_yaw(cameraFocus, cameraPosition1);
+                        int maxCameraYaw = calculate_camera_yaw(cameraFocus, cameraPosition2);
+
+                        if ((short)(maxCameraYaw - minCameraYaw) < 0) {
+                            int temp = minCameraYaw;
+                            minCameraYaw = maxCameraYaw;
+                            maxCameraYaw = temp;
                         }
 
-                        int minCameraIdx = gReverseArctanTableG[(65536 + minCameraYaw + refCameraYaw) % 65536];
-                        int maxCameraIdx = gReverseArctanTableG[(65536 + maxCameraYaw + refCameraYaw) % 65536];
+                        int minCameraIdx = gReverseArctanTableG[(65536 + minCameraYaw) % 65536];
+                        int maxCameraIdx = gReverseArctanTableG[(65536 + maxCameraYaw) % 65536];
 
                         if (minCameraIdx > maxCameraIdx) {
                             maxCameraIdx += 8192;
