@@ -5904,10 +5904,6 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
                 minAngleIdx = (minAngleIdx + 1) % 8192;
             }
 
-            while (((((gArctanTableG[(maxAngleIdx + 1) % 8192] + 65536) % 65536) >> 4) << 4) < maxAngle) {
-                maxAngleIdx = (maxAngleIdx + 1) % 8192;
-            }
-
             if (maxAngleIdx < minAngleIdx) {
                 maxAngleIdx = maxAngleIdx + 8192;
             }
