@@ -1544,7 +1544,7 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
 
                                                     float dist = sqrtf(xDist * xDist + zDist * zDist);
 
-                                                    if (dist >= pushRadius - bullyHurtbox && dist <= pushRadius) {
+                                                    if (dist >= pushRadius - bullyHurtbox && dist <= pushRadius - fmaxf(bullyHurtbox - 2.0f * maxSlidingSpeed - 1.85f, 0.0f)) {
                                                         int angle = atan2sG(zDist, xDist);
                                                         angle = (angle + 65536) % 65536;
 
@@ -5874,7 +5874,7 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
 
                     float dist = sqrtf(xDist * xDist + zDist * zDist);
 
-                    if (dist >= pushRadius - bullyHurtbox && dist <= pushRadius) {
+                    if (dist >= pushRadius - bullyHurtbox && dist <= pushRadius - fmaxf(bullyHurtbox - 2.0f * maxSlidingSpeed - 1.85f, 0.0f)) {
                         int angle = atan2sG(zDist, xDist);
                         angle = (angle + 65536) % 65536;
 
