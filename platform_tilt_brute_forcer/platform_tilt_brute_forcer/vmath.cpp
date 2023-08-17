@@ -73,7 +73,7 @@ void mtxf_align_terrain_normal(Mat4& dest, Vec3f upDir, const Vec3f& pos, int16_
 	Vec3f leftDir;
 	Vec3f forwardDir;
 
-	vec3f_set(lateralDir, gSineTable[yaw], 0, gCosineTable[yaw]);
+	vec3f_set(lateralDir, gSineTable[yaw >> 4], 0, gCosineTable[yaw >> 4]);
 	vec3f_normalize(upDir);
 
 	vec3f_cross(leftDir, upDir, lateralDir);
