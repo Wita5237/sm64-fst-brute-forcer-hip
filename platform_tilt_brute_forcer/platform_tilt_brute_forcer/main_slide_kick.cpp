@@ -7,12 +7,10 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "device_atomic_functions.h"
-#include "Path.hpp"
 #include "Platform.hpp"
 #include "Surface.hpp"
 #include "Trig.hpp"
 #include "vmath.hpp"
-#include "WallsFloors.hpp"
 
 # define M_PI                  3.14159265358979323846  /* pi */
 
