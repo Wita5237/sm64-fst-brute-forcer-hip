@@ -6379,7 +6379,9 @@ int main(int argc, char* argv[]) {
     
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
-            printf("BitFS Platform Max Tilt Brute Forcer.\n");
+            printf("BitFS Final Speed Transfer Brute Forcer.\n");
+            printf("A GPU-based brute forcer to search for working setups for the FST step of the BitFS 0xA TAS.\n");
+            printf("-------------------------------------------------------");
             printf("This program accepts the following options:\n\n");
             printf("-f <frames>: Maximum frames of platform tilt considered.\n");
             printf("             Default: %d\n", maxFrames);
