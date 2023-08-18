@@ -1120,9 +1120,6 @@ __device__ float find_pre10K_speed(float post10KSpeed, float strainX, float stra
     post10KVelX = NAN;
     post10KVelZ = NAN;
 
-    int trueX = (sol5->stickX == 0) ? 0 : ((sol5->stickX < 0) ? sol5->stickX - 6 : sol5->stickX + 6);
-    int trueY = (sol5->stickY == 0) ? 0 : ((sol5->stickY < 0) ? sol5->stickY - 6 : sol5->stickY + 6);
-
     float mag = sqrtf((float)(sol5->stickX * sol5->stickX + sol5->stickY * sol5->stickY));
 
     float xS = sol5->stickX;
@@ -1149,7 +1146,6 @@ __device__ float find_pre10K_speed(float post10KSpeed, float strainX, float stra
 
         if (pre10KSpeed >= 0) {
             bool searchLoop = true;
-            bool speedTest = true;
 
             float upperSpeed = 2.0f * pre10KSpeed;
             float lowerSpeed = 0.0f;
@@ -2431,8 +2427,6 @@ __global__ void find_speed_solutions() {
 
 __global__ void find_sk_upwarp_solutions() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-    unsigned int random = 0;
 
     if (idx < min(nUpwarpSolutions, MAX_UPWARP_SOLUTIONS)) {
         struct UpwarpSolution* uwSol = &(upwarpSolutions[idx]);
@@ -4688,9 +4682,6 @@ __global__ void try_stick_positionG() {
         struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(sk2ASolutions[sol3->p2Idx]) : &(sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(sk2CSolutions[sol3->p2Idx]) : &(sk2DSolutions[sol3->p2Idx]));
         struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
 
-        int trueX = (sol5->stickX == 0) ? 0 : ((sol5->stickX < 0) ? sol5->stickX - 6 : sol5->stickX + 6);
-        int trueY = (sol5->stickY == 0) ? 0 : ((sol5->stickY < 0) ? sol5->stickY - 6 : sol5->stickY + 6);
-
         float mag = sqrtf((float)(sol5->stickX * sol5->stickX + sol5->stickY * sol5->stickY));
 
         float xS = sol5->stickX;
@@ -4776,8 +4767,6 @@ __global__ void try_slide_kick_routeG2() {
         double maxStickX = -INFINITY;
         double minStickY = INFINITY;
         double maxStickY = -INFINITY;
-
-        double stickBounds[4][2];
 
         for (int j = sol1->minF1AngleIdx; j <= sol1->maxF1AngleIdx; j++) {
             int f1Angle = (65536 + gArctanTableG[j % 8192]) % 65536;
@@ -4923,8 +4912,6 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
         struct SKPhase3* sol3 = &(sk3Solutions[idx]);
         struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(sk2ASolutions[sol3->p2Idx]) : &(sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(sk2CSolutions[sol3->p2Idx]) : &(sk2DSolutions[sol3->p2Idx]));
         struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
-
-        float tenKPosition[3] = { (65536.0 * sol3->x2) + (tenKFloors[sol2->tenKFloorIdx][0] + tenKFloors[sol2->tenKFloorIdx][1]) / 2.0f, (tenKFloors[sol2->tenKFloorIdx][4] + tenKFloors[sol2->tenKFloorIdx][5]) / 2.0f, (65536.0 * sol3->z2) + (tenKFloors[sol2->tenKFloorIdx][2] + tenKFloors[sol2->tenKFloorIdx][3]) / 2.0f };
 
         double minF2Dist = INFINITY;
         double maxF2Dist = -INFINITY;
@@ -5834,8 +5821,6 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
         float slopeXVel = accel * steepness * gSineTableG[slopeAngle >> 4];
         float slopeZVel = accel * steepness * gCosineTableG[slopeAngle >> 4];
 
-        int nZones = 0;
-
         float minBullyPushX = doubleTenKSol->minStartX;
         float maxBullyPushX = doubleTenKSol->maxStartX;
         float minBullyPushZ = doubleTenKSol->minStartZ;
@@ -5892,7 +5877,7 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
 
         if (refAngle != 65536) {
             minAngle = (minAngle + refAngle + 65536) % 65536;
-            maxAngle = (maxAngle + refAngle + 65536) % 65536;;
+            maxAngle = (maxAngle + refAngle + 65536) % 65536;
 
             int minAngleIdx = gReverseArctanTableG[minAngle];
             int maxAngleIdx = gReverseArctanTableG[maxAngle];
