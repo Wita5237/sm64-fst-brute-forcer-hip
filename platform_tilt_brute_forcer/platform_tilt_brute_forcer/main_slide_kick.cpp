@@ -2521,11 +2521,10 @@ __global__ void find_sk_upwarp_solutions() {
     }
 }
 
-__device__ int calculate_camera_yaw(float* currentPosition, float* lakituPosition) {
+__device__ int calculate_camera_yaw(float* currentPosition, float* lakituPosition, int faceAngle) {
     short baseCameraYaw = -16384;
     float baseCameraDist = 1400.0;
     short baseCameraPitch = 0x05B0;
-    short baseCameraFaceAngle = 24576;
 
     SurfaceG* floor;
     float floorY;
@@ -2571,8 +2570,8 @@ __device__ int calculate_camera_yaw(float* currentPosition, float* lakituPositio
     temp[1] = pan[1];
     temp[2] = pan[2];
 
-    pan[0] = temp[2] * gSineTableG[((65536 + (int)baseCameraFaceAngle) % 65536) >> 4] + temp[0] * gCosineTableG[((65536 + (int)baseCameraFaceAngle) % 65536) >> 4];
-    pan[2] = temp[2] * gCosineTableG[((65536 + (int)baseCameraFaceAngle) % 65536) >> 4] + temp[0] * gSineTableG[((65536 + (int)baseCameraFaceAngle) % 65536) >> 4];
+    pan[0] = temp[2] * gSineTableG[((65536 + (int)faceAngle) % 65536) >> 4] + temp[0] * gCosineTableG[((65536 + (int)faceAngle) % 65536) >> 4];
+    pan[2] = temp[2] * gCosineTableG[((65536 + (int)faceAngle) % 65536) >> 4] + temp[0] * gSineTableG[((65536 + (int)faceAngle) % 65536) >> 4];
 
     // rotate in the opposite direction
     cameraYaw = -cameraYaw;
@@ -2774,11 +2773,11 @@ __global__ void find_breakdance_solutions() {
         int minCameraYaw = 0;
         int maxCameraYaw = 0;
 
-        int refCameraYaw = calculate_camera_yaw(slideSol->upwarpPosition, cameraPositions[0]);
+        int refCameraYaw = calculate_camera_yaw(slideSol->upwarpPosition, cameraPositions[0], slideSol->postSlideAngle);
         refCameraYaw = (65536 + refCameraYaw) % 65536;
 
         for (int i = 1; i < 4; i++) {
-            int cameraYaw = calculate_camera_yaw(slideSol->upwarpPosition, cameraPositions[i]);
+            int cameraYaw = calculate_camera_yaw(slideSol->upwarpPosition, cameraPositions[i], slideSol->postSlideAngle);
             cameraYaw = (short)(cameraYaw - refCameraYaw);
             minCameraYaw = min(minCameraYaw, cameraYaw);
             maxCameraYaw = max(maxCameraYaw, cameraYaw);
@@ -5136,8 +5135,8 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
                         cameraPosition2[1] = -2918.0f;
                         cameraPosition2[2] = 32768.0f * (distToCamera * cameraFocus[0] + 32768.0f * cameraFocus[2]) / (distToCamera * distToCamera + 1073741824.0f);
 
-                        int minCameraYaw = calculate_camera_yaw(cameraFocus, cameraPosition1);
-                        int maxCameraYaw = calculate_camera_yaw(cameraFocus, cameraPosition2);
+                        int minCameraYaw = calculate_camera_yaw(cameraFocus, cameraPosition1, sol2->f2Angle);
+                        int maxCameraYaw = calculate_camera_yaw(cameraFocus, cameraPosition2, sol2->f2Angle);
 
                         if ((short)(maxCameraYaw - minCameraYaw) < 0) {
                             int temp = minCameraYaw;
