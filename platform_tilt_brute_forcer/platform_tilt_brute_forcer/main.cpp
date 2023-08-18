@@ -6373,6 +6373,8 @@ int main(int argc, char* argv[]) {
 
     string outFile = "outData.csv";
 
+    bool quadMode = false;
+
     bool verbose = false;
     
     for (int i = 1; i < argc; i++) {
@@ -6398,6 +6400,8 @@ int main(int argc, char* argv[]) {
             printf("               Default: %g\n", deltaZ);
             printf("-p <platform_x> <platform_y> <platform_z>: Position of the pyramid platform.\n");
             printf("                                           Default: %g %g %g\n", platformPos[0], platformPos[1], platformPos[2]);
+            printf("-q: Search all 8 \"quadrants\" simultaneously. Overrides platform position set by -p.\n");
+            printf("    Default: off");
             printf("-o: Path to the output file.\n");
             printf("    Default: %s\n", outFile.c_str());
             printf("-t <threads>: Number of CUDA threads to assign to the program.\n");
@@ -6474,6 +6478,9 @@ int main(int argc, char* argv[]) {
             platformPos[1] = std::stof(argv[i + 2]);
             platformPos[2] = std::stof(argv[i + 3]);
             i += 3;
+        }
+        else if (!strcmp(argv[i], "-q")) {
+            quadMode = true;
         }
         else if (!strcmp(argv[i], "-o")) {
             outFile = argv[i + 1];
@@ -6588,16 +6595,31 @@ int main(int argc, char* argv[]) {
 
     for (int j = 0; j < nSamplesNXZ; j++) {
         for (int h = 0; h < nSamplesNY; h++) {
-            printf("%d, %d: %.10g, %.10g\n", h, j, minNY + h * deltaNY, minNXZ + j * deltaNXZ);
             for (int i = 0; i < nSamplesNX; i++) {
-              for (int quad = 0; quad < 8; quad++) { //Search all 8 "quadrants" simultaneously
-                    float signX = 2.0 * (quad % 2) - 1.0;
-                    float signZ = 2.0 * ((quad / 2) % 2) - 1.0;
-                    platformPos[0] = (quad / 4) == 0 ? -1945.0f : -2866.0f;
+               for (int quad = 0; quad < (quadMode ? 8 : 1); quad++) {
+                    float normX;
+                    float normY;
+                    float normZ;
 
-                    float normX = signX * fabs(minNX + i * deltaNX);
-                    float normZ = signZ * (fabs(minNXZ + j * deltaNXZ) - fabsf(normX));
-                    float normY = minNY + h * deltaNY;
+                    if (quadMode) {
+                        float signX = 2.0 * (quad % 2) - 1.0;
+                        float signZ = 2.0 * ((quad / 2) % 2) - 1.0;
+                        platformPos[0] = (quad / 4) == 0 ? -1945.0f : -2866.0f;
+                        platformPos[1] = -3225.0f;
+                        platformPos[2] = -715.0f;
+
+                        normX = signX * fabs(minNX + i * deltaNX);
+                        normZ = signZ * (fabs(minNXZ + j * deltaNXZ) - fabs(normX));
+                        normY = minNY + h * deltaNY;
+                    }
+                    else {
+                        float normNXZ = minNXZ + j * deltaNXZ;
+                        float signZ = (normNXZ > 0) - (normNXZ < 0);
+
+                        normX = minNX + i * deltaNX;
+                        normY = minNY + h * deltaNY;
+                        normZ = signZ * (fabs(normNXZ) - fabs(normX));
+                    }
 
                     Vec3f preStartNormal = { (normX + (normX > 0 ? 0.01f : -0.01f)) + (normX > 0 ? 0.01f : -0.01f) , (normY - 0.01f) - 0.01f, (normZ + (normZ > 0 ? 0.01f : -0.01f)) + (normZ > 0 ? 0.01f : -0.01f) };
                     Vec3f offPlatformPosition = { platformPos[0], 2000.0f, platformPos[2] };
@@ -6662,14 +6684,14 @@ int main(int argc, char* argv[]) {
                             host_norms[6 + 3 * x + y] = platform1.triangles[x].normal[y];
                         }
                     }
-
+                    
                     cudaMemcpy(dev_tris, host_tris, 36 * sizeof(short), cudaMemcpyHostToDevice);
                     cudaMemcpy(dev_norms, host_norms, 12 * sizeof(float), cudaMemcpyHostToDevice);
 
                     set_start_triangle<<<1, 1>>>(dev_tris, dev_norms);
 
                     Vec3f postTiltNormal = { platform.normal[0], platform.normal[1], platform.normal[2] };
-
+                    
                     for (int t = 0; t < 4; t++) {
                         platform.normal[0] = postTiltNormal[0] + normal_offsets_cpu[t][0];
                         platform.normal[1] = postTiltNormal[1] + normal_offsets_cpu[t][1];
@@ -6690,7 +6712,7 @@ int main(int argc, char* argv[]) {
                             minZ = fminf(fminf(fminf(minZ, platform.triangles[k].vectors[0][2]), platform.triangles[k].vectors[1][2]), platform.triangles[k].vectors[2][2]);
                             maxZ = fmaxf(fmaxf(fmaxf(maxZ, platform.triangles[k].vectors[0][2]), platform.triangles[k].vectors[1][2]), platform.triangles[k].vectors[2][2]);
                         }
-
+                        
                         int nX = round((maxX - minX) / deltaX) + 1;
                         int nZ = round((maxZ - minZ) / deltaZ) + 1;
 
@@ -6704,7 +6726,7 @@ int main(int argc, char* argv[]) {
                         cudaFunc<<<nBlocks, nThreads>>>(minX, deltaX, minZ, deltaZ, nX, nZ, platform.normal[0], platform.normal[1], platform.normal[2], maxFrames);
 
                         cudaMemcpyFromSymbol(&nPlatSolutionsCPU, nPlatSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
-
+                        
                         if (nPlatSolutionsCPU > 0) {
                             if (nPlatSolutionsCPU > MAX_PLAT_SOLUTIONS) {
                                 fprintf(stderr, "Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
@@ -7136,9 +7158,8 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-
+    
     print_success<<<1, 1>>>();
-
     std::free(host_tris);
     std::free(host_norms);
     std::free(host_ceiling_tris);
