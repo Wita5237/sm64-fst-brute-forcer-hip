@@ -148,7 +148,7 @@
       <AdditionalCompilerOptions>
       </AdditionalCompilerOptions>
       <MaxRegCount>64</MaxRegCount>
-      <Include>$(CUDA_PATH)\v11.7\include\</Include>
+      <Include>$(CUDA_PATH)\include\</Include>
       <AdditionalOptions>-fmad=false %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
     <CudaLink>
