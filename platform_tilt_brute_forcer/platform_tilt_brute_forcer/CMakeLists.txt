@@ -1,5 +1,5 @@
 # Add new source files here
-add_executable(main
+add_executable(fst-brute-forcer
   "CMakeLists.txt"
   "main.cpp"
   "Platform.cpp"
@@ -12,7 +12,7 @@ add_executable(main
   "vmath.hpp"
 )
 
-set_target_properties(main PROPERTIES
+set_target_properties(fst-brute-forcer PROPERTIES
   CXX_STANDARD 17
   CXX_STANDARD_REQUIRED yes
   CMAKE_CUDA_STANDARD 17
@@ -37,7 +37,7 @@ else()
 endif()
 if (SUPPORTS_IPO)
   message(STATUS "Link-time optimization supported")
-  set_target_properties(main PROPERTIES
+  set_target_properties(fst-brute-forcer PROPERTIES
     INTERPROCEDURAL_OPTIMIZATION yes
   )
 else()
