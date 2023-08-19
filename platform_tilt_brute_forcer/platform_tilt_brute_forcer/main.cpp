@@ -6419,7 +6419,7 @@ int main(int argc, char* argv[]) {
             printf("    -q\n");
             printf("         Search all 8 \"quadrants\" simultaneously. Overrides platform position set by -p.\n");
             printf("             Default: off\n\n");
-            printf("    -o\n");
+            printf("    -o <path>\n");
             printf("         Path to the output file.\n");
             printf("             Default: %s\n\n", outFile.c_str());
             printf("    -t <threads>\n");
