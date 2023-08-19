@@ -6373,6 +6373,7 @@ int main(int argc, char* argv[]) {
 
     string outFile = "outData.csv";
 
+    bool zMode = false;
     bool quadMode = false;
 
     bool verbose = false;
@@ -6385,17 +6386,21 @@ int main(int argc, char* argv[]) {
             printf("This program accepts the following options:\n\n");
             printf("-f <frames>: Maximum frames of platform tilt considered.\n");
             printf("             Default: %d\n", maxFrames);
-            printf("-pu <frames>: Number of frames of PU movement for 10k glitch\n");
+            printf("-pu <frames>: Number of frames of PU movement for 10k glitch. Currently, only 3 frame routes are supported.\n");
             printf("             Default: %d\n", nPUFrames);
             printf("-nx <min_nx> <max_nx> <n_samples>: Inclusive range of x normals to be considered, and the number of normals to sample.\n");
             printf("                                   If min_nx==max_nx then n_samples will be set to 1.\n");
             printf("                                   Default: %g %g %d\n", minNX, maxNX, nSamplesNX);
             printf("-nxz <min_nxz> <max_nxz> <n_samples>: Inclusive range of xz sums to be considered, and the number of z normals to sample.\n");
             printf("                                   If min_nxz==max_nxz then n_samples will be set to 1.\n");
+            printf("                                   Set these values negative to search negative z normals.\n");
             printf("                                   Default: %g %g %d\n", minNXZ, maxNXZ, nSamplesNXZ);
             printf("-ny <min_ny> <max_ny> <n_samples>: Inclusive range of y normals to be considered, and the number of normals to sample.\n");
             printf("                                   If min_ny==max_ny then n_samples will be set to 1.\n");
             printf("                                   Default: %g %g %d\n", minNY, maxNY, nSamplesNY);
+            printf("-nz: Search by z normal instead of xz sum.\n");
+            printf("     Ranges supplied with -nxz will be converted to z normal ranges.\n");
+            printf("     Default: off\n");
             printf("-dx <delta_x>: x coordinate spacing of positions on the platform.\n");
             printf("               Default: %g\n", deltaX);
             printf("-dz <delta_z>: z coordinate spacing of positions on the platform.\n");
@@ -6467,6 +6472,9 @@ int main(int argc, char* argv[]) {
 
             i += 3;
         }
+        else if (!strcmp(argv[i], "-nz")) {
+            zMode = true;
+        }
         else if (!strcmp(argv[i], "-dx")) {
             deltaX = std::stof(argv[i + 1]);
             i += 1;
@@ -6499,17 +6507,27 @@ int main(int argc, char* argv[]) {
     }
 
     if (verbose) {
-        printf("Max Frames: %d\n", maxFrames);
+        printf("Max Tilt Frames: %d\n", maxFrames);
         printf("Off Platform Frames: %d\n", nPUFrames);
         printf("X Normal Range: (%g, %g)\n", minNX, maxNX);
-        printf("XZ Sum Range: (%g, %g)\n", minNXZ, maxNXZ);
+        if (zMode) {
+            printf("Z Sum Range: (%g, %g)\n", minNXZ, maxNXZ);
+        }
+        else {
+            printf("XZ Sum Range: (%g, %g)\n", minNXZ, maxNXZ);
+        }
         printf("Y Normal Range: (%g, %g)\n", minNY, maxNY);
         printf("X Normal Samples: %d\n", nSamplesNX);
         printf("Z Normal Samples: %d\n", nSamplesNXZ);
         printf("Y Normal Samples: %d\n", nSamplesNY);
         printf("X Spacing: %g\n", deltaX);
         printf("Z Spacing: %g\n", deltaZ);
-        printf("Platform Position: (%g, %g, %g)\n", platformPos[0], platformPos[1], platformPos[2]);
+        if (quadMode) {
+            printf("Quadrant Search: on\n");
+        } else {
+            printf("Platform Position: (%g, %g, %g)\n", platformPos[0], platformPos[1], platformPos[2]);
+            printf("Quadrant Search: off\n");
+        }
         printf("\n");
     }
 
@@ -6611,16 +6629,28 @@ int main(int argc, char* argv[]) {
                         platformPos[2] = -715.0f;
 
                         normX = signX * fabs(minNX + i * deltaNX);
-                        normZ = signZ * (fabs(minNXZ + j * deltaNXZ) - fabs(normX));
                         normY = minNY + h * deltaNY;
+
+                        if (zMode) {
+                            normZ = signZ * (fabs(minNXZ + j * deltaNXZ));
+                        }
+                        else {
+                            normZ = signZ * (fabs(minNXZ + j * deltaNXZ) - fabs(normX));
+                        }
                     }
                     else {
-                        float normNXZ = minNXZ + j * deltaNXZ;
-                        float signZ = (normNXZ > 0) - (normNXZ < 0);
-
                         normX = minNX + i * deltaNX;
                         normY = minNY + h * deltaNY;
-                        normZ = signZ * (fabs(normNXZ) - fabs(normX));
+
+                        if (zMode) {
+                            normZ = minNXZ + j * deltaNXZ;
+                        }
+                        else {
+                            float normNXZ = minNXZ + j * deltaNXZ;
+                            float signZ = (normNXZ > 0) - (normNXZ < 0);
+
+                            normZ = signZ * (fabs(normNXZ) - fabs(normX));
+                        }
                     }
 
                     Vec3f preStartNormal = { (normX + (normX > 0 ? 0.01f : -0.01f)) + (normX > 0 ? 0.01f : -0.01f) , (normY - 0.01f) - 0.01f, (normZ + (normZ > 0 ? 0.01f : -0.01f)) + (normZ > 0 ? 0.01f : -0.01f) };
