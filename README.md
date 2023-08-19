@@ -42,12 +42,18 @@ This program accepts the following options:
 </pre>
 
 ## Dependencies ##
-To maximise throughput, this program has been written in CUDA to allow for processing on the GPU. Therefore, to build this program you will need to install CUDA Toolkit (v11 or later is recommended).  
+To maximise throughput, this program has been written in CUDA to allow for processing on the GPU. Therefore, to build this program you will need to install CUDA Toolkit (v11.7 or later is recommended).  
 
 In addition, to run the program you will need a computer with CUDA compatible GPU. A GPU with compute capability 5.2 or higher and at least 4GB of RAM is recommended. Lower powered GPUs may still be able to run this program, but some tweaking of the build configuration may be necessary.
 
 ## Building Instructions ##
-This program can be built with Visual Studio or CMake using the included config files. For CMake builds, use the following commands:
+This program can be built with Visual Studio or CMake using the included config files. 
+
+For Visual Studio builds, you might need to link CUDA Build Customizations to the project before building. Instructions for doing that can be found here:
+
+https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html#compiling-cuda-programs
+
+For CMake builds, use the following commands:
 
 <pre>
 cmake .
