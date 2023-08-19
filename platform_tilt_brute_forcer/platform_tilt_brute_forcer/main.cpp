@@ -6386,7 +6386,7 @@ int main(int argc, char* argv[]) {
             printf("This program accepts the following options:\n\n");
             printf("-f <frames>: Maximum frames of platform tilt considered.\n");
             printf("             Default: %d\n", maxFrames);
-            printf("-pu <frames>: Number of frames of PU movement for 10k glitch. Currently, only 3 frame routes are supported.\n");
+            printf("-pu <frames>: Number of frames of PU movement for 10k PU route. Currently, only 3 frame routes are supported.\n");
             printf("             Default: %d\n", nPUFrames);
             printf("-nx <min_nx> <max_nx> <n_samples>: Inclusive range of x normals to be considered, and the number of normals to sample.\n");
             printf("                                   If min_nx==max_nx then n_samples will be set to 1.\n");
