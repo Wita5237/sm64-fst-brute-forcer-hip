@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
-# Feel free to change the description string, I didn't know what to put here - superminer
-project(sm64-platform-max-tilt-bruteforcer
-  DESCRIPTION "Bruteforces platform tilt for BitFS 0x"
+project(sm64-fst-brute-forcer
+  DESCRIPTION "Bruteforces Final Speed Transfer setups for BitFS 0x"
   LANGUAGES CUDA CXX
 )
 
