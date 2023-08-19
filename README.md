@@ -8,16 +8,21 @@ This program accepts the following options:
 <pre>
 -f &lt;frames&gt;:                                Maximum frames of platform tilt considered.
   
--pu &lt;frames&gt;:                               Number of frames of PU movement for 10k glitch. Only 3 frames are currently supported.
+-pu &lt;frames&gt;:                               Number of frames of PU movement for 10k PU route.
+                                            Currently, only 3 frame routes are supported.
   
 -nx &lt;min_nx&gt; &lt;max_nx&gt; &lt;n_samples&gt;:          Inclusive range of x normals to be considered, and the number of normals to sample.
                                             If min_nx==max_nx then n_samples will be set to 1.
   
 -nxz &lt;min_nxz&gt; &lt;max_nxz&gt; &lt;n_samples&gt;:       Inclusive range of xz sums to be considered, and the number of z normals to sample.
                                             If min_nxz==max_nxz then n_samples will be set to 1.
+                                            To search negative z normals, set to min_nxz and max_nxz to negative values.
   
 -ny &lt;min_ny&gt; &lt;max_ny&gt; &lt;n_samples&gt;:          Inclusive range of y normals to be considered, and the number of normals to sample.
                                             If min_ny==max_ny then n_samples will be set to 1.
+
+-nz:                                        Search by z normal instead of xz sum.
+                                            Ranges supplied with -nxz will be converted to z normal ranges.
   
 -dx &lt;delta_x&gt;:                              x coordinate spacing of positions on the platform.
   
