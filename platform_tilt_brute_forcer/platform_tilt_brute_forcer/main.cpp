@@ -6525,7 +6525,7 @@ int main(int argc, char* argv[]) {
         printf("Off Platform Frames: %d\n", nPUFrames);
         printf("X Normal Range: (%g, %g)\n", minNX, maxNX);
         if (zMode) {
-            printf("Z Sum Range: (%g, %g)\n", minNXZ, maxNXZ);
+            printf("Z Normal Range: (%g, %g)\n", minNXZ, maxNXZ);
         }
         else {
             printf("XZ Sum Range: (%g, %g)\n", minNXZ, maxNXZ);
