@@ -6206,7 +6206,7 @@ __global__ void set_squish_spots(short* tris, float* norms) {
 
                     if (idx != -1 && idx == ceilIdx && ceilHeight - -3071.0f < 150.0f) {
                         float floorHeight;
-                        int floorIdx = find_floor(pos, startTriangles, startNormals, &floorHeight);
+                        int floorIdx = find_floor(pos, squishTriangles, squishNormals, &floorHeight);
 
                         if (floorIdx == -1) {
                             float preCeilHeight;
