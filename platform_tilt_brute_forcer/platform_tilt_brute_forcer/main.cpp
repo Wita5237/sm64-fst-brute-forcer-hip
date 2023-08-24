@@ -6205,20 +6205,25 @@ __global__ void set_squish_spots(short* tris, float* norms) {
                     int idx = find_ceil(pos, squishCeilingTriangles, squishCeilingNormals, &ceilHeight);
 
                     if (idx != -1 && idx == ceilIdx && ceilHeight - -3071.0f < 150.0f) {
-                        float preCeilHeight;
-                        int preIdx = find_ceil(pos, preSquishCeilingTriangles, preSquishCeilingNormals, &preCeilHeight);
+                        float floorHeight;
+                        int floorIdx = find_floor(pos, startTriangles, startNormals, &floorHeight);
 
-                        if (preIdx == -1) {
-                            if (nSquishSpots[ceilIdx] == MAX_SQUISH_SPOTS) {
-                                printf("Warning: Number of squish spots for this normal has been exceeded. No more squish spots for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                        if (floorIdx == -1) {
+                            float preCeilHeight;
+                            int preIdx = find_ceil(pos, preSquishCeilingTriangles, preSquishCeilingNormals, &preCeilHeight);
+
+                            if (preIdx == -1) {
+                                if (nSquishSpots[ceilIdx] == MAX_SQUISH_SPOTS) {
+                                    printf("Warning: Number of squish spots for this normal has been exceeded. No more squish spots for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                                }
+
+                                if (nSquishSpots[ceilIdx] < MAX_SQUISH_SPOTS) {
+                                    squishSpots[(2 * ceilIdx * MAX_SQUISH_SPOTS) + (2 * nSquishSpots[ceilIdx])] = x;
+                                    squishSpots[(2 * ceilIdx * MAX_SQUISH_SPOTS) + (2 * nSquishSpots[ceilIdx]) + 1] = z;
+                                }
+
+                                nSquishSpots[ceilIdx]++;
                             }
-
-                            if (nSquishSpots[ceilIdx] < MAX_SQUISH_SPOTS) {
-                                squishSpots[(2 * ceilIdx * MAX_SQUISH_SPOTS) + (2 * nSquishSpots[ceilIdx])] = x;
-                                squishSpots[(2 * ceilIdx * MAX_SQUISH_SPOTS) + (2 * nSquishSpots[ceilIdx]) + 1] = z;
-                            }
-
-                            nSquishSpots[ceilIdx]++;
                         }
                     }
                 }
@@ -6694,6 +6699,24 @@ int main(int argc, char* argv[]) {
                     Platform platform = Platform(platformPos[0], platformPos[1], platformPos[2], startNormal);
                     platform.platform_logic(offPlatformPosition);
 
+                    for (int x = 0; x < 2; x++) {
+                        for (int y = 0; y < 3; y++) {
+                            host_tris[9 * x + 3 * y] = platform.triangles[x].vectors[y][0];
+                            host_tris[9 * x + 3 * y + 1] = platform.triangles[x].vectors[y][1];
+                            host_tris[9 * x + 3 * y + 2] = platform.triangles[x].vectors[y][2];
+                            host_norms[3 * x + y] = platform.triangles[x].normal[y];
+                            host_tris[18 + 9 * x + 3 * y] = platform1.triangles[x].vectors[y][0];
+                            host_tris[18 + 9 * x + 3 * y + 1] = platform1.triangles[x].vectors[y][1];
+                            host_tris[18 + 9 * x + 3 * y + 2] = platform1.triangles[x].vectors[y][2];
+                            host_norms[6 + 3 * x + y] = platform1.triangles[x].normal[y];
+                        }
+                    }
+                    
+                    cudaMemcpy(dev_tris, host_tris, 36 * sizeof(short), cudaMemcpyHostToDevice);
+                    cudaMemcpy(dev_norms, host_norms, 12 * sizeof(float), cudaMemcpyHostToDevice);
+
+                    set_start_triangle<<<1, 1>>>(dev_tris, dev_norms);
+
                     for (int x = 0; x < 4; x++) {
                         for (int y = 0; y < 3; y++) {
                             host_ceiling_tris[9 * x + 3 * y] = platform0.ceilings[x].vectors[y][0];
@@ -6717,24 +6740,6 @@ int main(int argc, char* argv[]) {
                     cudaMemcpy(dev_ceiling_norms, host_ceiling_norms, 36 * sizeof(float), cudaMemcpyHostToDevice);
 
                     set_squish_spots<<<1, 1>>>(dev_ceiling_tris, dev_ceiling_norms);
-
-                    for (int x = 0; x < 2; x++) {
-                        for (int y = 0; y < 3; y++) {
-                            host_tris[9 * x + 3 * y] = platform.triangles[x].vectors[y][0];
-                            host_tris[9 * x + 3 * y + 1] = platform.triangles[x].vectors[y][1];
-                            host_tris[9 * x + 3 * y + 2] = platform.triangles[x].vectors[y][2];
-                            host_norms[3 * x + y] = platform.triangles[x].normal[y];
-                            host_tris[18 + 9 * x + 3 * y] = platform1.triangles[x].vectors[y][0];
-                            host_tris[18 + 9 * x + 3 * y + 1] = platform1.triangles[x].vectors[y][1];
-                            host_tris[18 + 9 * x + 3 * y + 2] = platform1.triangles[x].vectors[y][2];
-                            host_norms[6 + 3 * x + y] = platform1.triangles[x].normal[y];
-                        }
-                    }
-                    
-                    cudaMemcpy(dev_tris, host_tris, 36 * sizeof(short), cudaMemcpyHostToDevice);
-                    cudaMemcpy(dev_norms, host_norms, 12 * sizeof(float), cudaMemcpyHostToDevice);
-
-                    set_start_triangle<<<1, 1>>>(dev_tris, dev_norms);
 
                     Vec3f postTiltNormal = { platform.normal[0], platform.normal[1], platform.normal[2] };
                     
