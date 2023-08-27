@@ -6295,27 +6295,32 @@ __global__ void copy_solution_pointers(SolStruct s) {
     bdSolutions = s.bdSolutions;
 }
 
-void init_solution_structs(SolStruct* s) {
-    cudaMalloc((void**)&s->sk1Solutions, MAX_SK_PHASE_ONE * sizeof(SKPhase1));
-    cudaMalloc((void**)&s->sk2ASolutions, MAX_SK_PHASE_TWO_A * sizeof(SKPhase2));
-    cudaMalloc((void**)&s->sk2BSolutions, MAX_SK_PHASE_TWO_B * sizeof(SKPhase2));
-    cudaMalloc((void**)&s->sk2CSolutions, MAX_SK_PHASE_TWO_C * sizeof(SKPhase2));
-    cudaMalloc((void**)&s->sk2DSolutions, MAX_SK_PHASE_TWO_D * sizeof(SKPhase2));
-    cudaMalloc((void**)&s->sk3Solutions, MAX_SK_PHASE_THREE * sizeof(SKPhase3));
-    cudaMalloc((void**)&s->sk4Solutions, MAX_SK_PHASE_FOUR * sizeof(SKPhase4));
-    cudaMalloc((void**)&s->sk5Solutions, MAX_SK_PHASE_FIVE * sizeof(SKPhase5));
-    cudaMalloc((void**)&s->sk6Solutions, MAX_SK_PHASE_SIX * sizeof(SKPhase6));
-    cudaMalloc((void**)&s->platSolutions, MAX_PLAT_SOLUTIONS * sizeof(PlatformSolution));
-    cudaMalloc((void**)&s->upwarpSolutions, MAX_UPWARP_SOLUTIONS * sizeof(UpwarpSolution));
-    cudaMalloc((void**)&s->skuwSolutions, MAX_SK_UPWARP_SOLUTIONS * sizeof(SKUpwarpSolution));
-    cudaMalloc((void**)&s->speedSolutions, MAX_SPEED_SOLUTIONS * sizeof(SpeedSolution));
-    cudaMalloc((void**)&s->tenKSolutions, MAX_10K_SOLUTIONS * sizeof(TenKSolution));
-    cudaMalloc((void**)&s->doubleTenKSolutions, MAX_DOUBLE_10K_SOLUTIONS * sizeof(DoubleTenKSolution));
-    cudaMalloc((void**)&s->bullyPushSolutions, MAX_BULLY_PUSH_SOLUTIONS * sizeof(BullyPushSolution));
-    cudaMalloc((void**)&s->slideSolutions, MAX_SLIDE_SOLUTIONS * sizeof(SlideSolution));
-    cudaMalloc((void**)&s->bdSolutions, MAX_BD_SOLUTIONS * sizeof(BDSolution));
+
+int init_solution_structs(SolStruct* s) {
+    int errorCode = 0;
+
+    errorCode |= cudaMalloc((void**)&s->sk1Solutions, MAX_SK_PHASE_ONE * sizeof(SKPhase1));
+    errorCode |= cudaMalloc((void**)&s->sk2ASolutions, MAX_SK_PHASE_TWO_A * sizeof(SKPhase2));
+    errorCode |= cudaMalloc((void**)&s->sk2BSolutions, MAX_SK_PHASE_TWO_B * sizeof(SKPhase2));
+    errorCode |= cudaMalloc((void**)&s->sk2CSolutions, MAX_SK_PHASE_TWO_C * sizeof(SKPhase2));
+    errorCode |= cudaMalloc((void**)&s->sk2DSolutions, MAX_SK_PHASE_TWO_D * sizeof(SKPhase2));
+    errorCode |= cudaMalloc((void**)&s->sk3Solutions, MAX_SK_PHASE_THREE * sizeof(SKPhase3));
+    errorCode |= cudaMalloc((void**)&s->sk4Solutions, MAX_SK_PHASE_FOUR * sizeof(SKPhase4));
+    errorCode |= cudaMalloc((void**)&s->sk5Solutions, MAX_SK_PHASE_FIVE * sizeof(SKPhase5));
+    errorCode |= cudaMalloc((void**)&s->sk6Solutions, MAX_SK_PHASE_SIX * sizeof(SKPhase6));
+    errorCode |= cudaMalloc((void**)&s->platSolutions, MAX_PLAT_SOLUTIONS * sizeof(PlatformSolution));
+    errorCode |= cudaMalloc((void**)&s->upwarpSolutions, MAX_UPWARP_SOLUTIONS * sizeof(UpwarpSolution));
+    errorCode |= cudaMalloc((void**)&s->skuwSolutions, MAX_SK_UPWARP_SOLUTIONS * sizeof(SKUpwarpSolution));
+    errorCode |= cudaMalloc((void**)&s->speedSolutions, MAX_SPEED_SOLUTIONS * sizeof(SpeedSolution));
+    errorCode |= cudaMalloc((void**)&s->tenKSolutions, MAX_10K_SOLUTIONS * sizeof(TenKSolution));
+    errorCode |= cudaMalloc((void**)&s->doubleTenKSolutions, MAX_DOUBLE_10K_SOLUTIONS * sizeof(DoubleTenKSolution));
+    errorCode |= cudaMalloc((void**)&s->bullyPushSolutions, MAX_BULLY_PUSH_SOLUTIONS * sizeof(BullyPushSolution));
+    errorCode |= cudaMalloc((void**)&s->slideSolutions, MAX_SLIDE_SOLUTIONS * sizeof(SlideSolution));
+    errorCode |= cudaMalloc((void**)&s->bdSolutions, MAX_BD_SOLUTIONS * sizeof(BDSolution));
 
     copy_solution_pointers<<<1, 1>>>(*s);
+
+    return errorCode;
 }
 
 void free_solution_pointers(SolStruct* s) {
@@ -6338,10 +6343,6 @@ void free_solution_pointers(SolStruct* s) {
     cudaFree(s->slideSolutions);
     cudaFree(s->bdSolutions);
 
-}
-
-__global__ void print_success() {
-    printf("CUDA code completed successfully.\n");
 }
 
 bool check_normal(float normX, float normY, float normZ, Vec3f platformPos, short* host_tris, short* dev_tris, float* host_norms, float* dev_norms, short* host_ceiling_tris, short* dev_ceiling_tris, float* host_ceiling_norms, float* dev_ceiling_norms, short* floorPoints, short* devFloorPoints, int* squishEdges, int* devSquishEdges, int nPUFrames, int maxFrames, float maxSpeed, float maxSlidingSpeed, float maxSlidingSpeedToPlatform, float deltaX, float deltaZ, int nThreads, SolStruct& s, ofstream& wf) {
@@ -6886,6 +6887,10 @@ bool check_normal(float normX, float normY, float normZ, Vec3f platformPos, shor
     return false;
 }
 
+__global__ void print_success() {
+    printf("CUDA code completed successfully.\n");
+}
+
 int main(int argc, char* argv[]) {
     int nThreads = 256;
 
@@ -7064,7 +7069,7 @@ int main(int argc, char* argv[]) {
     
     if (nPUFrames != 3) {
         fprintf(stderr, "Error: This brute forcer currently only supports 3 frame 10k routes. Value selected: %d.", nPUFrames);
-        return 1;
+        return cudaError;
     }
 
     if (verbose) {
@@ -7092,6 +7097,8 @@ int main(int argc, char* argv[]) {
         printf("\n");
     }
 
+    int cudaError = 0;
+
     init_reverse_atanG<<<1, 1>>>();
     init_camera_angles<<<1, 1>>>();
     init_mag_set<<<1, 1>>>();
@@ -7102,23 +7109,52 @@ int main(int argc, char* argv[]) {
     }
 
     SolStruct s;
-    init_solution_structs(&s);
+    cudaError |= init_solution_structs(&s);
 
     float* devSquishSpots;
     int* devNSquishSpots;
 
-    cudaMalloc((void**)&devSquishSpots, 8 * MAX_SQUISH_SPOTS * sizeof(float));
-    cudaMalloc((void**)&devNSquishSpots, 4 * sizeof(int));
+    cudaError |= cudaMalloc((void**)&devSquishSpots, 8 * MAX_SQUISH_SPOTS * sizeof(float));
+    cudaError |= cudaMalloc((void**)&devNSquishSpots, 4 * sizeof(int));
 
     init_squish_spots<<<1, 1>>>(devSquishSpots, devNSquishSpots);
 
     StrainSetup* devStrainSetups;
-    cudaMalloc((void**)&devStrainSetups, MAX_STRAIN_SETUPS * sizeof(StrainSetup));
+    cudaError |= cudaMalloc((void**)&devStrainSetups, MAX_STRAIN_SETUPS * sizeof(StrainSetup));
     init_strain_setups<<<1, 1>>>(devStrainSetups);
 
     const float deltaNX = (nSamplesNX > 1) ? (maxNX - minNX) / (nSamplesNX - 1) : 0;
     const float deltaNY = (nSamplesNY > 1) ? (maxNY - minNY) / (nSamplesNY - 1) : 0;
     const float deltaNXZ = (nSamplesNXZ > 1) ? (maxNXZ - minNXZ) / (nSamplesNXZ - 1) : 0;
+
+    short* dev_tris;
+    float* dev_norms;
+    short* host_tris = (short*)std::malloc(36 * sizeof(short));
+    float* host_norms = (float*)std::malloc(12 * sizeof(float));
+
+    cudaError |= cudaMalloc((void**)&dev_tris, 36 * sizeof(short));
+    cudaError |= cudaMalloc((void**)&dev_norms, 12 * sizeof(float));
+
+    short* dev_ceiling_tris;
+    float* dev_ceiling_norms;
+    short* host_ceiling_tris = (short*)std::malloc(108 * sizeof(short));
+    float* host_ceiling_norms = (float*)std::malloc(36 * sizeof(float));
+
+    cudaError |= cudaMalloc((void**)&dev_ceiling_tris, 108 * sizeof(short));
+    cudaError |= cudaMalloc((void**)&dev_ceiling_norms, 36 * sizeof(float));
+
+    short* floorPoints = (short*)std::malloc(4 * 3 * sizeof(short));
+    short* devFloorPoints;
+    cudaError |= cudaMalloc((void**)&devFloorPoints, 4 * 3 * sizeof(short));
+
+    int* squishEdges = (int*)std::malloc(4 * sizeof(int));
+    int* devSquishEdges;
+    cudaError |= cudaMalloc((void**)&devSquishEdges, 4 * sizeof(int));
+
+    if (cudaError != 0) {
+        fprintf(stderr, "Error: CUDA memory allocation exited with a code $d.\n", cudaError);
+        return 1;
+    }
 
     ofstream wf(outFile);
     wf << std::fixed;
@@ -7151,30 +7187,6 @@ int main(int argc, char* argv[]) {
     wf << "Squish Push Min X,Squish Push Max X,Squish Push Min Z,Squish Push Max Z,Squish Push Q-steps,";
     wf << "Bully Min X,Bully Max X,Bully Min Z,Bully Max Z,Bully Push HAU,";
     wf << "Max Bully Push Speed,Min X Sliding Speed,Min Z Sliding Speed" << endl;
-
-    short* dev_tris;
-    float* dev_norms;
-    short* host_tris = (short*)std::malloc(36 * sizeof(short));
-    float* host_norms = (float*)std::malloc(12 * sizeof(float));
-
-    cudaMalloc((void**)&dev_tris, 36 * sizeof(short));
-    cudaMalloc((void**)&dev_norms, 12 * sizeof(float));
-
-    short* dev_ceiling_tris;
-    float* dev_ceiling_norms;
-    short* host_ceiling_tris = (short*)std::malloc(108 * sizeof(short));
-    float* host_ceiling_norms = (float*)std::malloc(36 * sizeof(float));
-
-    cudaMalloc((void**)&dev_ceiling_tris, 108 * sizeof(short));
-    cudaMalloc((void**)&dev_ceiling_norms, 36 * sizeof(float));
-
-    short* floorPoints = (short*)std::malloc(4 * 3 * sizeof(short));
-    short* devFloorPoints;
-    cudaMalloc((void**)&devFloorPoints, 4 * 3 * sizeof(short));
-
-    int* squishEdges = (int*)std::malloc(4 * sizeof(int));
-    int* devSquishEdges;
-    cudaMalloc((void**)&devSquishEdges, 4 * sizeof(int));
 
     for (int j = 0; j < nSamplesNXZ; j++) {
         for (int h = 0; h < nSamplesNY; h++) {
