@@ -7069,7 +7069,7 @@ int main(int argc, char* argv[]) {
     
     if (nPUFrames != 3) {
         fprintf(stderr, "Error: This brute forcer currently only supports 3 frame 10k routes. Value selected: %d.", nPUFrames);
-        return cudaError;
+        return 1;
     }
 
     if (verbose) {
@@ -7153,7 +7153,7 @@ int main(int argc, char* argv[]) {
 
     if (cudaError != 0) {
         fprintf(stderr, "Error: CUDA memory allocation exited with a code $d.\n", cudaError);
-        return 1;
+        return cudaError;
     }
 
     ofstream wf(outFile);
