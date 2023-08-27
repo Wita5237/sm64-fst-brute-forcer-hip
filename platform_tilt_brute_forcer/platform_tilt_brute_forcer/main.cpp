@@ -7152,7 +7152,7 @@ int main(int argc, char* argv[]) {
     cudaError |= cudaMalloc((void**)&devSquishEdges, 4 * sizeof(int));
 
     if (cudaError != 0) {
-        fprintf(stderr, "Error: CUDA memory allocation exited with a code $d.\n", cudaError);
+        fprintf(stderr, "Error: CUDA memory allocation exited with a code %d.\n", cudaError);
         return cudaError;
     }
 
