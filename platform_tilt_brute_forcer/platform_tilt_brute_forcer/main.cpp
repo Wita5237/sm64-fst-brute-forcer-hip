@@ -7124,7 +7124,8 @@ int main(int argc, char* argv[]) {
 
                                     for (int l = 0; l < nBDSolutionsCPU; l++) {
                                         struct BDSolution* bdSol = &(bdSolutionsCPU[l]);
-                                        struct SlideSolution* slideSol = &(slideSolutionsCPU[bdSol->slideSolutionIdx]);                                            struct TenKSolution* tenKSol = &(tenKSolutionsCPU[slideSol->tenKSolutionIdx]);
+                                        struct SlideSolution* slideSol = &(slideSolutionsCPU[bdSol->slideSolutionIdx]);
+                                        struct TenKSolution* tenKSol = &(tenKSolutionsCPU[slideSol->tenKSolutionIdx]);
                                         struct SpeedSolution* speedSol = &(speedSolutionsCPU[tenKSol->speedSolutionIdx]);
                                         struct SKUpwarpSolution* skuwSol = &(skuwSolutionsCPU[speedSol->skuwSolutionIdx]);
                                         struct UpwarpSolution* uwSol = &(upwarpSolutionsCPU[skuwSol->uwIdx]);
