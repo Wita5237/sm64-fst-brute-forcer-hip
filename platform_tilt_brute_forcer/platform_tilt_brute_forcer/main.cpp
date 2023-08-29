@@ -1,7 +1,6 @@
 #include <fstream>
 #include <cstring>
 #include <string>
-#include <unordered_map>
 #include <iostream>
 #include "cuda.h"
 #include "cuda_runtime.h"
@@ -6295,7 +6294,6 @@ __global__ void copy_solution_pointers(SolStruct s) {
     bdSolutions = s.bdSolutions;
 }
 
-
 int init_solution_structs(SolStruct* s) {
     int errorCode = 0;
 
@@ -6345,7 +6343,7 @@ void free_solution_pointers(SolStruct* s) {
 
 }
 
-bool check_normal(float normX, float normY, float normZ, Vec3f platformPos, short* host_tris, short* dev_tris, float* host_norms, float* dev_norms, short* host_ceiling_tris, short* dev_ceiling_tris, float* host_ceiling_norms, float* dev_ceiling_norms, short* floorPoints, short* devFloorPoints, int* squishEdges, int* devSquishEdges, int nPUFrames, int maxFrames, float maxSpeed, float maxSlidingSpeed, float maxSlidingSpeedToPlatform, float deltaX, float deltaZ, int nThreads, SolStruct& s, ofstream& wf) {
+bool check_normal(float normX, float normY, float normZ, Vec3f platformPos, short* host_tris, short* dev_tris, float* host_norms, float* dev_norms, short* host_ceiling_tris, short* dev_ceiling_tris, float* host_ceiling_norms, float* dev_ceiling_norms, short* floorPoints, short* devFloorPoints, int* squishEdges, int* devSquishEdges, int nPUFrames, int maxFrames, float maxSpeed, float maxSlidingSpeed, float maxSlidingSpeedToPlatform, float deltaX, float deltaZ, int nThreads, SolStruct& s, bool minimalOutput, ofstream& wf) {
     const float normal_offsets_cpu[4][3] = { {0.01f, -0.01f, 0.01f}, {-0.01f, -0.01f, 0.01f}, {-0.01f, -0.01f, -0.01f}, {0.01f, -0.01f, -0.01f} };
 
     Vec3f preStartNormal = { (normX + (normX > 0 ? 0.01f : -0.01f)) + (normX > 0 ? 0.01f : -0.01f) , (normY - 0.01f) - 0.01f, (normZ + (normZ > 0 ? 0.01f : -0.01f)) + (normZ > 0 ? 0.01f : -0.01f) };
@@ -6755,107 +6753,114 @@ bool check_normal(float normX, float normY, float normZ, Vec3f platformPos, shor
 
                     printf("        # Full Solutions: %d\n", solTotal);
 
-                    for (int l = 0; l < nBDSolutionsCPU; l++) {
-                        if (bdSolutionsCPU[l].slideSolutionIdx >= 0) {
-                            int tenKIdx = slideSolutionsCPU[bdSolutionsCPU[l].slideSolutionIdx].tenKSolutionIdx;
-
-                            int newIdx = tenKSolutionsCPU[tenKIdx].bdSetups;
-                            tenKSolutionsCPU[tenKIdx].bdSetups++;
-
-                            if (l != newIdx) {
-                                struct BDSolution temp = bdSolutionsCPU[l];
-                                temp.slideSolutionIdx = -temp.slideSolutionIdx - 1;
-                                bdSolutionsCPU[l] = bdSolutionsCPU[newIdx];
-                                bdSolutionsCPU[newIdx] = temp;
-                                l--;
-                            }
-                        }
-                        else {
-                            bdSolutionsCPU[l].slideSolutionIdx = -bdSolutionsCPU[l].slideSolutionIdx - 1;
+                    if (minimalOutput) {
+                        if (solTotal > 0) {
+                            wf << startNormal[0] << "," << startNormal[1] << "," << startNormal[2] << endl;
                         }
                     }
+                    else {
+                        for (int l = 0; l < nBDSolutionsCPU; l++) {
+                            if (bdSolutionsCPU[l].slideSolutionIdx >= 0) {
+                                int tenKIdx = slideSolutionsCPU[bdSolutionsCPU[l].slideSolutionIdx].tenKSolutionIdx;
 
-                    for (int l = 0; l < nBullyPushSolutionsCPU; l++) {
-                        if (bullyPushSolutionsCPU[l].doubleTenKSolutionIdx >= 0) {
-                            int tenKIdx = doubleTenKSolutionsCPU[bullyPushSolutionsCPU[l].doubleTenKSolutionIdx].tenKSolutionIdx;
+                                int newIdx = tenKSolutionsCPU[tenKIdx].bdSetups;
+                                tenKSolutionsCPU[tenKIdx].bdSetups++;
 
-                            int newIdx = tenKSolutionsCPU[tenKIdx].bpSetups;
-                            tenKSolutionsCPU[tenKIdx].bpSetups++;
-
-                            if (l != newIdx) {
-                                struct BullyPushSolution temp = bullyPushSolutionsCPU[l];
-                                temp.doubleTenKSolutionIdx = -temp.doubleTenKSolutionIdx - 1;
-                                bullyPushSolutionsCPU[l] = bullyPushSolutionsCPU[newIdx];
-                                bullyPushSolutionsCPU[newIdx] = temp;
-                                l--;
+                                if (l != newIdx) {
+                                    struct BDSolution temp = bdSolutionsCPU[l];
+                                    temp.slideSolutionIdx = -temp.slideSolutionIdx - 1;
+                                    bdSolutionsCPU[l] = bdSolutionsCPU[newIdx];
+                                    bdSolutionsCPU[newIdx] = temp;
+                                    l--;
+                                }
+                            }
+                            else {
+                                bdSolutionsCPU[l].slideSolutionIdx = -bdSolutionsCPU[l].slideSolutionIdx - 1;
                             }
                         }
-                        else {
-                            bullyPushSolutionsCPU[l].doubleTenKSolutionIdx = -bullyPushSolutionsCPU[l].doubleTenKSolutionIdx - 1;
-                        }
-                    }
 
-                    int m = 0;
+                        for (int l = 0; l < nBullyPushSolutionsCPU; l++) {
+                            if (bullyPushSolutionsCPU[l].doubleTenKSolutionIdx >= 0) {
+                                int tenKIdx = doubleTenKSolutionsCPU[bullyPushSolutionsCPU[l].doubleTenKSolutionIdx].tenKSolutionIdx;
 
-                    for (int l = 0; l < nBDSolutionsCPU; l++) {
-                        struct BDSolution* bdSol = &(bdSolutionsCPU[l]);
-                        struct SlideSolution* slideSol = &(slideSolutionsCPU[bdSol->slideSolutionIdx]);
-                        struct TenKSolution* tenKSol = &(tenKSolutionsCPU[slideSol->tenKSolutionIdx]);
-                        struct SpeedSolution* speedSol = &(speedSolutionsCPU[tenKSol->speedSolutionIdx]);
-                        struct SKUpwarpSolution* skuwSol = &(skuwSolutionsCPU[speedSol->skuwSolutionIdx]);
-                        struct UpwarpSolution* uwSol = &(upwarpSolutionsCPU[skuwSol->uwIdx]);
-                        struct PlatformSolution* platSol = &(platSolutionsCPU[uwSol->platformSolutionIdx]);
-                        struct SKPhase6* p6Sol = &(sk6SolutionsCPU[skuwSol->skIdx]);
-                        struct SKPhase5* p5Sol = &(sk5SolutionsCPU[p6Sol->p5Idx]);
-                        struct SKPhase4* p4Sol = &(sk4SolutionsCPU[p5Sol->p4Idx]);
-                        struct SKPhase3* p3Sol = &(sk3SolutionsCPU[p4Sol->p3Idx]);
-                        struct SKPhase2* p2Sol = (p3Sol->p2Type / 2 == 0) ? ((p3Sol->p2Type % 2 == 0) ? &(sk2ASolutionsCPU[p3Sol->p2Idx]) : &(sk2BSolutionsCPU[p3Sol->p2Idx])) : ((p3Sol->p2Type % 2 == 0) ? &(sk2CSolutionsCPU[p3Sol->p2Idx]) : &(sk2DSolutionsCPU[p3Sol->p2Idx]));
-                        struct SKPhase1* p1Sol = &(sk1SolutionsCPU[p2Sol->p1Idx]);
+                                int newIdx = tenKSolutionsCPU[tenKIdx].bpSetups;
+                                tenKSolutionsCPU[tenKIdx].bpSetups++;
 
-                        while (m < nBullyPushSolutionsCPU && doubleTenKSolutionsCPU[bullyPushSolutionsCPU[m].doubleTenKSolutionIdx].tenKSolutionIdx < slideSol->tenKSolutionIdx) {
-                            m++;
+                                if (l != newIdx) {
+                                    struct BullyPushSolution temp = bullyPushSolutionsCPU[l];
+                                    temp.doubleTenKSolutionIdx = -temp.doubleTenKSolutionIdx - 1;
+                                    bullyPushSolutionsCPU[l] = bullyPushSolutionsCPU[newIdx];
+                                    bullyPushSolutionsCPU[newIdx] = temp;
+                                    l--;
+                                }
+                            }
+                            else {
+                                bullyPushSolutionsCPU[l].doubleTenKSolutionIdx = -bullyPushSolutionsCPU[l].doubleTenKSolutionIdx - 1;
+                            }
                         }
 
-                        while (m < nBullyPushSolutionsCPU && doubleTenKSolutionsCPU[bullyPushSolutionsCPU[m].doubleTenKSolutionIdx].tenKSolutionIdx == slideSol->tenKSolutionIdx) {
-                            struct BullyPushSolution* bpSol = &(bullyPushSolutionsCPU[m]);
-                            struct DoubleTenKSolution* doubleTenKSol = &(doubleTenKSolutionsCPU[bpSol->doubleTenKSolutionIdx]);
+                        int m = 0;
 
-                            //printf("---------------------------------------\nFound Solution:\n---------------------------------------\n    Start Position Range: [%.10g, %.10g], [%.10g, %.10g]\n    Frame 1 Position: %.10g, %.10g, %.10g\n    Frame 2 Position: %.10g, %.10g, %.10g\n    Return Position: %.10g, %.10g, %.10g\n    PU Departure Speed: %.10g (x=%.10g, z=%.10g)\n    PU Strain Speed: (x=%.10g, z=%.10g, fwd=%.10g)\n    Pre-10K Speed: (x=%.10g, z=%.10g)\n    PU Return Speed: %.10g (x=%.10g, z=%.10g)\n    Frame 1 Q-steps: %d\n    Frame 2 Q-steps: %d\n    Frame 3 Q-steps: %d\n", doubleTenKSol->minStartX, doubleTenKSol->maxStartX, doubleTenKSol->minStartZ, doubleTenKSol->maxStartZ, tenKSol->frame1Position[0], tenKSol->frame1Position[1], tenKSol->frame1Position[2], tenKSol->frame2Position[0], tenKSol->frame2Position[1], tenKSol->frame2Position[2], platSol->returnPosition[0], platSol->returnPosition[1], platSol->returnPosition[2], tenKSol->departureSpeed, doubleTenKSol->post10KXVel, doubleTenKSol->post10KZVel, speedSol->xStrain, speedSol->zStrain, speedSol->forwardStrain, tenKSol->pre10KVel[0], tenKSol->pre10KVel[1], speedSol->returnSpeed, tenKSol->returnVel[0], tenKSol->returnVel[1], 4, p1Sol->q2, 1);
-                            //printf("    10k Stick X: %d\n    10k Stick Y: %d\n    Frame 2 HAU: %d\n    10k Camera Yaw: %d\n    Start Floor Normal: %.10g, %.10g, %.10g\n", ((p5Sol->stickX == 0) ? 0 : ((p5Sol->stickX < 0) ? p5Sol->stickX - 6 : p5Sol->stickX + 6)), ((p5Sol->stickY == 0) ? 0 : ((p5Sol->stickY < 0) ? p5Sol->stickY - 6 : p5Sol->stickY + 6)), p2Sol->f2Angle, p4Sol->cameraYaw, host_norms[3 * x], host_norms[3 * x + 1], host_norms[3 * x + 2]);
-                            //printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Pre-Upwarp Position: %.10g, %.10g, %.10g\n    Post-Upwarp Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Intended DYaw: %d\n", platSol->nFrames, platSol->endNormal[0], platSol->endNormal[1], platSol->endNormal[2], platSol->endPosition[0], platSol->endPosition[1], platSol->endPosition[2], slideSol->preUpwarpPosition[0], slideSol->preUpwarpPosition[1], slideSol->preUpwarpPosition[2], slideSol->upwarpPosition[0], slideSol->upwarpPosition[1], slideSol->upwarpPosition[2], uwSol->pux, uwSol->puz, slideSol->angle, slideSol->stickMag, slideSol->intendedDYaw);
-                            //printf("---------------------------------------\n    Post-Breakdance Camera Yaw: %d\n    Post-Breakdance Stick X: %d\n    Post-Breakdance Stick Y: %d\n    Landing Position: %.10g, %.10g, %.10g\n    Landing Speed: %.10g\n---------------------------------------\n\n\n", bdSol->cameraYaw, bdSol->stickX, bdSol->stickY, bdSol->landingPosition[0], bdSol->landingPosition[1], bdSol->landingPosition[2], bdSol->postSlideSpeed);
-                            //printf("---------------------------------------\n    Squish Push Position Range: [%.10g, %.10g], [%.10g, %.10g]\n    Squish Push Q-steps: %d\n    Bully Position Range: [%.10g, %.10g], [%.10g, %.10g]\n    Bully Push Angle: %d\n    Max Bully Speed: %.10g\n    Min Sliding Spped: (x=%.10g, z=%.10g)\n---------------------------------------\n\n\n", bpSol->squishPushMinX, bpSol->squishPushMaxX, bpSol->squishPushMinZ, bpSol->squishPushMaxZ, bpSol->squishPushQF, bpSol->bullyMinX, bpSol->bullyMaxX, bpSol->bullyMinZ, bpSol->bullyMaxZ, bpSol->pushAngle, bpSol->maxSpeed, bpSol->minSlidingSpeedX, bpSol->minSlidingSpeedZ);
+                        for (int l = 0; l < nBDSolutionsCPU; l++) {
+                            struct BDSolution* bdSol = &(bdSolutionsCPU[l]);
+                            struct SlideSolution* slideSol = &(slideSolutionsCPU[bdSol->slideSolutionIdx]);
+                            struct TenKSolution* tenKSol = &(tenKSolutionsCPU[slideSol->tenKSolutionIdx]);
+                            struct SpeedSolution* speedSol = &(speedSolutionsCPU[tenKSol->speedSolutionIdx]);
+                            struct SKUpwarpSolution* skuwSol = &(skuwSolutionsCPU[speedSol->skuwSolutionIdx]);
+                            struct UpwarpSolution* uwSol = &(upwarpSolutionsCPU[skuwSol->uwIdx]);
+                            struct PlatformSolution* platSol = &(platSolutionsCPU[uwSol->platformSolutionIdx]);
+                            struct SKPhase6* p6Sol = &(sk6SolutionsCPU[skuwSol->skIdx]);
+                            struct SKPhase5* p5Sol = &(sk5SolutionsCPU[p6Sol->p5Idx]);
+                            struct SKPhase4* p4Sol = &(sk4SolutionsCPU[p5Sol->p4Idx]);
+                            struct SKPhase3* p3Sol = &(sk3SolutionsCPU[p4Sol->p3Idx]);
+                            struct SKPhase2* p2Sol = (p3Sol->p2Type / 2 == 0) ? ((p3Sol->p2Type % 2 == 0) ? &(sk2ASolutionsCPU[p3Sol->p2Idx]) : &(sk2BSolutionsCPU[p3Sol->p2Idx])) : ((p3Sol->p2Type % 2 == 0) ? &(sk2CSolutionsCPU[p3Sol->p2Idx]) : &(sk2DSolutionsCPU[p3Sol->p2Idx]));
+                            struct SKPhase1* p1Sol = &(sk1SolutionsCPU[p2Sol->p1Idx]);
 
-                            wf << startNormal[0] << "," << startNormal[1] << "," << startNormal[2] << ",";
-                            wf << doubleTenKSol->minStartX << "," << doubleTenKSol->maxStartX << ",";
-                            wf << doubleTenKSol->minStartZ << "," << doubleTenKSol->maxStartZ << ",";
-                            wf << tenKSol->frame1Position[0] << "," << tenKSol->frame1Position[1] << "," << tenKSol->frame1Position[2] << ",";
-                            wf << tenKSol->frame2Position[0] << "," << tenKSol->frame2Position[1] << "," << tenKSol->frame2Position[2] << ",";
-                            wf << platSol->returnPosition[0] << "," << platSol->returnPosition[1] << "," << platSol->returnPosition[2] << ",";
-                            wf << tenKSol->departureSpeed << "," << doubleTenKSol->post10KXVel << "," << doubleTenKSol->post10KZVel << ",";
-                            wf << speedSol->xStrain << "," << speedSol->zStrain << "," << speedSol->forwardStrain << ",";
-                            wf << tenKSol->pre10KVel[0] << "," << tenKSol->pre10KVel[1] << ",";
-                            wf << speedSol->returnSpeed << "," << tenKSol->returnVel[0] << "," << tenKSol->returnVel[1] << ",";
-                            wf << 4 << "," << p1Sol->q2 << "," << 1 << ",";
-                            wf << ((p5Sol->stickX == 0) ? 0 : ((p5Sol->stickX < 0) ? p5Sol->stickX - 6 : p5Sol->stickX + 6)) << "," << ((p5Sol->stickY == 0) ? 0 : ((p5Sol->stickY < 0) ? p5Sol->stickY - 6 : p5Sol->stickY + 6)) << ",";
-                            wf << p2Sol->f2Angle << "," << p4Sol->cameraYaw << ",";
-                            wf << host_norms[3 * x] << "," << host_norms[3 * x + 1] << "," << host_norms[3 * x + 2] << ",";
-                            wf << platSol->nFrames << ",";
-                            wf << platSol->endNormal[0] << "," << platSol->endNormal[1] << "," << platSol->endNormal[2] << ",";
-                            wf << platSol->endPosition[0] << "," << platSol->endPosition[1] << "," << platSol->endPosition[2] << ",";
-                            wf << slideSol->preUpwarpPosition[0] << "," << slideSol->preUpwarpPosition[1] << "," << slideSol->preUpwarpPosition[2] << ",";
-                            wf << slideSol->upwarpPosition[0] << "," << slideSol->upwarpPosition[1] << "," << slideSol->upwarpPosition[2] << ",";
-                            wf << uwSol->pux << "," << uwSol->puz << ",";
-                            wf << slideSol->angle << "," << slideSol->stickMag << "," << slideSol->intendedDYaw << ",";
-                            wf << bdSol->cameraYaw << ",";
-                            wf << bdSol->stickX << "," << bdSol->stickY << ",";
-                            wf << bdSol->landingPosition[0] << "," << bdSol->landingPosition[1] << "," << bdSol->landingPosition[2] << ",";
-                            wf << bdSol->postSlideSpeed << ",";
-                            wf << bpSol->squishPushMinX << "," << bpSol->squishPushMaxX << "," << bpSol->squishPushMinZ << "," << bpSol->squishPushMaxZ << "," << bpSol->squishPushQF << ",";
-                            wf << bpSol->bullyMinX << "," << bpSol->bullyMaxX << "," << bpSol->bullyMinZ << "," << bpSol->bullyMaxZ << "," << bpSol->pushAngle << ",";
-                            wf << bpSol->maxSpeed << "," << bpSol->minSlidingSpeedX << "," << bpSol->minSlidingSpeedZ << endl;
+                            while (m < nBullyPushSolutionsCPU && doubleTenKSolutionsCPU[bullyPushSolutionsCPU[m].doubleTenKSolutionIdx].tenKSolutionIdx < slideSol->tenKSolutionIdx) {
+                                m++;
+                            }
 
-                            m++;
+                            while (m < nBullyPushSolutionsCPU && doubleTenKSolutionsCPU[bullyPushSolutionsCPU[m].doubleTenKSolutionIdx].tenKSolutionIdx == slideSol->tenKSolutionIdx) {
+                                struct BullyPushSolution* bpSol = &(bullyPushSolutionsCPU[m]);
+                                struct DoubleTenKSolution* doubleTenKSol = &(doubleTenKSolutionsCPU[bpSol->doubleTenKSolutionIdx]);
+
+                                //printf("---------------------------------------\nFound Solution:\n---------------------------------------\n    Start Position Range: [%.10g, %.10g], [%.10g, %.10g]\n    Frame 1 Position: %.10g, %.10g, %.10g\n    Frame 2 Position: %.10g, %.10g, %.10g\n    Return Position: %.10g, %.10g, %.10g\n    PU Departure Speed: %.10g (x=%.10g, z=%.10g)\n    PU Strain Speed: (x=%.10g, z=%.10g, fwd=%.10g)\n    Pre-10K Speed: (x=%.10g, z=%.10g)\n    PU Return Speed: %.10g (x=%.10g, z=%.10g)\n    Frame 1 Q-steps: %d\n    Frame 2 Q-steps: %d\n    Frame 3 Q-steps: %d\n", doubleTenKSol->minStartX, doubleTenKSol->maxStartX, doubleTenKSol->minStartZ, doubleTenKSol->maxStartZ, tenKSol->frame1Position[0], tenKSol->frame1Position[1], tenKSol->frame1Position[2], tenKSol->frame2Position[0], tenKSol->frame2Position[1], tenKSol->frame2Position[2], platSol->returnPosition[0], platSol->returnPosition[1], platSol->returnPosition[2], tenKSol->departureSpeed, doubleTenKSol->post10KXVel, doubleTenKSol->post10KZVel, speedSol->xStrain, speedSol->zStrain, speedSol->forwardStrain, tenKSol->pre10KVel[0], tenKSol->pre10KVel[1], speedSol->returnSpeed, tenKSol->returnVel[0], tenKSol->returnVel[1], 4, p1Sol->q2, 1);
+                                //printf("    10k Stick X: %d\n    10k Stick Y: %d\n    Frame 2 HAU: %d\n    10k Camera Yaw: %d\n    Start Floor Normal: %.10g, %.10g, %.10g\n", ((p5Sol->stickX == 0) ? 0 : ((p5Sol->stickX < 0) ? p5Sol->stickX - 6 : p5Sol->stickX + 6)), ((p5Sol->stickY == 0) ? 0 : ((p5Sol->stickY < 0) ? p5Sol->stickY - 6 : p5Sol->stickY + 6)), p2Sol->f2Angle, p4Sol->cameraYaw, host_norms[3 * x], host_norms[3 * x + 1], host_norms[3 * x + 2]);
+                                //printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Pre-Upwarp Position: %.10g, %.10g, %.10g\n    Post-Upwarp Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Intended DYaw: %d\n", platSol->nFrames, platSol->endNormal[0], platSol->endNormal[1], platSol->endNormal[2], platSol->endPosition[0], platSol->endPosition[1], platSol->endPosition[2], slideSol->preUpwarpPosition[0], slideSol->preUpwarpPosition[1], slideSol->preUpwarpPosition[2], slideSol->upwarpPosition[0], slideSol->upwarpPosition[1], slideSol->upwarpPosition[2], uwSol->pux, uwSol->puz, slideSol->angle, slideSol->stickMag, slideSol->intendedDYaw);
+                                //printf("---------------------------------------\n    Post-Breakdance Camera Yaw: %d\n    Post-Breakdance Stick X: %d\n    Post-Breakdance Stick Y: %d\n    Landing Position: %.10g, %.10g, %.10g\n    Landing Speed: %.10g\n---------------------------------------\n\n\n", bdSol->cameraYaw, bdSol->stickX, bdSol->stickY, bdSol->landingPosition[0], bdSol->landingPosition[1], bdSol->landingPosition[2], bdSol->postSlideSpeed);
+                                //printf("---------------------------------------\n    Squish Push Position Range: [%.10g, %.10g], [%.10g, %.10g]\n    Squish Push Q-steps: %d\n    Bully Position Range: [%.10g, %.10g], [%.10g, %.10g]\n    Bully Push Angle: %d\n    Max Bully Speed: %.10g\n    Min Sliding Spped: (x=%.10g, z=%.10g)\n---------------------------------------\n\n\n", bpSol->squishPushMinX, bpSol->squishPushMaxX, bpSol->squishPushMinZ, bpSol->squishPushMaxZ, bpSol->squishPushQF, bpSol->bullyMinX, bpSol->bullyMaxX, bpSol->bullyMinZ, bpSol->bullyMaxZ, bpSol->pushAngle, bpSol->maxSpeed, bpSol->minSlidingSpeedX, bpSol->minSlidingSpeedZ);
+
+                                wf << startNormal[0] << "," << startNormal[1] << "," << startNormal[2] << ",";
+                                wf << doubleTenKSol->minStartX << "," << doubleTenKSol->maxStartX << ",";
+                                wf << doubleTenKSol->minStartZ << "," << doubleTenKSol->maxStartZ << ",";
+                                wf << tenKSol->frame1Position[0] << "," << tenKSol->frame1Position[1] << "," << tenKSol->frame1Position[2] << ",";
+                                wf << tenKSol->frame2Position[0] << "," << tenKSol->frame2Position[1] << "," << tenKSol->frame2Position[2] << ",";
+                                wf << platSol->returnPosition[0] << "," << platSol->returnPosition[1] << "," << platSol->returnPosition[2] << ",";
+                                wf << tenKSol->departureSpeed << "," << doubleTenKSol->post10KXVel << "," << doubleTenKSol->post10KZVel << ",";
+                                wf << speedSol->xStrain << "," << speedSol->zStrain << "," << speedSol->forwardStrain << ",";
+                                wf << tenKSol->pre10KVel[0] << "," << tenKSol->pre10KVel[1] << ",";
+                                wf << speedSol->returnSpeed << "," << tenKSol->returnVel[0] << "," << tenKSol->returnVel[1] << ",";
+                                wf << 4 << "," << p1Sol->q2 << "," << 1 << ",";
+                                wf << ((p5Sol->stickX == 0) ? 0 : ((p5Sol->stickX < 0) ? p5Sol->stickX - 6 : p5Sol->stickX + 6)) << "," << ((p5Sol->stickY == 0) ? 0 : ((p5Sol->stickY < 0) ? p5Sol->stickY - 6 : p5Sol->stickY + 6)) << ",";
+                                wf << p2Sol->f2Angle << "," << p4Sol->cameraYaw << ",";
+                                wf << host_norms[3 * x] << "," << host_norms[3 * x + 1] << "," << host_norms[3 * x + 2] << ",";
+                                wf << platSol->nFrames << ",";
+                                wf << platSol->endNormal[0] << "," << platSol->endNormal[1] << "," << platSol->endNormal[2] << ",";
+                                wf << platSol->endPosition[0] << "," << platSol->endPosition[1] << "," << platSol->endPosition[2] << ",";
+                                wf << slideSol->preUpwarpPosition[0] << "," << slideSol->preUpwarpPosition[1] << "," << slideSol->preUpwarpPosition[2] << ",";
+                                wf << slideSol->upwarpPosition[0] << "," << slideSol->upwarpPosition[1] << "," << slideSol->upwarpPosition[2] << ",";
+                                wf << uwSol->pux << "," << uwSol->puz << ",";
+                                wf << slideSol->angle << "," << slideSol->stickMag << "," << slideSol->intendedDYaw << ",";
+                                wf << bdSol->cameraYaw << ",";
+                                wf << bdSol->stickX << "," << bdSol->stickY << ",";
+                                wf << bdSol->landingPosition[0] << "," << bdSol->landingPosition[1] << "," << bdSol->landingPosition[2] << ",";
+                                wf << bdSol->postSlideSpeed << ",";
+                                wf << bpSol->squishPushMinX << "," << bpSol->squishPushMaxX << "," << bpSol->squishPushMinZ << "," << bpSol->squishPushMaxZ << "," << bpSol->squishPushQF << ",";
+                                wf << bpSol->bullyMinX << "," << bpSol->bullyMaxX << "," << bpSol->bullyMinZ << "," << bpSol->bullyMaxZ << "," << bpSol->pushAngle << ",";
+                                wf << bpSol->maxSpeed << "," << bpSol->minSlidingSpeedX << "," << bpSol->minSlidingSpeedZ << endl;
+
+                                m++;
+                            }
                         }
                     }
 
@@ -6927,9 +6932,10 @@ int main(int argc, char* argv[]) {
 
     bool zMode = false;
     bool quadMode = false;
+    bool minimalOutput = false;
 
     bool verbose = false;
-    
+
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
             printf("BitFS Final Speed Transfer Brute Forcer.\n");
@@ -6974,6 +6980,9 @@ int main(int argc, char* argv[]) {
             printf("    -o <path>\n");
             printf("         Path to the output file.\n");
             printf("             Default: %s\n\n", outFile.c_str());
+            printf("    -m\n");
+            printf("         Minimal output mode. The program will only write a list of normals with solutions to the output file.\n");
+            printf("             Default: %d\n\n", nThreads);
             printf("    -t <threads>\n");
             printf("         Number of CUDA threads to assign to the program.\n");
             printf("             Default: %d\n\n", nThreads);
@@ -7062,11 +7071,14 @@ int main(int argc, char* argv[]) {
             outFile = argv[i + 1];
             i += 1;
         }
+        else if (!strcmp(argv[i], "-m")) {
+            minimalOutput = true;
+        }
         else if (!strcmp(argv[i], "-v")) {
             verbose = true;
         }
     }
-    
+
     if (nPUFrames != 3) {
         fprintf(stderr, "Error: This brute forcer currently only supports 3 frame 10k routes. Value selected: %d.", nPUFrames);
         return 1;
@@ -7090,7 +7102,8 @@ int main(int argc, char* argv[]) {
         printf("Z Spacing: %g\n", deltaZ);
         if (quadMode) {
             printf("Quadrant Search: on\n");
-        } else {
+        }
+        else {
             printf("Platform Position: (%g, %g, %g)\n", platformPos[0], platformPos[1], platformPos[2]);
             printf("Quadrant Search: off\n");
         }
@@ -7159,34 +7172,40 @@ int main(int argc, char* argv[]) {
     ofstream wf(outFile);
     wf << std::fixed;
 
-    wf << "Start Normal X,Start Normal Y,Start Normal Z,";
-    wf << "Start Position Min X,Start Position Max X,";
-    wf << "Start Position Min Z,Start Position Max Z,";
-    wf << "Frame 1 Position X,Frame 1 Position Y,Frame 1 Position Z,";
-    wf << "Frame 2 Position X,Frame 2 Position Y,Frame 2 Position Z,";
-    wf << "Return Position X,Return Position Y,Return Position Z,";
-    wf << "Departure Speed,Departure X Velocity,Departure Z Velocity,";
-    wf << "Frame 2 Strain X Velocity,Frame 2 Strain Z Velocity,Frame 2 Strain Forward Speed,";
-    wf << "Pre-10K X Velocity, Pre-10K Z Velocity,";
-    wf << "Return Speed,Return X Velocity,Return Z Velocity,";
-    wf << "Frame 1 Q-steps,Frame 2 Q-steps,Frame 3 Q-steps,";
-    wf << "10K Stick X,10K Stick Y,";
-    wf << "Frame 2 HAU,10K Camera Yaw,";
-    wf << "Start Floor Normal X,Start Floor Normal Y,Start Floor Normal Z,";
-    wf << "Number of Tilt Frames,";
-    wf << "Post-Tilt Platform Normal X,Post-Tilt Platform Normal Y,Post-Tilt Platform Normal Z,";
-    wf << "Post-Tilt Position X,Post-Tilt Position Y,Post-Tilt Position Z,";
-    wf << "Pre-Upwarp Position X,Pre-Upwarp Position Y,Pre-Upwarp Position Z,";
-    wf << "Post-Upwarp Position X,Post-Upwarp Position Y,Post-Upwarp Position Z,";
-    wf << "Upwarp PU X,Upwarp PU Z,";
-    wf << "Upwarp Slide Facing Angle,Upwarp Slide IntendedMag,Upwarp Slide IntendedDYaw,";
-    wf << "Post-Breakdance Camera Yaw,";
-    wf << "Post-Breakdance Stick X,Post-Breakdance Stick Y,";
-    wf << "Landing Position X,Landing Position Y,Landing Position Z,";
-    wf << "Landing Speed,";
-    wf << "Squish Push Min X,Squish Push Max X,Squish Push Min Z,Squish Push Max Z,Squish Push Q-steps,";
-    wf << "Bully Min X,Bully Max X,Bully Min Z,Bully Max Z,Bully Push HAU,";
-    wf << "Max Bully Push Speed,Min X Sliding Speed,Min Z Sliding Speed" << endl;
+    wf << "Start Normal X,Start Normal Y,Start Normal Z";
+
+    if (!minimalOutput) {
+        wf << ",";
+        wf << "Start Position Min X,Start Position Max X,";
+        wf << "Start Position Min Z,Start Position Max Z,";
+        wf << "Frame 1 Position X,Frame 1 Position Y,Frame 1 Position Z,";
+        wf << "Frame 2 Position X,Frame 2 Position Y,Frame 2 Position Z,";
+        wf << "Return Position X,Return Position Y,Return Position Z,";
+        wf << "Departure Speed,Departure X Velocity,Departure Z Velocity,";
+        wf << "Frame 2 Strain X Velocity,Frame 2 Strain Z Velocity,Frame 2 Strain Forward Speed,";
+        wf << "Pre-10K X Velocity, Pre-10K Z Velocity,";
+        wf << "Return Speed,Return X Velocity,Return Z Velocity,";
+        wf << "Frame 1 Q-steps,Frame 2 Q-steps,Frame 3 Q-steps,";
+        wf << "10K Stick X,10K Stick Y,";
+        wf << "Frame 2 HAU,10K Camera Yaw,";
+        wf << "Start Floor Normal X,Start Floor Normal Y,Start Floor Normal Z,";
+        wf << "Number of Tilt Frames,";
+        wf << "Post-Tilt Platform Normal X,Post-Tilt Platform Normal Y,Post-Tilt Platform Normal Z,";
+        wf << "Post-Tilt Position X,Post-Tilt Position Y,Post-Tilt Position Z,";
+        wf << "Pre-Upwarp Position X,Pre-Upwarp Position Y,Pre-Upwarp Position Z,";
+        wf << "Post-Upwarp Position X,Post-Upwarp Position Y,Post-Upwarp Position Z,";
+        wf << "Upwarp PU X,Upwarp PU Z,";
+        wf << "Upwarp Slide Facing Angle,Upwarp Slide IntendedMag,Upwarp Slide IntendedDYaw,";
+        wf << "Post-Breakdance Camera Yaw,";
+        wf << "Post-Breakdance Stick X,Post-Breakdance Stick Y,";
+        wf << "Landing Position X,Landing Position Y,Landing Position Z,";
+        wf << "Landing Speed,";
+        wf << "Squish Push Min X,Squish Push Max X,Squish Push Min Z,Squish Push Max Z,Squish Push Q-steps,";
+        wf << "Bully Min X,Bully Max X,Bully Min Z,Bully Max Z,Bully Push HAU,";
+        wf << "Max Bully Push Speed,Min X Sliding Speed,Min Z Sliding Speed";
+    }
+
+    wf << endl;
 
     for (int j = 0; j < nSamplesNXZ; j++) {
         for (int h = 0; h < nSamplesNY; h++) {
@@ -7230,7 +7249,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
 
-                    if (check_normal(normX, normY, normZ, platformPos, host_tris, dev_tris, host_norms, dev_norms, host_ceiling_tris, dev_ceiling_tris, host_ceiling_norms, dev_ceiling_norms, floorPoints, devFloorPoints, squishEdges, devSquishEdges, nPUFrames, maxFrames, maxSpeed, maxSlidingSpeed, maxSlidingSpeedToPlatform, deltaX, deltaZ, nThreads, s, wf)) {
+                    if (check_normal(normX, normY, normZ, platformPos, host_tris, dev_tris, host_norms, dev_norms, host_ceiling_tris, dev_ceiling_tris, host_ceiling_norms, dev_ceiling_norms, floorPoints, devFloorPoints, squishEdges, devSquishEdges, nPUFrames, maxFrames, maxSpeed, maxSlidingSpeed, maxSlidingSpeedToPlatform, deltaX, deltaZ, nThreads, s, minimalOutput, wf)) {
 
                     }
                 }
