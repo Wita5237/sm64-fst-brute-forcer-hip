@@ -33,7 +33,10 @@ This program accepts the following options:
 -q:                                         Search all 8 "quadrants" simultaneously. Overrides platform position set by -p.
   
 -o &lt;path&gt;:                                  Path to the output file.
-  
+
+-m                                          Minimal output mode. 
+                                            The program will only write a list of normals with solutions to the output file.
+
 -t &lt;threads&gt;:                               Number of CUDA threads to assign to the program.
   
 -v:                                         Verbose mode. Prints all parameters used in brute force.
