@@ -2,6 +2,8 @@
 add_executable(fst-brute-forcer
   "CMakeLists.txt"
   "main.cpp"
+  "FST.cpp"
+  "FST.hpp"
   "Platform.cpp"
   "Platform.hpp"
   "Surface.cpp"
@@ -21,7 +23,7 @@ set_target_properties(fst-brute-forcer PROPERTIES
   PDB_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
-set_source_files_properties(main.cpp PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(FST.cpp PROPERTIES LANGUAGE CUDA)
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -maxrregcount=64 -fmad=false")
 
