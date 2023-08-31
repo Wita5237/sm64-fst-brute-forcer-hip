@@ -160,13 +160,15 @@
     </CudaLink>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="main.cpp" />
+    <CudaCompile Include="FST.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="Platform.cpp" />
     <ClCompile Include="Surface.cpp" />
     <ClCompile Include="Trig.cpp" />
     <ClCompile Include="vmath.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FST.hpp" />
     <ClInclude Include="Platform.hpp" />
     <ClInclude Include="Surface.hpp" />
     <ClInclude Include="Trig.hpp" />
