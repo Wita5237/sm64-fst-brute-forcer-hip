@@ -7007,9 +7007,12 @@ bool check_normal(Vec3f startNormal, struct Options* o, struct SolStruct* s, str
                     }
 
                     printf("        # Bully Push Solutions: %d\n", nBullyPushSolutionsCPU);
-
-                    write_solutions_to_file(startNormal, o, p, s, x, wf);
-
+                    
+                    if (wf.is_open()) {
+                        write_solutions_to_file(startNormal, o, p, s, x, wf);
+                    } else {
+                        fprintf(stderr, "Warning: ofstream is not open. No solutions will be written to the output file.\n");
+                    }
                     foundSolution = true;
                 }
             }
@@ -7284,8 +7287,15 @@ int main(int argc, char* argv[]) {
     }
 
     ofstream wf(o.outFile);
-    wf << std::fixed;
-    write_solution_file_header(o.minimalOutput, wf);
+    
+    if (wf.is_open()) {
+        wf << std::fixed;
+        write_solution_file_header(o.minimalOutput, wf);
+    }
+    else {
+        fprintf(stderr, "Warning: ofstream is not open. No solutions will be written to the output file.\n");
+        fprintf(stderr, "         This may be due to an invalid output file path.\n");
+    }
 
     const float deltaNX = (o.nSamplesNX > 1) ? (o.maxNX - o.minNX) / (o.nSamplesNX - 1) : 0;
     const float deltaNY = (o.nSamplesNY > 1) ? (o.maxNY - o.minNY) / (o.nSamplesNY - 1) : 0;
