@@ -6621,7 +6621,6 @@ int initialise_structures(struct PointerStruct* p) {
 
     init_squish_spots<<<1, 1>>>(p->devSquishSpots, p->devNSquishSpots);
 
-    StrainSetup* devStrainSetups;
     cudaError |= cudaMalloc((void**)&(p->devStrainSetups), MAX_STRAIN_SETUPS * sizeof(StrainSetup));
     init_strain_setups<<<1, 1>>>(p->devStrainSetups);
 
@@ -6649,13 +6648,13 @@ int initialise_structures(struct PointerStruct* p) {
             fprintf(stderr, "       It is recommended that you decrease the size of the\n");
             fprintf(stderr, "       reserved memory used for storing sub-solutions.\n");
             //fprintf(stderr, "       Run this program with --help for details.\n");
-            return cudaError;
         }
         else {
             fprintf(stderr, "Error: GPU memory allocation failed with error code: %d.\n", cudaError);
-            return cudaError;
         }
     }
+
+    return cudaError;
 }
 
 void free_structures(struct PointerStruct* p) {

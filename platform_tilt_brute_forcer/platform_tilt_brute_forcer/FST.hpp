@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <math.h>
 #include "cuda.h"
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
@@ -14,16 +15,16 @@ struct Options {
     int nPUFrames = 3;
     int maxFrames = 100;
 
-    float minNX = 0.1782f;
-    float maxNX = 0.1798f;
-    float minNY = 0.8724f;
-    float maxNY = 0.874f;
-    float minNXZ = -0.3924f;
-    float maxNXZ = -0.3940;
+    float minNX = 0.1765f;
+    float maxNX = 0.1815f;
+    float minNY = 0.877f;
+    float maxNY = 0.882f;
+    float minNXZ = 0.575f;
+    float maxNXZ = 0.5775f;
 
-    int nSamplesNX = 81;
-    int nSamplesNXZ = 81;
-    int nSamplesNY = 81;
+    int nSamplesNX = 51;
+    int nSamplesNXZ = 26;
+    int nSamplesNY = 51;
 
     float deltaX = 0.5f;
     float deltaZ = 0.5f;
@@ -36,7 +37,7 @@ struct Options {
     float maxSlidingSpeed = 20.0f;
     float maxSlidingSpeedToPlatform = 5.0f;
 
-    bool minimalOutput = true;
+    bool minimalOutput = false;
 };
 
 struct SolStruct {
