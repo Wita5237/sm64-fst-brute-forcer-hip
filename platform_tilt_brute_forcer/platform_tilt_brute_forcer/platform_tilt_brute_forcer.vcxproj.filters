@@ -27,6 +27,9 @@
     <ClCompile Include="Surface.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="vmath.hpp">
@@ -41,9 +44,12 @@
     <ClInclude Include="Surface.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FST.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="main.cpp">
+    <CudaCompile Include="FST.cpp">
       <Filter>Source Files</Filter>
     </CudaCompile>
   </ItemGroup>
