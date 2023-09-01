@@ -5,12 +5,9 @@ This tool evolved out of Tyler Kehne's platform max tilt brute forcer, but has s
 
 ## Options ##
 This program accepts the following options:
+
+#### Platform Normal Search Settings ####
 <pre>
--f &lt;frames&gt;:                                Maximum frames of platform tilt considered.
-  
--pu &lt;frames&gt;:                               Number of frames of PU movement for 10k PU route.
-                                            Currently, only 3 frame routes are supported.
-  
 -nx &lt;min_nx&gt; &lt;max_nx&gt; &lt;n_samples&gt;:          Inclusive range of x normals to be considered, and the number of normals to sample.
                                             If min_nx==max_nx then n_samples will be set to 1.
   
@@ -24,21 +21,72 @@ This program accepts the following options:
 -nz:                                        Search by z normal instead of xz sum.
                                             Ranges supplied with -nxz will be converted to z normal ranges.
   
+-q:                                         Search all 8 "quadrants" simultaneously. Overrides platform position set by -p.
+</pre>
+
+#### Brute Forcer Settings ####
+<pre>
+-f &lt;frames&gt;:                                Maximum frames of platform tilt considered.
+  
+-pu &lt;frames&gt;:                               Number of frames of PU movement for 10k PU route.
+                                            Currently, only 3 frame routes are supported.
 -dx &lt;delta_x&gt;:                              x coordinate spacing of positions on the platform.
   
 -dz &lt;delta_z&gt;:                              z coordinate spacing of positions on the platform.
   
 -p &lt;platform_x&gt; &lt;platform_y&gt; &lt;platform_z&gt;:  Position of the pyramid platform.
-  
--q:                                         Search all 8 "quadrants" simultaneously. Overrides platform position set by -p.
-  
+</pre>
+#### Output Settings ####
+<pre>
 -o &lt;path&gt;:                                  Path to the output file.
 
 -m                                          Minimal output mode. 
                                             The program will only write a list of normals with solutions to the output file.
-
+</pre>
+#### GPU Settings ####
+<pre>
 -t &lt;threads&gt;:                               Number of CUDA threads to assign to the program.
   
+-lsk1 &lt;n_solutions&gt;:                        Maximum number of phase 1 solutions for 10k setup search.
+  
+-lsk2a &lt;n_solutions&gt;:                       Maximum number of phase 2a solutions for 10k setup search.
+  
+-lsk2b &lt;n_solutions&gt;:                       Maximum number of phase 2b solutions for 10k setup search.
+  
+-lsk2c &lt;n_solutions&gt;:                       Maximum number of phase 2c solutions for 10k setup search.
+  
+-lsk2d &lt;n_solutions&gt;:                       Maximum number of phase 2d solutions for 10k setup search.
+  
+-lsk3 &lt;n_solutions&gt;:                        Maximum number of phase 3 solutions for 10k setup search.
+  
+-lsk4 &lt;n_solutions&gt;:                        Maximum number of phase 4 solutions for 10k setup search.
+  
+-lsk5 &lt;n_solutions&gt;:                        Maximum number of phase 5 solutions for 10k setup search.
+  
+-lsk6 &lt;n_solutions&gt;:                        Maximum number of phase 6 solutions for 10k setup search.
+  
+-lp &lt;n_solutions&gt;:                          Maximum number of platform tilt solutions.
+  
+-lu &lt;n_solutions&gt;:                          Maximum number of upwarp solutions.
+  
+-lsku &lt;n_solutions&gt;:                        Maximum number of slide kick upwarp solutions.
+  
+-ls &lt;n_solutions&gt;:                          Maximum number of speed solutions.
+  
+-l10k &lt;n_solutions&gt;:                        Maximum number of 10k solutions.
+  
+-lbd &lt;n_solutions&gt;:                         Maximum number of breakdance solutions.
+  
+-ld10k &lt;n_solutions&gt;:                       Maximum number of double 10k solutions.
+  
+-lbp &lt;n_solutions&gt;:                         Maximum number of bully push solutions.
+  
+-lsq &lt;n_squish_spots&gt;:                      Maximum number of squish spots.
+  
+-lst &lt;n_strain_setups&gt;:                     Maximum number of strain setups.
+</pre>
+#### Misc Settings ####
+<pre>
 -v:                                         Verbose mode. Prints all parameters used in brute force.
   
 -h --help:                                  Prints this text.
@@ -61,6 +109,49 @@ For CMake builds, use the following commands:
 <pre>
 cmake .
 make
+</pre>
+
+## Including this in your own projects ##
+The brute forcer includes a basic API to run the program from external projects. The code snippet below shows an example of how this works:
+
+<pre>
+#include <fstream>
+#include <iostream>
+#include <cstring>
+#include <string>
+#include "FST.hpp"
+  
+str::string outFile = "outData.csv"; // Path to solution csv file
+std::ofstream wf; // Output stream for solution csv file
+struct FSTData p; // Pointers to structures used by brute forcer
+struct FSTOptions o; // Options for the brute forcer
+
+// Set any options you want to change
+o.nThreads = 128;
+
+// Allocate memory and initialise the brute forcer structures
+int error = initialise_fst_vars(&p, &o);
+
+// You may get errors if you don't have enough memory
+// Check output variable for no errors
+if (error == 0) {
+    // Set up output csv file
+    // You can skip this if you won't want them output to a file
+    initialise_solution_file_stream(wf, outFile, &o);
+
+    // Pick a normal (or normals) you want to test
+    float testNormal[3] = {0.1808f, 0.87768f, -0.396f};
+  
+    // Check if the normal has any solutions
+    if (check_normal(testNormal, &o, &p, wf)) {
+          //Do stuff with successful normals
+    }
+
+    // When you're done, release the memory assigned to the brute forcer
+    free_fst_vars(&p);
+} else {
+      //Report errors
+}
 </pre>
 
 ## Credits ##
