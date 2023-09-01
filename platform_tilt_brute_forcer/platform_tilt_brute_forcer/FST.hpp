@@ -42,17 +42,6 @@ struct FSTOptions {
     int nPUFrames = 3;
     int maxFrames = 100;
 
-    float minNX = 0.1765f;
-    float maxNX = 0.1815f;
-    float minNY = 0.877f;
-    float maxNY = 0.882f;
-    float minNXZ = 0.575f;
-    float maxNXZ = 0.5775f;
-
-    int nSamplesNX = 51;
-    int nSamplesNXZ = 26;
-    int nSamplesNY = 51;
-
     float deltaX = 0.5f;
     float deltaZ = 0.5f;
 
