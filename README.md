@@ -40,7 +40,7 @@ This program accepts the following options:
 <pre>
 -o &lt;path&gt;:                                  Path to the output file.
 
--m                                          Minimal output mode. 
+-m:                                         Minimal output mode. 
                                             The program will only write a list of normals with solutions to the output file.
 </pre>
 #### GPU Settings ####
