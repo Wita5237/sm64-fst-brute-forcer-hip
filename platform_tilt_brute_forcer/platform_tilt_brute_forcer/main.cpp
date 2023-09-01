@@ -4,7 +4,8 @@
 #include "FST.hpp"
 
 int main(int argc, char* argv[]) {
-    struct Options o;
+    struct FSTOptions o;
+    struct FSTData p;
 
     std::string outFile = "outData.csv";
 
@@ -161,9 +162,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    PointerStruct p;
-
-    int err = initialise_structures(&p);
+    int err = initialise_fst_vars(&p);
 
     if (err != 0) {
         return err;
@@ -265,6 +264,6 @@ int main(int argc, char* argv[]) {
     
     print_success();
 
-    free_structures(&p);
+    free_fst_vars(&p);
     wf.close();
 }
