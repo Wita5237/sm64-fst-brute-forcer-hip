@@ -443,9 +443,10 @@ __device__ float platformNormal[3];
 __device__ const int total_floorsG = 350;
 __device__ SurfaceG floorsG[total_floorsG];
 
-void write_solutions_to_file(Vec3f startNormal, struct Options* o, struct FSTData* p, int floorIdx, std::ofstream& wf);
+void initialise_solution_file_stream(std::ofstream& wf, std::string outPath, struct FSTOptions* o);
 void write_solution_file_header(bool minimalOutput, std::ofstream& wf);
-bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf);
+void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FSTData* p, int floorIdx, std::ofstream& wf);
+bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf);
 int initialise_fst_vars(struct FSTData* p, struct FSTOptions* o);
 void free_fst_vars(struct FSTData* p);
 void print_success();
