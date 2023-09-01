@@ -1,4 +1,3 @@
-#include <unordered_set>
 #include <cstring>
 #include <string>
 #include "FST.hpp"
@@ -55,16 +54,16 @@ int main(int argc, char* argv[]) {
             printf("    -f <frames>\n");
             printf("         Maximum frames of platform tilt considered.\n");
             printf("             Default: %d\n\n", o.maxFrames);
+            printf("    -pu <frames>\n");
+            printf("         Number of frames of PU movement for 10k PU route.\n");
+            printf("         Currently, only 3 frame routes are supported.\n");
+            printf("             Default: %d\n\n", o.nPUFrames);
             printf("    -dx <delta_x>\n");
             printf("         x coordinate spacing of positions on the platform.\n");
             printf("             Default: %g\n\n", o.deltaX);
             printf("    -dz <delta_z>\n");
             printf("         z coordinate spacing of positions on the platform.\n");
             printf("             Default: %g\n\n", o.deltaZ);
-            printf("    -pu <frames>\n");
-            printf("         Number of frames of PU movement for 10k PU route.\n");
-            printf("         Currently, only 3 frame routes are supported.\n");
-            printf("             Default: %d\n\n", o.nPUFrames);
             printf("    -p <platform_x> <platform_y> <platform_z>\n");
             printf("         Position of the pyramid platform.\n");
             printf("             Default: %g %g %g\n\n", o.platformPos[0], o.platformPos[1], o.platformPos[2]);
@@ -348,16 +347,8 @@ int main(int argc, char* argv[]) {
         printf("\n");
     }
 
-    std::ofstream wf(outFile);
-
-    if (wf.is_open()) {
-        wf << std::fixed;
-        write_solution_file_header(o.minimalOutput, wf);
-    }
-    else {
-        fprintf(stderr, "Warning: ofstream is not open. No solutions will be written to the output file.\n");
-        fprintf(stderr, "         This may be due to an invalid output file path.\n");
-    }
+    std::ofstream wf;
+    initialise_solution_file_stream(wf, outFile, &o);
 
     const float deltaNX = (nSamplesNX > 1) ? (maxNX - minNX) / (nSamplesNX - 1) : 0;
     const float deltaNY = (nSamplesNY > 1) ? (maxNY - minNY) / (nSamplesNY - 1) : 0;
@@ -404,7 +395,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
 
-                    Vec3f testNormal = { normX, normY, normZ };
+                    float testNormal[3] = {normX, normY, normZ};
 
                     if (check_normal(testNormal, &o, &p, wf)) {
                     }
