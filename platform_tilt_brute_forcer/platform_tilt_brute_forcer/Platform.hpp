@@ -4,8 +4,6 @@
 #include "Surface.hpp"
 #include "vmath.hpp"
 
-using namespace std;
-
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
