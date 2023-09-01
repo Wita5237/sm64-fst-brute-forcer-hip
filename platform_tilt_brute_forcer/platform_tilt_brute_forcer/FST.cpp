@@ -5980,7 +5980,7 @@ void free_solution_pointers(SolStruct* s) {
 }
 
 
-void write_solutions_to_file(Vec3f startNormal, struct Options* o, struct PointerStruct* p, int floorIdx, std::ofstream& wf) {
+void write_solutions_to_file(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, int floorIdx, std::ofstream& wf) {
     int nSK1SolutionsCPU = 0;
     int nSK2ASolutionsCPU = 0;
     int nSK2BSolutionsCPU = 0;
@@ -6265,7 +6265,7 @@ void write_solution_file_header(bool minimalOutput, std::ofstream& wf) {
     wf << endl;
 }
 
-bool check_normal(Vec3f startNormal, struct Options* o, struct PointerStruct* p, std::ofstream& wf) {
+bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf) {
     bool foundSolution = false;
 
     const float normal_offsets_cpu[4][3] = { {0.01f, -0.01f, 0.01f}, {-0.01f, -0.01f, 0.01f}, {-0.01f, -0.01f, -0.01f}, {0.01f, -0.01f, -0.01f} };
@@ -6606,7 +6606,7 @@ bool check_normal(Vec3f startNormal, struct Options* o, struct PointerStruct* p,
     return foundSolution;
 }
 
-int initialise_structures(struct PointerStruct* p) {
+int initialise_fst_vars(struct FSTData* p) {
     int cudaError = 0;
 
     init_reverse_atanG<<<1, 1>>>();
@@ -6657,7 +6657,7 @@ int initialise_structures(struct PointerStruct* p) {
     return cudaError;
 }
 
-void free_structures(struct PointerStruct* p) {
+void free_fst_vars(struct FSTData* p) {
     std::free(p->host_tris);
     std::free(p->host_norms);
     std::free(p->host_ceiling_tris);
