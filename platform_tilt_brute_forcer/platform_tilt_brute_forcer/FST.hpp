@@ -9,6 +9,33 @@
 #include "device_atomic_functions.h"
 #include "vmath.hpp"
 
+struct GPULimits {
+    int MAX_UPWARP_SOLUTIONS = 10000000;
+    int MAX_PLAT_SOLUTIONS = 200000;
+
+    int MAX_SK_PHASE_ONE = 50000;
+    int MAX_SK_PHASE_TWO_A = 50000;
+    int MAX_SK_PHASE_TWO_B = 50000;
+    int MAX_SK_PHASE_TWO_C = 5000000;
+    int MAX_SK_PHASE_TWO_D = 5000000;
+    int MAX_SK_PHASE_THREE = 4000000;
+    int MAX_SK_PHASE_FOUR = 5000000;
+    int MAX_SK_PHASE_FIVE = 5000000;
+    int MAX_SK_PHASE_SIX = 200000;
+
+    int MAX_SK_UPWARP_SOLUTIONS = 100000;
+    int MAX_SPEED_SOLUTIONS = 100000000;
+    int MAX_10K_SOLUTIONS = 500000;
+    int MAX_SLIDE_SOLUTIONS = 2000000;
+    int MAX_BD_SOLUTIONS = 50000;
+
+    int MAX_DOUBLE_10K_SOLUTIONS = 300000;
+    int MAX_BULLY_PUSH_SOLUTIONS = 900000;
+
+    int MAX_SQUISH_SPOTS = 5000;
+    int MAX_STRAIN_SETUPS = 500000;
+};
+
 struct FSTOptions {
     int nThreads = 256;
 
@@ -38,6 +65,8 @@ struct FSTOptions {
     float maxSlidingSpeedToPlatform = 5.0f;
 
     bool minimalOutput = false;
+
+    GPULimits limits;
 };
 
 struct SolStruct {
@@ -145,31 +174,6 @@ struct SKPhase6 {
     double angleDiff;
 };
 
-__device__ struct SKPhase1* sk1Solutions;
-__device__ int nSK1Solutions;
-__device__ struct SKPhase2* sk2ASolutions;
-__device__ int nSK2ASolutions;
-__device__ struct SKPhase2* sk2BSolutions;
-__device__ int nSK2BSolutions;
-__device__ struct SKPhase2* sk2CSolutions;
-__device__ int nSK2CSolutions;
-__device__ struct SKPhase2* sk2DSolutions;
-__device__ int nSK2DSolutions;
-__device__ struct SKPhase3* sk3Solutions;
-__device__ int nSK3Solutions;
-__device__ struct SKPhase4* sk4Solutions;
-__device__ int nSK4Solutions;
-__device__ struct SKPhase5* sk5Solutions;
-__device__ int nSK5Solutions;
-__device__ struct SKPhase6* sk6Solutions;
-__device__ int nSK6Solutions;
-
-__device__ float* squishSpots;
-__device__ int* nSquishSpots;
-
-__device__ struct StrainSetup* strainSetups;
-__device__ int nStrainSetups;
-
 struct UpwarpSolution {
     int platformSolutionIdx;
     int pux;
@@ -189,11 +193,6 @@ struct PlatformSolution {
     float penultimatePosition[3];
     int nFrames;
 };
-
-__device__ struct PlatformSolution* platSolutions;
-__device__ int nPlatSolutions;
-__device__ struct UpwarpSolution* upwarpSolutions;
-__device__ int nUpwarpSolutions;
 
 struct SKUpwarpSolution {
     int skIdx;
@@ -279,28 +278,6 @@ struct BDSolution {
     float postSlideSpeed;
 };
 
-__device__ struct SKUpwarpSolution* skuwSolutions;
-__device__ int nSKUWSolutions;
-__device__ struct SpeedSolution* speedSolutions;
-__device__ int nSpeedSolutions;
-__device__ struct TenKSolution* tenKSolutions;
-__device__ int n10KSolutions;
-__device__ int maxAngleRange;
-__device__ struct SlideSolution* slideSolutions;
-__device__ int nSlideSolutions;
-__device__ struct BDSolution* bdSolutions;
-__device__ int nBDSolutions;
-
-__device__ int maxFSpeedLevels;
-__device__ int maxSSpeedLevels;
-
-__device__ struct DoubleTenKSolution* doubleTenKSolutions;
-__device__ int nDouble10KSolutions;
-__device__ struct BullyPushSolution* bullyPushSolutions;
-__device__ int nBullyPushSolutions;
-
-__device__ int slideAngleSampleRate = 4;
-
 class SurfaceG {
 public:
     short vertices[3][3];
@@ -368,6 +345,70 @@ public:
     }
 };
 
+
+__device__ const int maxF3Turn = 522;
+__device__ const int nTenKFloors = 4;
+__device__ float tenKFloors[nTenKFloors][9] = {
+    { -613.0, -306.0, -4607.0, -4453.0, -3071.0, -2661.0, -0.9361413717, 0.351623833, 0.0 },
+    { -613.0, -306.0, -4146.0, -3993.0, -2661.0, -3071.0, 0.936891377, 0.349620432, 0.0 },
+    { -7065.0, -6041.0, 307.0, 322.0, -2866.0, -3071.0, 0.0146370763, 0.03655698895, 0.9992243648 },
+    { -7065.0, -6553.0, 307.0, 322.0, -2866.0, -3071.0, 0, 0.07297563553, 0.9973337054 }
+};
+
+__device__ GPULimits limits;
+
+__device__ struct SKPhase1* sk1Solutions;
+__device__ int nSK1Solutions;
+__device__ struct SKPhase2* sk2ASolutions;
+__device__ int nSK2ASolutions;
+__device__ struct SKPhase2* sk2BSolutions;
+__device__ int nSK2BSolutions;
+__device__ struct SKPhase2* sk2CSolutions;
+__device__ int nSK2CSolutions;
+__device__ struct SKPhase2* sk2DSolutions;
+__device__ int nSK2DSolutions;
+__device__ struct SKPhase3* sk3Solutions;
+__device__ int nSK3Solutions;
+__device__ struct SKPhase4* sk4Solutions;
+__device__ int nSK4Solutions;
+__device__ struct SKPhase5* sk5Solutions;
+__device__ int nSK5Solutions;
+__device__ struct SKPhase6* sk6Solutions;
+__device__ int nSK6Solutions;
+
+__device__ float* squishSpots;
+__device__ int* nSquishSpots;
+
+__device__ struct StrainSetup* strainSetups;
+__device__ int nStrainSetups;
+
+__device__ struct PlatformSolution* platSolutions;
+__device__ int nPlatSolutions;
+__device__ struct UpwarpSolution* upwarpSolutions;
+__device__ int nUpwarpSolutions;
+
+__device__ struct SKUpwarpSolution* skuwSolutions;
+__device__ int nSKUWSolutions;
+__device__ struct SpeedSolution* speedSolutions;
+__device__ int nSpeedSolutions;
+__device__ struct TenKSolution* tenKSolutions;
+__device__ int n10KSolutions;
+__device__ int maxAngleRange;
+__device__ struct SlideSolution* slideSolutions;
+__device__ int nSlideSolutions;
+__device__ struct BDSolution* bdSolutions;
+__device__ int nBDSolutions;
+
+__device__ int maxFSpeedLevels;
+__device__ int maxSSpeedLevels;
+
+__device__ struct DoubleTenKSolution* doubleTenKSolutions;
+__device__ int nDouble10KSolutions;
+__device__ struct BullyPushSolution* bullyPushSolutions;
+__device__ int nBullyPushSolutions;
+
+__device__ int slideAngleSampleRate = 4;
+
 __device__ const short default_triangles[2][3][3] = { {{307, 307, -306}, {-306, 307, -306}, {-306, 307, 307}}, {{307, 307, -306}, {-306, 307, 307}, {307, 307, 307}} };
 __device__ const float normal_offsets[4][3] = { {0.01f, -0.01f, 0.01f}, {-0.01f, -0.01f, 0.01f}, {-0.01f, -0.01f, -0.01f}, {0.01f, -0.01f, -0.01f} };
 
@@ -416,6 +457,6 @@ __device__ SurfaceG floorsG[total_floorsG];
 void write_solutions_to_file(Vec3f startNormal, struct Options* o, struct FSTData* p, int floorIdx, std::ofstream& wf);
 void write_solution_file_header(bool minimalOutput, std::ofstream& wf);
 bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf);
-int initialise_fst_vars(struct FSTData* p);
+int initialise_fst_vars(struct FSTData* p, struct FSTOptions* o);
 void free_fst_vars(struct FSTData* p);
 void print_success();

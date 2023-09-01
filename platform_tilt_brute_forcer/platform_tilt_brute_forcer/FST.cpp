@@ -5,40 +5,6 @@
 
 # define M_PI                  3.14159265358979323846  /* pi */
 
-# define MAX_UPWARP_SOLUTIONS       10000000
-# define MAX_PLAT_SOLUTIONS           200000
-
-# define MAX_SK_PHASE_ONE              50000
-# define MAX_SK_PHASE_TWO_A            50000
-# define MAX_SK_PHASE_TWO_B            50000
-# define MAX_SK_PHASE_TWO_C          5000000
-# define MAX_SK_PHASE_TWO_D          5000000
-# define MAX_SK_PHASE_THREE          4000000
-# define MAX_SK_PHASE_FOUR           5000000
-# define MAX_SK_PHASE_FIVE           5000000
-# define MAX_SK_PHASE_SIX             200000
-
-# define MAX_SK_UPWARP_SOLUTIONS      100000
-# define MAX_SPEED_SOLUTIONS       100000000
-# define MAX_10K_SOLUTIONS            500000
-# define MAX_SLIDE_SOLUTIONS         2000000
-# define MAX_BD_SOLUTIONS              50000
-
-# define MAX_DOUBLE_10K_SOLUTIONS     300000
-# define MAX_BULLY_PUSH_SOLUTIONS     900000
-
-# define MAX_SQUISH_SPOTS               5000
-# define MAX_STRAIN_SETUPS            500000
-
-__device__ const int maxF3Turn = 522;
-__device__ const int nTenKFloors = 4;
-__device__ float tenKFloors[nTenKFloors][9] = {
-    { -613.0, -306.0, -4607.0, -4453.0, -3071.0, -2661.0, -0.9361413717, 0.351623833, 0.0 },
-    { -613.0, -306.0, -4146.0, -3993.0, -2661.0, -3071.0, 0.936891377, 0.349620432, 0.0 },
-    { -7065.0, -6041.0, 307.0, 322.0, -2866.0, -3071.0, 0.0146370763, 0.03655698895, 0.9992243648 },
-    { -7065.0, -6553.0, 307.0, 322.0, -2866.0, -3071.0, 0, 0.07297563553, 0.9973337054 }
-};
-
 __global__ void initialise_floors() {
     floorsG[0] = SurfaceG(1536, 5478, -262, 922, 5478, -262, 922, 5478, 403);
     floorsG[1] = SurfaceG(1536, 5478, -262, 922, 5478, 403, 1536, 5478, 403);
@@ -877,7 +843,7 @@ __device__ void adjust_position_to_ints(float* a, float* b, float p[2][3]) {
 __global__ void test_speed_solution(int* squishEdges, const int nPoints, float floorNormalY, int uphillAngle, float maxSlidingSpeed, float maxSlidingSpeedToPlatform) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nSpeedSolutions, MAX_SPEED_SOLUTIONS)) {
+    if (idx < min(nSpeedSolutions, limits.MAX_SPEED_SOLUTIONS)) {
         struct SpeedSolution* sol = &(speedSolutions[idx]);
         struct SKUpwarpSolution* skuwSol = &(skuwSolutions[sol->skuwSolutionIdx]);
         struct UpwarpSolution* uwSol = &(upwarpSolutions[skuwSol->uwIdx]);
@@ -1164,12 +1130,12 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                                             int refAngle = 65536;
 
                                             for (int l = 0; l < nSquishSpots[intersectionIdxs[i]]; l++) {
-                                                float signX = (squishSpots[(2 * intersectionIdxs[i] * MAX_SQUISH_SPOTS) + (2 * l)] > 0) - (squishSpots[(2 * intersectionIdxs[i] * MAX_SQUISH_SPOTS) + (2 * l)] < 0);
+                                                float signX = (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l)] > 0) - (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l)] < 0);
                                                 float signZ = (squishSpots[(2 * l) + 1] > 0) - (squishSpots[(2 * l) + 1] < 0);
 
                                                 for (int m = 0; m < 4; m++) {
-                                                    float xDist = bullyPushX - (squishSpots[(2 * intersectionIdxs[i] * MAX_SQUISH_SPOTS) + (2 * l)] + signX * (m % 2));
-                                                    float zDist = bullyPushZ - (squishSpots[(2 * intersectionIdxs[i] * MAX_SQUISH_SPOTS) + (2 * l) + 1] + signZ * (m / 2));
+                                                    float xDist = bullyPushX - (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l)] + signX * (m % 2));
+                                                    float zDist = bullyPushZ - (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l) + 1] + signZ * (m / 2));
 
                                                     float dist = sqrtf(xDist * xDist + zDist * zDist);
 
@@ -1306,7 +1272,7 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                                         if (fabsf(slidingSpeedX) <= maxSlidingSpeed && fabsf(slidingSpeedZ) <= maxSlidingSpeed && slidingSpeedToPlatform <= maxSlidingSpeedToPlatform) {
                                             int solIdx = atomicAdd(&n10KSolutions, 1);
 
-                                            if (solIdx < MAX_10K_SOLUTIONS) {
+                                            if (solIdx < limits.MAX_10K_SOLUTIONS) {
                                                 struct TenKSolution* solution = &(tenKSolutions[solIdx]);
                                                 solution->speedSolutionIdx = idx;
                                                 solution->departureSpeed = startSpeed;
@@ -1344,10 +1310,10 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
 
 __global__ void find_speed_solutions() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int strainIdx = idx % min(nStrainSetups, MAX_STRAIN_SETUPS);
-    idx = idx / min(nStrainSetups, MAX_STRAIN_SETUPS);
+    int strainIdx = idx % min(nStrainSetups, limits.MAX_STRAIN_SETUPS);
+    idx = idx / min(nStrainSetups, limits.MAX_STRAIN_SETUPS);
 
-    if (idx < min(nSKUWSolutions, MAX_SK_UPWARP_SOLUTIONS)) {
+    if (idx < min(nSKUWSolutions, limits.MAX_SK_UPWARP_SOLUTIONS)) {
         struct StrainSetup* strain = &(strainSetups[strainIdx]);
 
         struct SKUpwarpSolution* sol = &(skuwSolutions[idx]);
@@ -2044,7 +2010,7 @@ __global__ void find_speed_solutions() {
                         if (!isnan(pre10KSpeed)) {
                             int solIdx = atomicAdd(&nSpeedSolutions, 1);
 
-                            if (solIdx < MAX_SPEED_SOLUTIONS) {
+                            if (solIdx < limits.MAX_SPEED_SOLUTIONS) {
                                 struct SpeedSolution* solution = &(speedSolutions[solIdx]);
                                 solution->skuwSolutionIdx = idx;
                                 solution->returnSpeed = speed;
@@ -2063,7 +2029,7 @@ __global__ void find_speed_solutions() {
 __global__ void find_sk_upwarp_solutions() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nUpwarpSolutions, MAX_UPWARP_SOLUTIONS)) {
+    if (idx < min(nUpwarpSolutions, limits.MAX_UPWARP_SOLUTIONS)) {
         struct UpwarpSolution* uwSol = &(upwarpSolutions[idx]);
         struct PlatformSolution* platSol = &(platSolutions[uwSol->platformSolutionIdx]);
 
@@ -2085,7 +2051,7 @@ __global__ void find_sk_upwarp_solutions() {
         float upperSpeed = -(maxDist / platSol->endTriangleNormals[platSol->endFloorIdx][1]) / 0.9 - speedBuffer;
         float lowerSpeed = -(minDist / platSol->endTriangleNormals[platSol->endFloorIdx][1]) / 0.94 + speedBuffer;
 
-        for (int i = 0; i < min(nSK6Solutions, MAX_SK_PHASE_SIX); i++) {
+        for (int i = 0; i < min(nSK6Solutions, limits.MAX_SK_PHASE_SIX); i++) {
             SKPhase6* sk6Sol = &(sk6Solutions[i]);
             struct SKPhase5* sol5 = &(sk5Solutions[sk6Sol->p5Idx]);
             struct SKPhase4* sol4 = &(sk4Solutions[sol5->p4Idx]);
@@ -2134,7 +2100,7 @@ __global__ void find_sk_upwarp_solutions() {
 
                     int solIdx = atomicAdd(&nSKUWSolutions, 1);
 
-                    if (solIdx < MAX_SK_UPWARP_SOLUTIONS) {
+                    if (solIdx < limits.MAX_SK_UPWARP_SOLUTIONS) {
                         struct SKUpwarpSolution* solution = &(skuwSolutions[solIdx]);
                         solution->skIdx = i;
                         solution->uwIdx = idx;
@@ -2383,7 +2349,7 @@ __global__ void find_breakdance_solutions() {
     int y = (idx % 242) - 121;
     idx = idx / 242;
 
-    if (idx < min(nSlideSolutions, MAX_SLIDE_SOLUTIONS)) {
+    if (idx < min(nSlideSolutions, limits.MAX_SLIDE_SOLUTIONS)) {
         struct SlideSolution* slideSol = &(slideSolutions[idx]);
         struct TenKSolution* tenKSol = &(tenKSolutions[slideSol->tenKSolutionIdx]);
         
@@ -2610,7 +2576,7 @@ __global__ void find_breakdance_solutions() {
                     if (landed && intendedPos[1] >= -1357.0) {
                         int solIdx = atomicAdd(&nBDSolutions, 1);
 
-                        if (solIdx < MAX_BD_SOLUTIONS) {
+                        if (solIdx < limits.MAX_BD_SOLUTIONS) {
                             BDSolution* solution = &(bdSolutions[solIdx]);
                             solution->slideSolutionIdx = idx;
                             solution->cameraYaw = cameraYaw;
@@ -2712,7 +2678,7 @@ __device__ void try_upwarp_slide(int solIdx, int angle, int intendedDYaw, float 
             if (upwarpPositionTest) {
                 int idx = atomicAdd(&nSlideSolutions, 1);
 
-                if (idx < MAX_SLIDE_SOLUTIONS) {
+                if (idx < limits.MAX_SLIDE_SOLUTIONS) {
                     int slideYaw = atan2sG(zVel1, xVel1);
                     slideYaw = (65536 + slideYaw) % 65536;
 
@@ -2925,7 +2891,7 @@ __global__ void test_slide_angle() {
     int angleIdx = idx % maxAngleRange;
     idx = idx / maxAngleRange;
 
-    if (idx < min(n10KSolutions, MAX_10K_SOLUTIONS)) {
+    if (idx < min(n10KSolutions, limits.MAX_10K_SOLUTIONS)) {
         struct TenKSolution* tenKSol = &(tenKSolutions[idx]);
         int angle = tenKSol->minStartAngle + angleIdx * slideAngleSampleRate;
 
@@ -2940,7 +2906,7 @@ __global__ void test_slide_angle() {
 __global__ void find_slide_solutions() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(n10KSolutions, MAX_10K_SOLUTIONS)) {
+    if (idx < min(n10KSolutions, limits.MAX_10K_SOLUTIONS)) {
         struct TenKSolution* tenKSol = &(tenKSolutions[idx]);
         struct SpeedSolution* speedSol = &(speedSolutions[tenKSol->speedSolutionIdx]);
         struct SKUpwarpSolution* skuwSol = &(skuwSolutions[speedSol->skuwSolutionIdx]);
@@ -3078,7 +3044,7 @@ __device__ bool try_pu_xz(float* normal, float* position, short(&current_triangl
                 if (good_solution) {
                     int solIdx = atomicAdd(&nUpwarpSolutions, 1);
 
-                    if (solIdx < MAX_UPWARP_SOLUTIONS) {
+                    if (solIdx < limits.MAX_UPWARP_SOLUTIONS) {
                         UpwarpSolution solution;
                         solution.platformSolutionIdx = platSolIdx;
                         solution.pux = (int)roundf(x / 65536.0f);
@@ -3786,7 +3752,7 @@ __device__ void try_normal(float* normal, float* position, int platSolIdx, doubl
 __global__ void find_upwarp_solutions(float maxSpeed) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nPlatSolutions, MAX_PLAT_SOLUTIONS)) {
+    if (idx < min(nPlatSolutions, limits.MAX_PLAT_SOLUTIONS)) {
         struct PlatformSolution* platSol = &(platSolutions[idx]);
         try_normal(platSol->endNormal, platSol->endPosition, idx, maxSpeed);
     }
@@ -4236,7 +4202,7 @@ __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
                 if (validSolution) {
                     int solIdx = atomicAdd(&nPlatSolutions, 1);
 
-                    if (solIdx < MAX_PLAT_SOLUTIONS) {
+                    if (solIdx < limits.MAX_PLAT_SOLUTIONS) {
                         struct PlatformSolution solution;
                         solution.endNormal[0] = normal[0];
                         solution.endNormal[1] = normal[1];
@@ -4296,7 +4262,7 @@ __global__ void testEdge(const float x0, const float x1, const float z0, const f
     try_position(marioPos, normal, maxFrames);
 }
 
-__global__ void cudaFunc(const float minX, const float deltaX, const float minZ, const float deltaZ, const int width, const int height, float normalX, float normalY, float normalZ, int maxFrames) {
+__global__ void simulate_tilts(const float minX, const float deltaX, const float minZ, const float deltaZ, const int width, const int height, float normalX, float normalY, float normalZ, int maxFrames) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx < width * height) {
@@ -4310,7 +4276,7 @@ __global__ void cudaFunc(const float minX, const float deltaX, const float minZ,
 __global__ void try_stick_positionG() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nSK5Solutions, MAX_SK_PHASE_FIVE)) {
+    if (idx < min(nSK5Solutions, limits.MAX_SK_PHASE_FIVE)) {
         struct SKPhase5* sol5 = &(sk5Solutions[idx]);
         struct SKPhase4* sol4 = &(sk4Solutions[sol5->p4Idx]);
         struct SKPhase3* sol3 = &(sk3Solutions[sol4->p3Idx]);
@@ -4375,7 +4341,7 @@ __global__ void try_stick_positionG() {
 
                 int solIdx = atomicAdd(&nSK6Solutions, 1);
 
-                if (solIdx < MAX_SK_PHASE_SIX) {
+                if (solIdx < limits.MAX_SK_PHASE_SIX) {
                     struct SKPhase6* solution = &(sk6Solutions[solIdx]);
                     solution->p5Idx = idx;
                     solution->minPre10KSpeed = minSpeed;
@@ -4392,7 +4358,7 @@ __global__ void try_stick_positionG() {
 __global__ void try_slide_kick_routeG2() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nSK4Solutions, MAX_SK_PHASE_FOUR)) {
+    if (idx < min(nSK4Solutions, limits.MAX_SK_PHASE_FOUR)) {
         struct SKPhase4* sol4 = &(sk4Solutions[idx]);
         struct SKPhase3* sol3 = &(sk3Solutions[sol4->p3Idx]);
         struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(sk2ASolutions[sol3->p2Idx]) : &(sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(sk2CSolutions[sol3->p2Idx]) : &(sk2DSolutions[sol3->p2Idx]));
@@ -4505,7 +4471,7 @@ __global__ void try_slide_kick_routeG2() {
                             if (y != 1) {
                                 int solIdx = atomicAdd(&nSK5Solutions, 1);
 
-                                if (solIdx < MAX_SK_PHASE_FIVE) {
+                                if (solIdx < limits.MAX_SK_PHASE_FIVE) {
                                     struct SKPhase5* solution = &(sk5Solutions[solIdx]);
                                     solution->p4Idx = idx;
                                     solution->stickX = x;
@@ -4524,7 +4490,7 @@ __global__ void try_slide_kick_routeG2() {
                             if (x != 1) {
                                 int solIdx = atomicAdd(&nSK5Solutions, 1);
 
-                                if (solIdx < MAX_SK_PHASE_FIVE) {
+                                if (solIdx < limits.MAX_SK_PHASE_FIVE) {
                                     struct SKPhase5* solution = &(sk5Solutions[solIdx]);
                                     solution->p4Idx = idx;
                                     solution->stickX = x;
@@ -4543,7 +4509,7 @@ __global__ void try_slide_kick_routeG2() {
 __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoints) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nSK3Solutions, MAX_SK_PHASE_THREE)) {
+    if (idx < min(nSK3Solutions, limits.MAX_SK_PHASE_THREE)) {
         struct SKPhase3* sol3 = &(sk3Solutions[idx]);
         struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(sk2ASolutions[sol3->p2Idx]) : &(sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(sk2CSolutions[sol3->p2Idx]) : &(sk2DSolutions[sol3->p2Idx]));
         struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
@@ -4780,7 +4746,7 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
                             if (validCameraAngle[cameraYaw]) {
                                 int solIdx = atomicAdd(&nSK4Solutions, 1);
 
-                                if (solIdx < MAX_SK_PHASE_FOUR) {
+                                if (solIdx < limits.MAX_SK_PHASE_FOUR) {
                                     struct SKPhase4* solution = &(sk4Solutions[solIdx]);
                                     solution->p3Idx = idx;
                                     solution->cameraYaw = cameraYaw;
@@ -4807,7 +4773,7 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
 __global__ void find_slide_kick_setupG3a(float platformMinZ, float platformMaxZ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nSK2ASolutions, MAX_SK_PHASE_TWO_A)) {
+    if (idx < min(nSK2ASolutions, limits.MAX_SK_PHASE_TWO_A)) {
         struct SKPhase2* sol2 = &(sk2CSolutions[idx]);
         struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
 
@@ -4825,7 +4791,7 @@ __global__ void find_slide_kick_setupG3a(float platformMinZ, float platformMaxZ)
         for (int z2 = minF2ZPU; z2 <= maxF2ZPU; z2 += sol1->q2) {
             int solIdx = atomicAdd(&nSK3Solutions, 1);
 
-            if (solIdx < MAX_SK_PHASE_THREE) {
+            if (solIdx < limits.MAX_SK_PHASE_THREE) {
                 struct SKPhase3* solution = &(sk3Solutions[solIdx]);
                 solution->p2Idx = idx;
                 solution->p2Type = 0;
@@ -4840,7 +4806,7 @@ __global__ void find_slide_kick_setupG3a(float platformMinZ, float platformMaxZ)
 __global__ void find_slide_kick_setupG3b(float platformMinX, float platformMaxX) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nSK2BSolutions, MAX_SK_PHASE_TWO_B)) {
+    if (idx < min(nSK2BSolutions, limits.MAX_SK_PHASE_TWO_B)) {
         struct SKPhase2* sol2 = &(sk2CSolutions[idx]);
         struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
 
@@ -4858,7 +4824,7 @@ __global__ void find_slide_kick_setupG3b(float platformMinX, float platformMaxX)
         for (int x2 = minF2XPU; x2 <= maxF2XPU; x2 += sol1->q2) {
             int solIdx = atomicAdd(&nSK3Solutions, 1);
 
-            if (solIdx < MAX_SK_PHASE_THREE) {
+            if (solIdx < limits.MAX_SK_PHASE_THREE) {
                 struct SKPhase3* solution = &(sk3Solutions[solIdx]);
                 solution->p2Idx = idx;
                 solution->p2Type = 1;
@@ -4872,7 +4838,7 @@ __global__ void find_slide_kick_setupG3b(float platformMinX, float platformMaxX)
 __global__ void find_slide_kick_setupG3c(float platformMinX, float platformMaxX, float platformMinZ, float platformMaxZ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nSK2CSolutions, MAX_SK_PHASE_TWO_C)) {
+    if (idx < min(nSK2CSolutions, limits.MAX_SK_PHASE_TWO_C)) {
         struct SKPhase2* sol2 = &(sk2CSolutions[idx]);
         struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
 
@@ -4921,7 +4887,7 @@ __global__ void find_slide_kick_setupG3c(float platformMinX, float platformMaxX,
             for (int z2 = minF2ZPU; z2 <= maxF2ZPU; z2 += sol1->q2) {
                 int solIdx = atomicAdd(&nSK3Solutions, 1);
 
-                if (solIdx < MAX_SK_PHASE_THREE) {
+                if (solIdx < limits.MAX_SK_PHASE_THREE) {
                     struct SKPhase3* solution = &(sk3Solutions[solIdx]);
                     solution->p2Idx = idx;
                     solution->p2Type = 2;
@@ -4936,7 +4902,7 @@ __global__ void find_slide_kick_setupG3c(float platformMinX, float platformMaxX,
 __global__ void find_slide_kick_setupG3d(float platformMinX, float platformMaxX, float platformMinZ, float platformMaxZ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nSK2DSolutions, MAX_SK_PHASE_TWO_D)) {
+    if (idx < min(nSK2DSolutions, limits.MAX_SK_PHASE_TWO_D)) {
         struct SKPhase2* sol2 = &(sk2DSolutions[idx]);
         struct SKPhase1* sol1 = &(sk1Solutions[sol2->p1Idx]);
 
@@ -4985,7 +4951,7 @@ __global__ void find_slide_kick_setupG3d(float platformMinX, float platformMaxX,
             for (int x2 = minF2ZXPU; x2 <= maxF2ZXPU; x2 += sol1->q2) {
                 int solIdx = atomicAdd(&nSK3Solutions, 1);
 
-                if (solIdx < MAX_SK_PHASE_THREE) {
+                if (solIdx < limits.MAX_SK_PHASE_THREE) {
                     struct SKPhase3* solution = &(sk3Solutions[solIdx]);
                     solution->p2Idx = idx;
                     solution->p2Type = 3;
@@ -5000,7 +4966,7 @@ __global__ void find_slide_kick_setupG3d(float platformMinX, float platformMaxX,
 __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, float floorNormalY, float platformMinX, float platformMaxX, float platformMinZ, float platformMaxZ, float midPointX, float midPointZ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(nSK1Solutions, MAX_SK_PHASE_ONE)) {
+    if (idx < min(nSK1Solutions, limits.MAX_SK_PHASE_ONE)) {
         struct SKPhase1 *sol = &(sk1Solutions[idx]);
         double puAngle = 65536.0 * atan2((double)sol->x1, (double)sol->z1) / (2.0 * M_PI);
         puAngle = fmod(65536.0 + puAngle, 65536.0);
@@ -5034,7 +5000,7 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
                     if (minX < maxX) {
                         int solIdx = atomicAdd(&nSK2ASolutions, 1);
 
-                        if (solIdx < MAX_SK_PHASE_TWO_A) {
+                        if (solIdx < limits.MAX_SK_PHASE_TWO_A) {
                             struct SKPhase2* solution = &(sk2ASolutions[solIdx]);
                             solution->p1Idx = idx;
                             solution->f2Angle = 0;
@@ -5045,7 +5011,7 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
 
                         solIdx = atomicAdd(&nSK2ASolutions, 1);
 
-                        if (solIdx < MAX_SK_PHASE_TWO_A) {
+                        if (solIdx < limits.MAX_SK_PHASE_TWO_A) {
                             struct SKPhase2* solution = &(sk2ASolutions[solIdx]);
                             solution->p1Idx = idx;
                             solution->f2Angle = 32768;
@@ -5064,7 +5030,7 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
                     if (minZ < maxZ) {
                         int solIdx = atomicAdd(&nSK2BSolutions, 1);
 
-                        if (solIdx < MAX_SK_PHASE_TWO_B) {
+                        if (solIdx < limits.MAX_SK_PHASE_TWO_B) {
                             struct SKPhase2* solution = &(sk2BSolutions[solIdx]);
                             solution->p1Idx = idx;
                             solution->f2Angle = 16384;
@@ -5075,7 +5041,7 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
 
                         solIdx = atomicAdd(&nSK2BSolutions, 1);
 
-                        if (solIdx < MAX_SK_PHASE_TWO_B) {
+                        if (solIdx < limits.MAX_SK_PHASE_TWO_B) {
                             struct SKPhase2* solution = &(sk2BSolutions[solIdx]);
                             solution->p1Idx = idx;
                             solution->f2Angle = 49152;
@@ -5105,7 +5071,7 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
                     for (int i = 0; i < nTenKFloors; i++) {
                         int solIdx = atomicAdd(&nSK2CSolutions, 1);
 
-                        if (solIdx < MAX_SK_PHASE_TWO_C) {
+                        if (solIdx < limits.MAX_SK_PHASE_TWO_C) {
                             struct SKPhase2* solution = &(sk2CSolutions[solIdx]);
                             solution->p1Idx = idx;
                             solution->f2Angle = f2Angle;
@@ -5118,7 +5084,7 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
 
                         solIdx = atomicAdd(&nSK2CSolutions, 1);
 
-                        if (solIdx < MAX_SK_PHASE_TWO_C) {
+                        if (solIdx < limits.MAX_SK_PHASE_TWO_C) {
                             struct SKPhase2* solution = &(sk2CSolutions[solIdx]);
                             solution->p1Idx = idx;
                             solution->f2Angle = (f2Angle + 32768) % 65536;
@@ -5145,7 +5111,7 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
                     for (int i = 0; i < nTenKFloors; i++) {
                         int solIdx = atomicAdd(&nSK2DSolutions, 1);
 
-                        if (solIdx < MAX_SK_PHASE_TWO_D) {
+                        if (solIdx < limits.MAX_SK_PHASE_TWO_D) {
                             struct SKPhase2* solution = &(sk2DSolutions[solIdx]);
                             solution->p1Idx = idx;
                             solution->f2Angle = f2Angle;
@@ -5158,7 +5124,7 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
 
                         solIdx = atomicAdd(&nSK2DSolutions, 1);
 
-                        if (solIdx < MAX_SK_PHASE_TWO_D) {
+                        if (solIdx < limits.MAX_SK_PHASE_TWO_D) {
                             struct SKPhase2* solution = &(sk2DSolutions[solIdx]);
                             solution->p1Idx = idx;
                             solution->f2Angle = (f2Angle + 32768) % 65536;
@@ -5250,7 +5216,7 @@ __global__ void find_slide_kick_setupG(short* floorPoints, const int nPoints, fl
                 for (int q2 = 1; q2 <= 4; q2++) {
                     int solIdx = atomicAdd(&nSK1Solutions, 1);
 
-                    if (solIdx < MAX_SK_PHASE_ONE) {
+                    if (solIdx < limits.MAX_SK_PHASE_ONE) {
                         struct SKPhase1* solution = &(sk1Solutions[solIdx]);
                         solution->x1 = x1;
                         solution->z1 = z1;
@@ -5268,7 +5234,7 @@ __global__ void find_slide_kick_setupG(short* floorPoints, const int nPoints, fl
     }
 }
 
-void find_slide_kick_setup_triangle(short* floorPoints, short* devFloorPoints, int nPoints, float yNormal, int t, double maxSpeed, int nThreads) {
+void find_slide_kick_setup_triangle(short* floorPoints, short* devFloorPoints, int nPoints, float yNormal, int t, FSTOptions* o) {
     int nSK1SolutionsCPU = 0;
     int nSK2ASolutionsCPU = 0;
     int nSK2BSolutionsCPU = 0;
@@ -5317,22 +5283,22 @@ void find_slide_kick_setup_triangle(short* floorPoints, short* devFloorPoints, i
 
     cudaMemcpy(devFloorPoints, floorPoints, 3 * nPoints * sizeof(short), cudaMemcpyHostToDevice);
 
-    int maxF1PU = (int)floor(yNormal * maxSpeed / (4.0 * 65536.0)) * 4;
-    int nBlocks = ((2 * (maxF1PU / 4) + 1) * (2 * (maxF1PU / 4) + 1) + nThreads - 1) / nThreads;
+    int maxF1PU = (int)floor(yNormal * o->maxSpeed / (4.0 * 65536.0)) * 4;
+    int nBlocks = ((2 * (maxF1PU / 4) + 1) * (2 * (maxF1PU / 4) + 1) + o->nThreads - 1) / o->nThreads;
 
-    find_slide_kick_setupG<<<nBlocks, nThreads>>>(devFloorPoints, nPoints, yNormal, maxSpeed, maxF1PU, t);
+    find_slide_kick_setupG<<<nBlocks, o->nThreads>>>(devFloorPoints, nPoints, yNormal, o->maxSpeed, maxF1PU, t);
 
     cudaMemcpyFromSymbol(&nSK1SolutionsCPU, nSK1Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
     if (nSK1SolutionsCPU > 0) {
-        if (nSK1SolutionsCPU > MAX_SK_PHASE_ONE) {
+        if (nSK1SolutionsCPU > o->limits.MAX_SK_PHASE_ONE) {
             fprintf(stderr, "Warning: Number of phase 1 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-            nSK1SolutionsCPU = MAX_SK_PHASE_ONE;
+            nSK1SolutionsCPU = o->limits.MAX_SK_PHASE_ONE;
         }
 
-        nBlocks = (nSK1SolutionsCPU + nThreads - 1) / nThreads;
+        nBlocks = (nSK1SolutionsCPU + o->nThreads - 1) / o->nThreads;
 
-        find_slide_kick_setupG2<<<nBlocks, nThreads>>>(devFloorPoints, nPoints, yNormal, platformMinX, platformMaxX, platformMinZ, platformMaxZ, midPointX, midPointZ);
+        find_slide_kick_setupG2<<<nBlocks, o->nThreads>>>(devFloorPoints, nPoints, yNormal, platformMinX, platformMaxX, platformMinZ, platformMaxZ, midPointX, midPointZ);
 
         cudaMemcpyFromSymbol(&nSK2ASolutionsCPU, nSK2ASolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
         cudaMemcpyFromSymbol(&nSK2BSolutionsCPU, nSK2BSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
@@ -5341,87 +5307,87 @@ void find_slide_kick_setup_triangle(short* floorPoints, short* devFloorPoints, i
     }
 
     if (nSK2ASolutionsCPU > 0) {
-        if (nSK2ASolutionsCPU > MAX_SK_PHASE_TWO_A) {
+        if (nSK2ASolutionsCPU > o->limits.MAX_SK_PHASE_TWO_A) {
             fprintf(stderr, "Warning: Number of phase 2a solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-            nSK2ASolutionsCPU = MAX_SK_PHASE_TWO_A;
+            nSK2ASolutionsCPU = o->limits.MAX_SK_PHASE_TWO_A;
         }
 
-        nBlocks = (nSK2ASolutionsCPU + nThreads - 1) / nThreads;
+        nBlocks = (nSK2ASolutionsCPU + o->nThreads - 1) / o->nThreads;
 
-        find_slide_kick_setupG3a<<<nBlocks, nThreads>>>(platformMinZ, platformMaxZ);
+        find_slide_kick_setupG3a<<<nBlocks, o->nThreads>>>(platformMinZ, platformMaxZ);
     }
 
     if (nSK2BSolutionsCPU > 0) {
-        if (nSK2BSolutionsCPU > MAX_SK_PHASE_TWO_B) {
+        if (nSK2BSolutionsCPU > o->limits.MAX_SK_PHASE_TWO_B) {
             fprintf(stderr, "Warning: Number of phase 2b solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-            nSK2BSolutionsCPU = MAX_SK_PHASE_TWO_B;
+            nSK2BSolutionsCPU = o->limits.MAX_SK_PHASE_TWO_B;
         }
 
-        nBlocks = (nSK2BSolutionsCPU + nThreads - 1) / nThreads;
+        nBlocks = (nSK2BSolutionsCPU + o->nThreads - 1) / o->nThreads;
 
-        find_slide_kick_setupG3b<<<nBlocks, nThreads>>>(platformMinX, platformMaxX);
+        find_slide_kick_setupG3b<<<nBlocks, o->nThreads>>>(platformMinX, platformMaxX);
     }
 
     if (nSK2CSolutionsCPU > 0) {
-        if (nSK2CSolutionsCPU > MAX_SK_PHASE_TWO_C) {
+        if (nSK2CSolutionsCPU > o->limits.MAX_SK_PHASE_TWO_C) {
             fprintf(stderr, "Warning: Number of phase 2c solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-            nSK2CSolutionsCPU = MAX_SK_PHASE_TWO_C;
+            nSK2CSolutionsCPU = o->limits.MAX_SK_PHASE_TWO_C;
         }
 
-        nBlocks = (nSK2CSolutionsCPU + nThreads - 1) / nThreads;
+        nBlocks = (nSK2CSolutionsCPU + o->nThreads - 1) / o->nThreads;
 
-        find_slide_kick_setupG3c<<<nBlocks, nThreads >>>(platformMinX, platformMaxX, platformMinZ, platformMaxZ);
+        find_slide_kick_setupG3c<<<nBlocks, o->nThreads>>>(platformMinX, platformMaxX, platformMinZ, platformMaxZ);
     }
 
     if (nSK2DSolutionsCPU > 0) {
-        if (nSK2DSolutionsCPU > MAX_SK_PHASE_TWO_D) {
+        if (nSK2DSolutionsCPU > o->limits.MAX_SK_PHASE_TWO_D) {
             fprintf(stderr, "Warning: Number of phase 2d solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-            nSK2DSolutionsCPU = MAX_SK_PHASE_TWO_D;
+            nSK2DSolutionsCPU = o->limits.MAX_SK_PHASE_TWO_D;
         }
 
-        nBlocks = (nSK2DSolutionsCPU + nThreads - 1) / nThreads;
+        nBlocks = (nSK2DSolutionsCPU + o->nThreads - 1) / o->nThreads;
 
-        find_slide_kick_setupG3d<<<nBlocks, nThreads>>>(platformMinX, platformMaxX, platformMinZ, platformMaxZ);
+        find_slide_kick_setupG3d<<<nBlocks, o->nThreads>>>(platformMinX, platformMaxX, platformMinZ, platformMaxZ);
     }
 
     cudaMemcpyFromSymbol(&nSK3SolutionsCPU, nSK3Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
     if (nSK3SolutionsCPU > 0) {
-        if (nSK3SolutionsCPU > MAX_SK_PHASE_THREE) {
+        if (nSK3SolutionsCPU > o->limits.MAX_SK_PHASE_THREE) {
             fprintf(stderr, "Warning: Number of phase 3 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-            nSK3SolutionsCPU = MAX_SK_PHASE_THREE;
+            nSK3SolutionsCPU = o->limits.MAX_SK_PHASE_THREE;
         }
 
-        nBlocks = (nSK3SolutionsCPU + nThreads - 1) / nThreads;
+        nBlocks = (nSK3SolutionsCPU + o->nThreads - 1) / o->nThreads;
 
-        try_slide_kick_routeG<<<nBlocks, nThreads>>>(devFloorPoints, nPoints);
+        try_slide_kick_routeG<<<nBlocks, o->nThreads>>>(devFloorPoints, nPoints);
 
         cudaMemcpyFromSymbol(&nSK4SolutionsCPU, nSK4Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
     }
 
     if (nSK4SolutionsCPU > 0) {
-        if (nSK4SolutionsCPU > MAX_SK_PHASE_FOUR) {
+        if (nSK4SolutionsCPU > o->limits.MAX_SK_PHASE_FOUR) {
             fprintf(stderr, "Warning: Number of phase 4 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-            nSK4SolutionsCPU = MAX_SK_PHASE_FOUR;
+            nSK4SolutionsCPU = o->limits.MAX_SK_PHASE_FOUR;
         }
 
-        nBlocks = (nSK4SolutionsCPU + nThreads - 1) / nThreads;
+        nBlocks = (nSK4SolutionsCPU + o->nThreads - 1) / o->nThreads;
 
-        try_slide_kick_routeG2<<<nBlocks, nThreads>>>();
+        try_slide_kick_routeG2<<<nBlocks, o->nThreads>>>();
 
         cudaMemcpyFromSymbol(&nSK5SolutionsCPU, nSK5Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
     }
 
     if (nSK5SolutionsCPU > 0) {
-        if (nSK5SolutionsCPU > MAX_SK_PHASE_FIVE) {
+        if (nSK5SolutionsCPU > o->limits.MAX_SK_PHASE_FIVE) {
             fprintf(stderr, "Warning: Number of phase 5 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-            nSK5SolutionsCPU = MAX_SK_PHASE_FIVE;
+            nSK5SolutionsCPU = o->limits.MAX_SK_PHASE_FIVE;
         }
 
-        nBlocks = (nSK5SolutionsCPU + nThreads - 1) / nThreads;
+        nBlocks = (nSK5SolutionsCPU + o->nThreads - 1) / o->nThreads;
 
-        try_stick_positionG<<<nBlocks, nThreads>>>();
+        try_stick_positionG<<<nBlocks, o->nThreads>>>();
     }
 }
 
@@ -5430,7 +5396,7 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
     int squishPushFrames = (idx % 3) + 2;
     idx = idx / 3;
 
-    if (idx < min(nDouble10KSolutions, MAX_DOUBLE_10K_SOLUTIONS)) {
+    if (idx < min(nDouble10KSolutions, limits.MAX_DOUBLE_10K_SOLUTIONS)) {
         struct DoubleTenKSolution* doubleTenKSol = &(doubleTenKSolutions[idx]);
         struct TenKSolution* tenKSol = &(tenKSolutions[doubleTenKSol->tenKSolutionIdx]);
 
@@ -5482,12 +5448,12 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
             float bullyPushZ = (j / 2 == 0) ? minBullyPushZ : maxBullyPushZ;
 
             for (int k = 0; k < nSquishSpots[tenKSol->squishCeiling]; k++) {
-                float signX = (squishSpots[(2 * tenKSol->squishCeiling * MAX_SQUISH_SPOTS) + (2 * k)] > 0) - (squishSpots[(2 * tenKSol->squishCeiling * MAX_SQUISH_SPOTS) + (2 * k)] < 0);
+                float signX = (squishSpots[(2 * tenKSol->squishCeiling * limits.MAX_SQUISH_SPOTS) + (2 * k)] > 0) - (squishSpots[(2 * tenKSol->squishCeiling * limits.MAX_SQUISH_SPOTS) + (2 * k)] < 0);
                 float signZ = (squishSpots[(2 * k) + 1] > 0) - (squishSpots[(2 * k) + 1] < 0);
 
                 for (int l = 0; l < 4; l++) {
-                    float xDist = bullyPushX - (squishSpots[(2 * tenKSol->squishCeiling * MAX_SQUISH_SPOTS) + (2 * k)] + signX * (l % 2));
-                    float zDist = bullyPushZ - (squishSpots[(2 * tenKSol->squishCeiling * MAX_SQUISH_SPOTS) + (2 * k) + 1] + signZ * (l / 2));
+                    float xDist = bullyPushX - (squishSpots[(2 * tenKSol->squishCeiling * limits.MAX_SQUISH_SPOTS) + (2 * k)] + signX * (l % 2));
+                    float zDist = bullyPushZ - (squishSpots[(2 * tenKSol->squishCeiling * limits.MAX_SQUISH_SPOTS) + (2 * k) + 1] + signZ * (l / 2));
 
                     float dist = sqrtf(xDist * xDist + zDist * zDist);
 
@@ -5579,7 +5545,7 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
                 if (fabsf(slidingSpeedX) <= maxSlidingSpeed && fabsf(slidingSpeedZ) <= maxSlidingSpeed && slidingSpeedToPlatform <= maxSlidingSpeedToPlatform) {
                     int solIdx = atomicAdd(&nBullyPushSolutions, 1);
 
-                    if (solIdx < MAX_BULLY_PUSH_SOLUTIONS) {
+                    if (solIdx < limits.MAX_BULLY_PUSH_SOLUTIONS) {
                         struct BullyPushSolution* solution = &(bullyPushSolutions[solIdx]);
                         solution->doubleTenKSolutionIdx = idx;
                         solution->bullyMinX = minBullyX;
@@ -5724,7 +5690,7 @@ __device__ bool search_xVel(float& xVel, float zVel, float targetSpeed, float* t
         if (minX <= maxX && minZ <= maxZ) {
             int solIdx = atomicAdd(&nDouble10KSolutions, 1);
 
-            if (solIdx < MAX_DOUBLE_10K_SOLUTIONS) {
+            if (solIdx < limits.MAX_DOUBLE_10K_SOLUTIONS) {
                 struct DoubleTenKSolution* solution = &(doubleTenKSolutions[solIdx]);
                 solution->tenKSolutionIdx = idx;
                 solution->post10KXVel = xVel1;
@@ -5745,7 +5711,7 @@ __device__ bool search_xVel(float& xVel, float zVel, float targetSpeed, float* t
 __global__ void find_double_10k_solutions() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < min(n10KSolutions, MAX_10K_SOLUTIONS)) {
+    if (idx < min(n10KSolutions, limits.MAX_10K_SOLUTIONS)) {
         struct TenKSolution* tenKSol = &(tenKSolutions[idx]);
 
         if (tenKSol->bdSetups > 0) {
@@ -5848,13 +5814,13 @@ __global__ void set_squish_spots(short* tris, float* norms) {
                             int preIdx = find_ceil(pos, preSquishCeilingTriangles, preSquishCeilingNormals, &preCeilHeight);
 
                             if (preIdx == -1) {
-                                if (nSquishSpots[ceilIdx] == MAX_SQUISH_SPOTS) {
+                                if (nSquishSpots[ceilIdx] == limits.MAX_SQUISH_SPOTS) {
                                     printf("Warning: Number of squish spots for this normal has been exceeded. No more squish spots for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
                                 }
 
-                                if (nSquishSpots[ceilIdx] < MAX_SQUISH_SPOTS) {
-                                    squishSpots[(2 * ceilIdx * MAX_SQUISH_SPOTS) + (2 * nSquishSpots[ceilIdx])] = x;
-                                    squishSpots[(2 * ceilIdx * MAX_SQUISH_SPOTS) + (2 * nSquishSpots[ceilIdx]) + 1] = z;
+                                if (nSquishSpots[ceilIdx] < limits.MAX_SQUISH_SPOTS) {
+                                    squishSpots[(2 * ceilIdx * limits.MAX_SQUISH_SPOTS) + (2 * nSquishSpots[ceilIdx])] = x;
+                                    squishSpots[(2 * ceilIdx * limits.MAX_SQUISH_SPOTS) + (2 * nSquishSpots[ceilIdx]) + 1] = z;
                                 }
 
                                 nSquishSpots[ceilIdx]++;
@@ -5887,7 +5853,7 @@ __global__ void generate_strain_setups() {
 
             for (float signF = (i == 0) ? 1.0f : -1.0f; signF <= 1.0f; signF += 2.0f) {
                 for (float signS = (j == 0) ? 1.0f : -1.0f; signS <= 1.0f; signS += 2.0f) {
-                    if (nStrainSetups < MAX_STRAIN_SETUPS) {
+                    if (nStrainSetups < limits.MAX_STRAIN_SETUPS) {
                         struct StrainSetup* setup = &(strainSetups[nStrainSetups]);
                         setup->forwardStrain = signF*fSpeed;
                         setup->sidewardStrain = signS*sSpeed;
@@ -5930,27 +5896,27 @@ __global__ void copy_solution_pointers(SolStruct s) {
     bdSolutions = s.bdSolutions;
 }
 
-int init_solution_structs(SolStruct* s) {
+int init_solution_structs(SolStruct* s, GPULimits* l) {
     int errorCode = 0;
 
-    errorCode |= cudaMalloc((void**)&s->sk1Solutions, MAX_SK_PHASE_ONE * sizeof(SKPhase1));
-    errorCode |= cudaMalloc((void**)&s->sk2ASolutions, MAX_SK_PHASE_TWO_A * sizeof(SKPhase2));
-    errorCode |= cudaMalloc((void**)&s->sk2BSolutions, MAX_SK_PHASE_TWO_B * sizeof(SKPhase2));
-    errorCode |= cudaMalloc((void**)&s->sk2CSolutions, MAX_SK_PHASE_TWO_C * sizeof(SKPhase2));
-    errorCode |= cudaMalloc((void**)&s->sk2DSolutions, MAX_SK_PHASE_TWO_D * sizeof(SKPhase2));
-    errorCode |= cudaMalloc((void**)&s->sk3Solutions, MAX_SK_PHASE_THREE * sizeof(SKPhase3));
-    errorCode |= cudaMalloc((void**)&s->sk4Solutions, MAX_SK_PHASE_FOUR * sizeof(SKPhase4));
-    errorCode |= cudaMalloc((void**)&s->sk5Solutions, MAX_SK_PHASE_FIVE * sizeof(SKPhase5));
-    errorCode |= cudaMalloc((void**)&s->sk6Solutions, MAX_SK_PHASE_SIX * sizeof(SKPhase6));
-    errorCode |= cudaMalloc((void**)&s->platSolutions, MAX_PLAT_SOLUTIONS * sizeof(PlatformSolution));
-    errorCode |= cudaMalloc((void**)&s->upwarpSolutions, MAX_UPWARP_SOLUTIONS * sizeof(UpwarpSolution));
-    errorCode |= cudaMalloc((void**)&s->skuwSolutions, MAX_SK_UPWARP_SOLUTIONS * sizeof(SKUpwarpSolution));
-    errorCode |= cudaMalloc((void**)&s->speedSolutions, MAX_SPEED_SOLUTIONS * sizeof(SpeedSolution));
-    errorCode |= cudaMalloc((void**)&s->tenKSolutions, MAX_10K_SOLUTIONS * sizeof(TenKSolution));
-    errorCode |= cudaMalloc((void**)&s->doubleTenKSolutions, MAX_DOUBLE_10K_SOLUTIONS * sizeof(DoubleTenKSolution));
-    errorCode |= cudaMalloc((void**)&s->bullyPushSolutions, MAX_BULLY_PUSH_SOLUTIONS * sizeof(BullyPushSolution));
-    errorCode |= cudaMalloc((void**)&s->slideSolutions, MAX_SLIDE_SOLUTIONS * sizeof(SlideSolution));
-    errorCode |= cudaMalloc((void**)&s->bdSolutions, MAX_BD_SOLUTIONS * sizeof(BDSolution));
+    errorCode |= cudaMalloc((void**)&s->sk1Solutions, l->MAX_SK_PHASE_ONE * sizeof(SKPhase1));
+    errorCode |= cudaMalloc((void**)&s->sk2ASolutions, l->MAX_SK_PHASE_TWO_A * sizeof(SKPhase2));
+    errorCode |= cudaMalloc((void**)&s->sk2BSolutions, l->MAX_SK_PHASE_TWO_B * sizeof(SKPhase2));
+    errorCode |= cudaMalloc((void**)&s->sk2CSolutions, l->MAX_SK_PHASE_TWO_C * sizeof(SKPhase2));
+    errorCode |= cudaMalloc((void**)&s->sk2DSolutions, l->MAX_SK_PHASE_TWO_D * sizeof(SKPhase2));
+    errorCode |= cudaMalloc((void**)&s->sk3Solutions, l->MAX_SK_PHASE_THREE * sizeof(SKPhase3));
+    errorCode |= cudaMalloc((void**)&s->sk4Solutions, l->MAX_SK_PHASE_FOUR * sizeof(SKPhase4));
+    errorCode |= cudaMalloc((void**)&s->sk5Solutions, l->MAX_SK_PHASE_FIVE * sizeof(SKPhase5));
+    errorCode |= cudaMalloc((void**)&s->sk6Solutions, l->MAX_SK_PHASE_SIX * sizeof(SKPhase6));
+    errorCode |= cudaMalloc((void**)&s->platSolutions, l->MAX_PLAT_SOLUTIONS * sizeof(PlatformSolution));
+    errorCode |= cudaMalloc((void**)&s->upwarpSolutions, l->MAX_UPWARP_SOLUTIONS * sizeof(UpwarpSolution));
+    errorCode |= cudaMalloc((void**)&s->skuwSolutions, l->MAX_SK_UPWARP_SOLUTIONS * sizeof(SKUpwarpSolution));
+    errorCode |= cudaMalloc((void**)&s->speedSolutions, l->MAX_SPEED_SOLUTIONS * sizeof(SpeedSolution));
+    errorCode |= cudaMalloc((void**)&s->tenKSolutions, l->MAX_10K_SOLUTIONS * sizeof(TenKSolution));
+    errorCode |= cudaMalloc((void**)&s->doubleTenKSolutions, l->MAX_DOUBLE_10K_SOLUTIONS * sizeof(DoubleTenKSolution));
+    errorCode |= cudaMalloc((void**)&s->bullyPushSolutions, l->MAX_BULLY_PUSH_SOLUTIONS * sizeof(BullyPushSolution));
+    errorCode |= cudaMalloc((void**)&s->slideSolutions, l->MAX_SLIDE_SOLUTIONS * sizeof(SlideSolution));
+    errorCode |= cudaMalloc((void**)&s->bdSolutions, l->MAX_BD_SOLUTIONS * sizeof(BDSolution));
 
     copy_solution_pointers<<<1, 1>>>(*s);
 
@@ -5978,7 +5944,6 @@ void free_solution_pointers(SolStruct* s) {
     cudaFree(s->bdSolutions);
 
 }
-
 
 void write_solutions_to_file(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, int floorIdx, std::ofstream& wf) {
     int nSK1SolutionsCPU = 0;
@@ -6019,24 +5984,24 @@ void write_solutions_to_file(Vec3f startNormal, struct FSTOptions* o, struct FST
     cudaMemcpyFromSymbol(&nDouble10KSolutionsCPU, nDouble10KSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
     cudaMemcpyFromSymbol(&nBullyPushSolutionsCPU, nBullyPushSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
-    nSK1SolutionsCPU = min(nSK1SolutionsCPU, MAX_SK_PHASE_ONE);
-    nSK2ASolutionsCPU = min(nSK2ASolutionsCPU, MAX_SK_PHASE_TWO_A);
-    nSK2BSolutionsCPU = min(nSK2BSolutionsCPU, MAX_SK_PHASE_TWO_B);
-    nSK2CSolutionsCPU = min(nSK2CSolutionsCPU, MAX_SK_PHASE_TWO_C);
-    nSK2DSolutionsCPU = min(nSK2DSolutionsCPU, MAX_SK_PHASE_TWO_D);
-    nSK3SolutionsCPU = min(nSK3SolutionsCPU, MAX_SK_PHASE_THREE);
-    nSK4SolutionsCPU = min(nSK4SolutionsCPU, MAX_SK_PHASE_FOUR);
-    nSK5SolutionsCPU = min(nSK5SolutionsCPU, MAX_SK_PHASE_FIVE);
-    nSK6SolutionsCPU = min(nSK6SolutionsCPU, MAX_SK_PHASE_SIX);
-    nPlatSolutionsCPU = min(nPlatSolutionsCPU, MAX_PLAT_SOLUTIONS);
-    nUpwarpSolutionsCPU = min(nUpwarpSolutionsCPU, MAX_UPWARP_SOLUTIONS);
-    nSKUWSolutionsCPU = min(nSKUWSolutionsCPU, MAX_SK_UPWARP_SOLUTIONS);
-    nSpeedSolutionsCPU = min(nSpeedSolutionsCPU, MAX_SPEED_SOLUTIONS);
-    n10KSolutionsCPU = min(n10KSolutionsCPU, MAX_10K_SOLUTIONS);
-    nSlideSolutionsCPU = min(nSlideSolutionsCPU, MAX_SLIDE_SOLUTIONS);
-    nBDSolutionsCPU = min(nBDSolutionsCPU, MAX_BD_SOLUTIONS);
-    nDouble10KSolutionsCPU = min(nDouble10KSolutionsCPU, MAX_DOUBLE_10K_SOLUTIONS);
-    nBullyPushSolutionsCPU = min(nBullyPushSolutionsCPU, MAX_BULLY_PUSH_SOLUTIONS);
+    nSK1SolutionsCPU = min(nSK1SolutionsCPU, o->limits.MAX_SK_PHASE_ONE);
+    nSK2ASolutionsCPU = min(nSK2ASolutionsCPU, o->limits.MAX_SK_PHASE_TWO_A);
+    nSK2BSolutionsCPU = min(nSK2BSolutionsCPU, o->limits.MAX_SK_PHASE_TWO_B);
+    nSK2CSolutionsCPU = min(nSK2CSolutionsCPU, o->limits.MAX_SK_PHASE_TWO_C);
+    nSK2DSolutionsCPU = min(nSK2DSolutionsCPU, o->limits.MAX_SK_PHASE_TWO_D);
+    nSK3SolutionsCPU = min(nSK3SolutionsCPU, o->limits.MAX_SK_PHASE_THREE);
+    nSK4SolutionsCPU = min(nSK4SolutionsCPU, o->limits.MAX_SK_PHASE_FOUR);
+    nSK5SolutionsCPU = min(nSK5SolutionsCPU, o->limits.MAX_SK_PHASE_FIVE);
+    nSK6SolutionsCPU = min(nSK6SolutionsCPU, o->limits.MAX_SK_PHASE_SIX);
+    nPlatSolutionsCPU = min(nPlatSolutionsCPU, o->limits.MAX_PLAT_SOLUTIONS);
+    nUpwarpSolutionsCPU = min(nUpwarpSolutionsCPU, o->limits.MAX_UPWARP_SOLUTIONS);
+    nSKUWSolutionsCPU = min(nSKUWSolutionsCPU, o->limits.MAX_SK_UPWARP_SOLUTIONS);
+    nSpeedSolutionsCPU = min(nSpeedSolutionsCPU, o->limits.MAX_SPEED_SOLUTIONS);
+    n10KSolutionsCPU = min(n10KSolutionsCPU, o->limits.MAX_10K_SOLUTIONS);
+    nSlideSolutionsCPU = min(nSlideSolutionsCPU, o->limits.MAX_SLIDE_SOLUTIONS);
+    nBDSolutionsCPU = min(nBDSolutionsCPU, o->limits.MAX_BD_SOLUTIONS);
+    nDouble10KSolutionsCPU = min(nDouble10KSolutionsCPU, o->limits.MAX_DOUBLE_10K_SOLUTIONS);
+    nBullyPushSolutionsCPU = min(nBullyPushSolutionsCPU, o->limits.MAX_BULLY_PUSH_SOLUTIONS);
 
     struct DoubleTenKSolution* doubleTenKSolutionsCPU = (struct DoubleTenKSolution*)std::malloc(nDouble10KSolutionsCPU * sizeof(struct DoubleTenKSolution));
     struct BullyPushSolution* bullyPushSolutionsCPU = (struct BullyPushSolution*)std::malloc(nBullyPushSolutionsCPU * sizeof(struct BullyPushSolution));
@@ -6374,14 +6339,14 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
 
         long long int nBlocks = (nX * nZ + o->nThreads - 1) / o->nThreads;
 
-        cudaFunc<<<nBlocks, o->nThreads>>>(minX, o->deltaX, minZ, o->deltaZ, nX, nZ, platform.normal[0], platform.normal[1], platform.normal[2], o->maxFrames);
+        simulate_tilts<<<nBlocks, o->nThreads>>>(minX, o->deltaX, minZ, o->deltaZ, nX, nZ, platform.normal[0], platform.normal[1], platform.normal[2], o->maxFrames);
 
         cudaMemcpyFromSymbol(&nPlatSolutionsCPU, nPlatSolutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
                         
         if (nPlatSolutionsCPU > 0) {
-            if (nPlatSolutionsCPU > MAX_PLAT_SOLUTIONS) {
-                fprintf(stderr, "Warning: Number of platform solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                nPlatSolutionsCPU = MAX_PLAT_SOLUTIONS;
+            if (nPlatSolutionsCPU > o->limits.MAX_PLAT_SOLUTIONS) {
+                fprintf(stderr, "Warning: Number of platform tilt solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                nPlatSolutionsCPU = o->limits.MAX_PLAT_SOLUTIONS;
             }
 
             //printf("---------------------------------------\nTesting Normal: %.10g, %.10g, %.10g\nPlatform Position: %.10g, %.10g, %.10g\n        Index: %d, %d, %d, %d\n", startNormal[0], startNormal[1], startNormal[2], platformPos[0], platformPos[1], platformPos[2], h, i, j, quad);
@@ -6397,9 +6362,9 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
         }
 
         if (nUpwarpSolutionsCPU > 0) {
-            if (nUpwarpSolutionsCPU > MAX_UPWARP_SOLUTIONS) {
+            if (nUpwarpSolutionsCPU > o->limits.MAX_UPWARP_SOLUTIONS) {
                 fprintf(stderr, "Warning: Number of upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                nUpwarpSolutionsCPU = MAX_UPWARP_SOLUTIONS;
+                nUpwarpSolutionsCPU = o->limits.MAX_UPWARP_SOLUTIONS;
             }
 
             //printf("        # Upwarp Solutions: %d\n", nUpwarpSolutionsCPU);
@@ -6443,14 +6408,14 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
 
                 int nStrainSetupsCPU = 0;
 
-                find_slide_kick_setup_triangle(p->floorPoints, p->devFloorPoints, sameNormal ? 4 : 3, p->host_norms[3 * x + 1], t, o->maxSpeed, o->nThreads);
+                find_slide_kick_setup_triangle(p->floorPoints, p->devFloorPoints, sameNormal ? 4 : 3, p->host_norms[3 * x + 1], t, o);
 
                 cudaMemcpyFromSymbol(&nSK6SolutionsCPU, nSK6Solutions, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
                 if (nSK6SolutionsCPU > 0) {
-                    if (nSK6SolutionsCPU > MAX_SK_PHASE_SIX) {
+                    if (nSK6SolutionsCPU > o->limits.MAX_SK_PHASE_SIX) {
                         fprintf(stderr, "Warning: Number of phase 6 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                        nSK6SolutionsCPU = MAX_SK_PHASE_SIX;
+                        nSK6SolutionsCPU = o->limits.MAX_SK_PHASE_SIX;
                     }
 
                     //printf("        # Slide Kick Routes: %d\n", nSK6SolutionsCPU);
@@ -6466,9 +6431,9 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
                 }
 
                 if (nSKUWSolutionsCPU > 0) {
-                    if (nSKUWSolutionsCPU > MAX_SK_UPWARP_SOLUTIONS) {
+                    if (nSKUWSolutionsCPU > o->limits.MAX_SK_UPWARP_SOLUTIONS) {
                         fprintf(stderr, "Warning: Number of slide kick upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                        nSKUWSolutionsCPU = MAX_SK_UPWARP_SOLUTIONS;
+                        nSKUWSolutionsCPU = o->limits.MAX_SK_UPWARP_SOLUTIONS;
                     }
 
                     //printf("        # Slide Kick Upwarp Solutions: %d\n", nSKUWSolutionsCPU);
@@ -6477,9 +6442,9 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
 
                     cudaMemcpyFromSymbol(&nStrainSetupsCPU, nStrainSetups, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
-                    if (nStrainSetupsCPU > MAX_STRAIN_SETUPS) {
+                    if (nStrainSetupsCPU > o->limits.MAX_STRAIN_SETUPS) {
                         fprintf(stderr, "Warning: Number of strain setups for this normal has been exceeded. No more setups for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                        nStrainSetupsCPU = MAX_STRAIN_SETUPS;
+                        nStrainSetupsCPU = o->limits.MAX_STRAIN_SETUPS;
                     }
 
                     nBlocks = (((long long int)nSKUWSolutionsCPU*(long long int)nStrainSetupsCPU) + o->nThreads - 1) / o->nThreads;
@@ -6492,9 +6457,9 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
                 }
 
                 if (nSpeedSolutionsCPU > 0) {
-                    if (nSpeedSolutionsCPU > MAX_SPEED_SOLUTIONS) {
+                    if (nSpeedSolutionsCPU > o->limits.MAX_SPEED_SOLUTIONS) {
                         fprintf(stderr, "Warning: Number of speed solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                        nSpeedSolutionsCPU = MAX_SPEED_SOLUTIONS;
+                        nSpeedSolutionsCPU = o->limits.MAX_SPEED_SOLUTIONS;
                     }
 
                     //printf("        # Speed Solutions: %d\n", nSpeedSolutionsCPU);
@@ -6509,9 +6474,9 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
                 }
 
                 if (n10KSolutionsCPU > 0) {
-                    if (n10KSolutionsCPU > MAX_10K_SOLUTIONS) {
+                    if (n10KSolutionsCPU > o->limits.MAX_10K_SOLUTIONS) {
                         fprintf(stderr, "Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                        n10KSolutionsCPU = MAX_10K_SOLUTIONS;
+                        n10KSolutionsCPU = o->limits.MAX_10K_SOLUTIONS;
                     }
 
                     printf("---------------------------------------\nTesting Normal: %g, %g, %g\n", startNormal[0], startNormal[1], startNormal[2]);
@@ -6533,9 +6498,9 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
                 }
 
                 if (nSlideSolutionsCPU > 0) {
-                    if (nSlideSolutionsCPU > MAX_SLIDE_SOLUTIONS) {
+                    if (nSlideSolutionsCPU > o->limits.MAX_SLIDE_SOLUTIONS) {
                         fprintf(stderr, "Warning: Number of slide solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                        nSlideSolutionsCPU = MAX_SLIDE_SOLUTIONS;
+                        nSlideSolutionsCPU = o->limits.MAX_SLIDE_SOLUTIONS;
                     }
 
                     printf("        # Slide Solutions: %d\n", nSlideSolutionsCPU);
@@ -6550,9 +6515,9 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
                 }
 
                 if (nBDSolutionsCPU > 0) {
-                    if (nBDSolutionsCPU > MAX_BD_SOLUTIONS) {
+                    if (nBDSolutionsCPU > o->limits.MAX_BD_SOLUTIONS) {
                         fprintf(stderr, "Warning: Number of breakdance solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                        nBDSolutionsCPU = MAX_BD_SOLUTIONS;
+                        nBDSolutionsCPU = o->limits.MAX_BD_SOLUTIONS;
                     }
 
                     printf("        # Breakdance Solutions: %d\n", nBDSolutionsCPU);
@@ -6567,9 +6532,9 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
                 }
 
                 if (nDouble10KSolutionsCPU > 0) {
-                    if (nDouble10KSolutionsCPU > MAX_DOUBLE_10K_SOLUTIONS) {
+                    if (nDouble10KSolutionsCPU > o->limits.MAX_DOUBLE_10K_SOLUTIONS) {
                         fprintf(stderr, "Warning: Number of double 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                        nDouble10KSolutionsCPU = MAX_DOUBLE_10K_SOLUTIONS;
+                        nDouble10KSolutionsCPU = o->limits.MAX_DOUBLE_10K_SOLUTIONS;
                     }
 
                     printf("        # Double 10K Solutions: %d\n", nDouble10KSolutionsCPU);
@@ -6584,9 +6549,9 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
                 }
 
                 if (nBullyPushSolutionsCPU > 0) {
-                    if (nBullyPushSolutionsCPU > MAX_BULLY_PUSH_SOLUTIONS) {
+                    if (nBullyPushSolutionsCPU > o->limits.MAX_BULLY_PUSH_SOLUTIONS) {
                         fprintf(stderr, "Warning: Number of bully push solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
-                        nBullyPushSolutionsCPU = MAX_BULLY_PUSH_SOLUTIONS;
+                        nBullyPushSolutionsCPU = o->limits.MAX_BULLY_PUSH_SOLUTIONS;
                     }
 
                     printf("        # Bully Push Solutions: %d\n", nBullyPushSolutionsCPU);
@@ -6606,7 +6571,7 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
     return foundSolution;
 }
 
-int initialise_fst_vars(struct FSTData* p) {
+int initialise_fst_vars(struct FSTData* p, struct FSTOptions* o) {
     int cudaError = 0;
 
     init_reverse_atanG<<<1, 1>>>();
@@ -6614,14 +6579,15 @@ int initialise_fst_vars(struct FSTData* p) {
     init_mag_set<<<1, 1>>>();
     initialise_floors<<<1, 1>>>();
 
-    cudaError |= init_solution_structs(&(p->s));
+    cudaMemcpyToSymbol(limits, &(o->limits), sizeof(GPULimits), 0, cudaMemcpyHostToDevice);
+    cudaError |= init_solution_structs(&(p->s), &(o->limits));
 
-    cudaError |= cudaMalloc((void**)&(p->devSquishSpots), 8 * MAX_SQUISH_SPOTS * sizeof(float));
+    cudaError |= cudaMalloc((void**)&(p->devSquishSpots), 8 * o->limits.MAX_SQUISH_SPOTS * sizeof(float));
     cudaError |= cudaMalloc((void**)&(p->devNSquishSpots), 4 * sizeof(int));
 
     init_squish_spots<<<1, 1>>>(p->devSquishSpots, p->devNSquishSpots);
 
-    cudaError |= cudaMalloc((void**)&(p->devStrainSetups), MAX_STRAIN_SETUPS * sizeof(StrainSetup));
+    cudaError |= cudaMalloc((void**)&(p->devStrainSetups), o->limits.MAX_STRAIN_SETUPS * sizeof(StrainSetup));
     init_strain_setups<<<1, 1>>>(p->devStrainSetups);
 
     p->host_tris = (short*)std::malloc(36 * sizeof(short));
@@ -6647,7 +6613,6 @@ int initialise_fst_vars(struct FSTData* p) {
             fprintf(stderr, "Error: GPU memory allocation failed due to insufficient memory.\n");
             fprintf(stderr, "       It is recommended that you decrease the size of the\n");
             fprintf(stderr, "       reserved memory used for storing sub-solutions.\n");
-            //fprintf(stderr, "       Run this program with --help for details.\n");
         }
         else {
             fprintf(stderr, "Error: GPU memory allocation failed with error code: %d.\n", cudaError);
