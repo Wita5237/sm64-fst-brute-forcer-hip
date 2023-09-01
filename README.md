@@ -106,15 +106,15 @@ https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.htm
 
 For CMake builds, use the following commands:
 
-<pre>
+```
 cmake .
 make
-</pre>
+```
 
 ## Including this in your own projects ##
 The brute forcer includes a basic API to run the program from external projects. The code snippet below shows an example of how this works:
 
-<pre>
+```
 #include <fstream>
 #include <iostream>
 #include <cstring>
@@ -152,7 +152,7 @@ if (error == 0) {
 } else {
       //Report errors
 }
-</pre>
+```
 
 ## Credits ##
 **SpudY2K** - Current brute forcer implementation.  
