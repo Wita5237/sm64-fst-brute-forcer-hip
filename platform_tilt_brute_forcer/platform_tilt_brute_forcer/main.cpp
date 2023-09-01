@@ -139,6 +139,9 @@ int main(int argc, char* argv[]) {
             printf("    -v\n");
             printf("         Verbose mode. Prints all parameters used in brute force.\n");
             printf("             Default: off\n\n");
+            printf("    -s\n");
+            printf("         Silent mode. Suppresses all print statements output by the brute forcer.\n");
+            printf("             Default: off\n\n");
             printf("    -h --help\n");
             printf("         Prints this text.\n");
             exit(0);
@@ -300,20 +303,25 @@ int main(int argc, char* argv[]) {
             o.limits.MAX_STRAIN_SETUPS = std::stof(argv[i + 1]);
             i += 1;
         }
+        else if (!strcmp(argv[i], "-s")) {
+            o.silent = true;
+        }
         else if (!strcmp(argv[i], "-v")) {
             verbose = true;
         }
     }
 
+    verbose = verbose && !o.silent;
+
     if (o.nPUFrames != 3) {
-        fprintf(stderr, "Error: This brute forcer currently only supports 3 frame 10k routes. Value selected: %d.", o.nPUFrames);
+        if (!o.silent) fprintf(stderr, "Error: This brute forcer currently only supports 3 frame 10k routes. Value selected: %d.", o.nPUFrames);
         return 1;
     }
 
     int err = initialise_fst_vars(&p, &o);
 
     if (err != 0) {
-        fprintf(stderr, "       Run this program with --help for details on how to change internal memory limits.\n");
+        if (!o.silent) fprintf(stderr, "       Run this program with --help for details on how to change internal memory limits.\n");
         return err;
     }
 
@@ -404,7 +412,7 @@ int main(int argc, char* argv[]) {
         }
     }
     
-    print_success();
+    if (!o.silent) print_success();
 
     free_fst_vars(&p);
     wf.close();
