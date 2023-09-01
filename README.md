@@ -87,7 +87,7 @@ This program accepts the following options:
 </pre>
 #### Misc Settings ####
 <pre>
--v:                                         Verbose mode. Prints all parameters used in brute force.
+-v:                                         Verbose mode. Prints all parameters used in the brute forcer.
 
 -s:                                         Silent mode. Suppresses all print statements output by the brute forcer.
   
