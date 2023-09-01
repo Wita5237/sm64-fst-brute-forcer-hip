@@ -137,7 +137,7 @@ int main(int argc, char* argv[]) {
             printf("             Default: %d\n\n", o.limits.MAX_STRAIN_SETUPS);
             printf("  Misc settings:\n");
             printf("    -v\n");
-            printf("         Verbose mode. Prints all parameters used in brute force.\n");
+            printf("         Verbose mode. Prints all parameters used in the brute forcer.\n");
             printf("             Default: off\n\n");
             printf("    -s\n");
             printf("         Silent mode. Suppresses all print statements output by the brute forcer.\n");
