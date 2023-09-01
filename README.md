@@ -88,6 +88,8 @@ This program accepts the following options:
 #### Misc Settings ####
 <pre>
 -v:                                         Verbose mode. Prints all parameters used in brute force.
+
+-s:                                         Silent mode. Suppresses all print statements output by the brute forcer.
   
 -h --help:                                  Prints this text.
 </pre>
@@ -121,7 +123,7 @@ The brute forcer includes a basic API to run the program from external projects.
 #include <string>
 #include "FST.hpp"
   
-str::string outFile = "outData.csv"; // Path to solution csv file
+std::string outFile = "outData.csv"; // Path to solution csv file
 std::ofstream wf; // Output stream for solution csv file
 struct FSTData p; // Pointers to structures used by brute forcer
 struct FSTOptions o; // Options for the brute forcer
