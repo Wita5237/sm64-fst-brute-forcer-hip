@@ -5945,7 +5945,7 @@ void free_solution_pointers(SolStruct* s) {
 
 }
 
-void write_solutions_to_file(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, int floorIdx, std::ofstream& wf) {
+void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FSTData* p, int floorIdx, std::ofstream& wf) {
     int nSK1SolutionsCPU = 0;
     int nSK2ASolutionsCPU = 0;
     int nSK2BSolutionsCPU = 0;
@@ -6193,6 +6193,19 @@ void write_solutions_to_file(Vec3f startNormal, struct FSTOptions* o, struct FST
     std::free(sk6SolutionsCPU);
 }
 
+void initialise_solution_file_stream(std::ofstream& wf, std::string outFile, struct FSTOptions* o) {
+    wf.open(outFile);
+
+    if (wf.is_open()) {
+        wf << std::fixed;
+        write_solution_file_header(o->minimalOutput, wf);
+    }
+    else {
+        fprintf(stderr, "Warning: ofstream is not open. No solutions will be written to the output file.\n");
+        fprintf(stderr, "         This may be due to an invalid output file path.\n");
+    }
+}
+
 void write_solution_file_header(bool minimalOutput, std::ofstream& wf) {
     wf << "Start Normal X,Start Normal Y,Start Normal Z";
 
@@ -6230,7 +6243,7 @@ void write_solution_file_header(bool minimalOutput, std::ofstream& wf) {
     wf << endl;
 }
 
-bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf) {
+bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf) {
     bool foundSolution = false;
 
     const float normal_offsets_cpu[4][3] = { {0.01f, -0.01f, 0.01f}, {-0.01f, -0.01f, 0.01f}, {-0.01f, -0.01f, -0.01f}, {0.01f, -0.01f, -0.01f} };
@@ -6261,7 +6274,7 @@ bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, st
     int uphillAngle = atan2s(-platform1.normal[2], -platform1.normal[0]);
     uphillAngle = (65536 + uphillAngle) % 65536;
 
-    Platform platform = Platform(o->platformPos[0], o->platformPos[1], o->platformPos[2], startNormal);
+    Platform platform = Platform(o->platformPos[0], o->platformPos[1], o->platformPos[2], platform1.normal);
     platform.platform_logic(offPlatformPosition);
 
     for (int x = 0; x < 2; x++) {
