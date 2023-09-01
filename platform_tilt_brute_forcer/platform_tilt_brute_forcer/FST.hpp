@@ -9,7 +9,7 @@
 #include "device_atomic_functions.h"
 #include "vmath.hpp"
 
-struct Options {
+struct FSTOptions {
     int nThreads = 256;
 
     int nPUFrames = 3;
@@ -61,7 +61,7 @@ struct SolStruct {
     struct BDSolution* bdSolutions;
 };
 
-struct PointerStruct {
+struct FSTData {
     struct StrainSetup* devStrainSetups;
     float* devSquishSpots;
     int* devNSquishSpots;
@@ -413,9 +413,9 @@ __device__ float platformNormal[3];
 __device__ const int total_floorsG = 350;
 __device__ SurfaceG floorsG[total_floorsG];
 
-void write_solutions_to_file(Vec3f startNormal, struct Options* o, struct PointerStruct* p, int floorIdx, std::ofstream& wf);
+void write_solutions_to_file(Vec3f startNormal, struct Options* o, struct FSTData* p, int floorIdx, std::ofstream& wf);
 void write_solution_file_header(bool minimalOutput, std::ofstream& wf);
-bool check_normal(Vec3f startNormal, struct Options* o, struct PointerStruct* p, std::ofstream& wf);
-int initialise_structures(struct PointerStruct* p);
-void free_structures(struct PointerStruct* p);
+bool check_normal(Vec3f startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf);
+int initialise_fst_vars(struct FSTData* p);
+void free_fst_vars(struct FSTData* p);
 void print_success();
