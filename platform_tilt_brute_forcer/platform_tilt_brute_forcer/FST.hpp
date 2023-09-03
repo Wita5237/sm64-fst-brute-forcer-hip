@@ -56,7 +56,7 @@ struct FSTOptions {
     bool minimalOutput = false;
     bool silent = false;
 
-    GPULimits limits;
+    struct GPULimits limits;
 };
 
 struct SolStruct {
