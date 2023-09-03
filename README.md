@@ -152,6 +152,7 @@ if (error == 0) {
 
     // When you're done, release the memory assigned to the brute forcer
     free_fst_vars(&p);
+    wf.close();
 } else {
       // Report errors
 }
