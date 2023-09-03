@@ -740,35 +740,6 @@ __device__ int find_floor(float* position, SurfaceG** floor, float& floor_y, Sur
     return floor_idx;
 }
 
-__device__ float find_closest_mag(float target) {
-    int minIdx = -1;
-    int maxIdx = magCount;
-
-    while (maxIdx > minIdx + 1) {
-        int midIdx = (maxIdx + minIdx) / 2;
-
-        if (target < magSet[midIdx]) {
-            maxIdx = midIdx;
-        }
-        else {
-            minIdx = midIdx;
-        }
-    }
-
-    if (minIdx == -1) {
-        return magSet[maxIdx];
-    }
-    else if (maxIdx == magCount) {
-        return magSet[minIdx];
-    }
-    else if (target - magSet[minIdx] < magSet[maxIdx] - target) {
-        return magSet[minIdx];
-    }
-    else {
-        return magSet[maxIdx];
-    }
-}
-
 __global__ void init_camera_angles() {
     for (int i = 0; i < 65536; i += 16) {
         int angle = atan2sG(gCosineTableG[i >> 4], gSineTableG[i >> 4]);
