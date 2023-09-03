@@ -30,6 +30,7 @@ This program accepts the following options:
   
 -pu &lt;frames&gt;:                               Number of frames of PU movement for 10k PU route.
                                             Currently, only 3 frame routes are supported.
+  
 -dx &lt;delta_x&gt;:                              x coordinate spacing of positions on the platform.
   
 -dz &lt;delta_z&gt;:                              z coordinate spacing of positions on the platform.
