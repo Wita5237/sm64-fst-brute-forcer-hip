@@ -97,10 +97,10 @@ __constant__ const double upper_floor[n_floor_ranges] = { -1125.0, -665.0, 410.0
 __constant__ bool filter_floor_ranges = true;
 __constant__ bool fall_through_pus = true;
 
-__constant__ GPULimits limits;
+__constant__ struct GPULimits limits;
 
-__device__ SolStruct solutions;
-__device__ SolCounts counts;
+__device__ struct SolStruct solutions;
+__device__ struct SolCounts counts;
 
 __device__ float* squishSpots;
 __device__ int* nSquishSpots;
