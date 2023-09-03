@@ -138,7 +138,7 @@ int error = initialise_fst_vars(&p, &o);
 // Check output variable for no errors
 if (error == 0) {
     // Set up output csv file
-    // You can skip this if you won't want them output to a file
+    // You can skip this if you don't want to output them to a file
     initialise_solution_file_stream(wf, outFile, &o);
 
     // Pick a normal (or normals) you want to test
@@ -146,13 +146,13 @@ if (error == 0) {
   
     // Check if the normal has any solutions
     if (check_normal(testNormal, &o, &p, wf)) {
-          //Do stuff with successful normals
+          // Do stuff with successful normals
     }
 
     // When you're done, release the memory assigned to the brute forcer
     free_fst_vars(&p);
 } else {
-      //Report errors
+      // Report errors
 }
 ```
 
