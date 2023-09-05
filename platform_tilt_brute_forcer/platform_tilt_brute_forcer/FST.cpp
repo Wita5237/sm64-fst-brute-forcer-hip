@@ -5974,11 +5974,6 @@ __global__ void set_squish_spots(short* tris, float* norms) {
     }
 }
 
-__global__ void init_squish_spots(float* devSquishSpots, int* devNSquishSpots) {
-    squishSpots = devSquishSpots;
-    nSquishSpots = devNSquishSpots;
-}
-
 __global__ void generate_strain_setups() {
     nStrainSetups = 0;
 
@@ -6005,10 +6000,6 @@ __global__ void generate_strain_setups() {
             }
         }
     }
-}
-
-__global__ void init_strain_setups(StrainSetup* devStrainSetups) {
-    strainSetups = devStrainSetups;
 }
 
 __global__ void reset_ranges() {
@@ -6696,10 +6687,12 @@ int initialise_fst_vars(struct FSTData* p, struct FSTOptions* o) {
 
     p->hostNSquishSpots = (int*)std::malloc(4 * sizeof(int));
 
-    init_squish_spots<<<1, 1>>>(p->devSquishSpots, p->devNSquishSpots);
+    cudaMemcpyToSymbol(squishSpots, &(p->devSquishSpots), sizeof(float*), 0, cudaMemcpyHostToDevice);
+    cudaMemcpyToSymbol(nSquishSpots, &(p->devNSquishSpots), sizeof(int*), 0, cudaMemcpyHostToDevice);
 
-    cudaError |= cudaMalloc((void**)&(p->devStrainSetups), o->limits.MAX_STRAIN_SETUPS * sizeof(StrainSetup));
-    init_strain_setups<<<1, 1>>>(p->devStrainSetups);
+    cudaError |= cudaMalloc((void**)&(p->devStrainSetups), o->limits.MAX_STRAIN_SETUPS * sizeof(struct StrainSetup));
+
+    cudaMemcpyToSymbol(strainSetups, &(p->devStrainSetups), sizeof(struct StrainSetup*), 0, cudaMemcpyHostToDevice);
 
     p->host_tris = (short*)std::malloc(36 * sizeof(short));
     p->host_norms = (float*)std::malloc(12 * sizeof(float));
