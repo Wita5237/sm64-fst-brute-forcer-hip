@@ -1107,7 +1107,7 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                                     int pIdx = 0;
 
                                     for (int j = 0; j < 3; j++) {
-                                        if (startCeilingTriangles[squishEdges[i]][j][0] != platform_pos[0] || startCeilingTriangles[squishEdges[i]][j][1] != platform_pos[1] || startCeilingTriangles[squishEdges[i]][j][2] != platform_pos[2]) {
+                                        if (squishCeilingTriangles[squishEdges[i]][j][0] != platform_pos[0] || squishCeilingTriangles[squishEdges[i]][j][1] != platform_pos[1] || startCeilingTriangles[squishEdges[i]][j][2] != platform_pos[2]) {
                                             float oo = -(startNormals[squishFloorIdx][0] * startTriangles[squishFloorIdx][0][0] + startNormals[squishFloorIdx][1] * startTriangles[squishFloorIdx][0][1] + startNormals[squishFloorIdx][2] * startTriangles[squishFloorIdx][0][2]);
 
                                             p[pIdx][0] = squishCeilingTriangles[squishEdges[i]][j][0] + xOffset;
@@ -1274,7 +1274,7 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                                             int maxAngle = INT_MIN;
                                             int refAngle = 65536;
 
-                                            for (int l = 0; l < nSquishSpots[intersectionIdxs[i]]; l++) {
+                                            for (int l = 0; l < min(nSquishSpots[intersectionIdxs[i]], limits.MAX_SQUISH_SPOTS); l++) {
                                                 float signX = (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l)] > 0) - (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l)] < 0);
                                                 float signZ = (squishSpots[(2 * l) + 1] > 0) - (squishSpots[(2 * l) + 1] < 0);
 
