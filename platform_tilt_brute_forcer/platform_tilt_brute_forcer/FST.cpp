@@ -9,6 +9,7 @@
 # define cossG(x)              gCosineTableG[(unsigned short) (x) >> 4]
 # define revAtansG(x)          gReverseArctanTableG[(unsigned short) x]
 
+
 class SurfaceG {
 public:
     short vertices[3][3];
@@ -1191,22 +1192,16 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
 
                                 }
 
-                                int f1Angle0 = (unsigned short)atan2sG(frame1Position[2] - startPositions[i][0][2], frame1Position[0] - startPositions[i][0][0]);
-                                int f1Angle1 = (unsigned short)atan2sG(frame1Position[2] - startPositions[i][1][2], frame1Position[0] - startPositions[i][1][0]);
+                                int f1Angle0 = atan2sG(frame1Position[2] - startPositions[i][0][2], frame1Position[0] - startPositions[i][0][0]);
+                                int f1Angle1 = atan2sG(frame1Position[2] - startPositions[i][1][2], frame1Position[0] - startPositions[i][1][0]);
 
-                                if (f1Angle0 > f1Angle1) {
+                                if ((unsigned short)(f1Angle1 - f1Angle0) > 32768) {
                                     int temp = f1Angle0;
                                     f1Angle0 = f1Angle1;
                                     f1Angle1 = temp;
                                 }
 
-                                if (f1Angle1 - f1Angle0 > 32768) {
-                                    int temp = f1Angle0;
-                                    f1Angle0 = f1Angle1;
-                                    f1Angle1 = temp + 65536;
-                                }
-
-                                if (f1Angle0 <= sol5->f1Angle && f1Angle1 >= sol5->f1Angle) {
+                                if ((unsigned short)(sol5->f1Angle - f1Angle0) <= (unsigned short)(f1Angle1 - f1Angle0)) {
                                     float minBullyX = INFINITY;
                                     float maxBullyX = -INFINITY;
                                     float minBullyZ = INFINITY;
@@ -1314,7 +1309,7 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                                                     refPushAngle = minAngle;
                                                 }
 
-                                                minPushAngle = min(minPushAngle, (int)(minAngle - refAngle));
+                                                minPushAngle = min(minPushAngle, (int)(short)(minAngle - refAngle));
                                                 maxPushAngle = max(maxPushAngle, (int)(short)(maxAngle - refAngle));
                                             }
 
@@ -1364,7 +1359,7 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
 
                                         int maxSpeedAngle = atan2sG(maxBullyXSpeed, maxBullyZSpeed);
 
-                                        if ((unsigned short)(maxSpeedAngle - minPushAngle) < (unsigned short)(maxPushAngle - minPushAngle)) {
+                                        if ((unsigned short)(maxSpeedAngle - minPushAngle) <= (unsigned short)(maxPushAngle - minPushAngle)) {
                                             maxPushSpeed = (fabsf(maxBullyXSpeed * sinsG(maxSpeedAngle)) + fabsf(maxBullyZSpeed * cossG(maxSpeedAngle))) * (73.0f / 53.0f) * 3.0f;
                                         }
                                         else {
