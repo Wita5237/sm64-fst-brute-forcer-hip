@@ -5,6 +5,11 @@
 
 # define M_PI                  3.14159265358979323846  /* pi */
 
+# define sinsG(x)              gSineTableG[(unsigned short) (x) >> 4]
+# define cossG(x)              gCosineTableG[(unsigned short) (x) >> 4]
+# define revAtansG(x)          gReverseArctanTableG[(unsigned short) x]
+
+
 class SurfaceG {
 public:
     short vertices[3][3];
@@ -516,8 +521,7 @@ __global__ void set_platform_pos(float x, float y, float z) {
 
 __global__ void init_reverse_atanG() {
     for (int i = 0; i < 8192; i++) {
-        int angle = (65536 + gArctanTableG[i]) % 65536;
-        gReverseArctanTableG[angle] = i;
+        gReverseArctanTableG[(unsigned short)gArctanTableG[i]] = i;
     }
 }
 
@@ -601,7 +605,7 @@ __device__ int16_t atan2sG(float z, float x) {
         }
     }
 
-    return ((angle + 32768) % 65536) - 32768;
+    return (short)angle;
 }
 
 __device__ int find_ceil(float* pos, short(&triangles)[4][3][3], float(&normals)[4][3], float* pheight) {
@@ -745,10 +749,8 @@ __device__ int find_floor(float* position, SurfaceG** floor, float& floor_y, Sur
 
 __global__ void init_camera_angles() {
     for (int i = 0; i < 65536; i += 16) {
-        int angle = atan2sG(gCosineTableG[i >> 4], gSineTableG[i >> 4]);
-        angle = (65536 + angle) % 65536;
-
-        validCameraAngle[angle] = true;
+        int angle = atan2sG(cossG(i), sinsG(i));
+        validCameraAngle[(unsigned short)angle] = true;
     }
 }
 
@@ -821,11 +823,10 @@ __global__ void init_unique_stick_positions() {
 
             int mag = xS * xS + yS * yS;
             int yaw = atan2sG(-yS, xS);
-            yaw = (yaw + 65536) % 65536;
-
-            if (mag > 0 && (mag < 4096 || !angleCheck[yaw])) {
+            
+            if (mag > 0 && (mag < 4096 || !angleCheck[(unsigned short)yaw])) {
                 if (mag >= 4096) {
-                    angleCheck[yaw] = true;
+                    angleCheck[(unsigned short)yaw] = true;
                 }
                 uniqueSticks[nUniqueSticks][0] = xS + 6 * (xS > 0) - 6 * (xS < 0);
                 uniqueSticks[nUniqueSticks][1] = yS + 6 * (yS > 0) - 6 * (yS < 0);
@@ -833,26 +834,6 @@ __global__ void init_unique_stick_positions() {
             }
         }
     }
-}
-
-__device__ int atan2b(double z, double x) {
-    double A = 65536 * atan2(x, z) / (2 * M_PI);
-    A = fmod(65536.0 + A, 65536.0);
-    int lower = 0;
-    int upper = 8192;
-
-    while (upper - lower > 1) {
-        int mid = (upper + lower) / 2;
-
-        if (fmod(65536.0 + gArctanTableG[mid], 65536.0) > A) {
-            upper = mid;
-        }
-        else {
-            lower = mid;
-        }
-    }
-
-    return lower;
 }
 
 __device__ float find_pre10K_speed(float post10KSpeed, float strainX, float strainZ, float& post10KVelX, float& post10KVelZ, int solIdx) {
@@ -880,9 +861,8 @@ __device__ float find_pre10K_speed(float post10KSpeed, float strainX, float stra
     float intendedMag = ((mag / 64.0f) * (mag / 64.0f)) * 32.0f;
     int intendedYaw = atan2sG(-yS, xS) + sol4->cameraYaw;
     int intendedDYaw = intendedYaw - sol5->f1Angle;
-    intendedDYaw = (65536 + (intendedDYaw % 65536)) % 65536;
 
-    double w = intendedMag * gCosineTableG[intendedDYaw >> 4];
+    double w = intendedMag * cossG(intendedDYaw);
     double eqB = (50.0 + 147200.0 / w);
     double eqC = -(320000.0 / w) * post10KSpeed;
     double eqDet = eqB * eqB - eqC;
@@ -899,16 +879,16 @@ __device__ float find_pre10K_speed(float post10KSpeed, float strainX, float stra
             while (searchLoop) {
                 pre10KSpeed = fmaxf((upperSpeed + lowerSpeed) / 2.0f, nextafterf(lowerSpeed, INFINITY));
 
-                float pre10KVelX = (pre10KSpeed * gSineTableG[sol2->f2Angle >> 4]) + strainX;
-                float pre10KVelZ = (pre10KSpeed * gCosineTableG[sol2->f2Angle >> 4]) + strainZ;
+                float pre10KVelX = (pre10KSpeed * sinsG(sol2->f2Angle)) + strainX;
+                float pre10KVelZ = (pre10KSpeed * cossG(sol2->f2Angle)) + strainZ;
 
                 post10KVelX = pre10KVelX;
                 post10KVelZ = pre10KVelZ;
 
                 float oldSpeed = sqrtf(post10KVelX * post10KVelX + post10KVelZ * post10KVelZ);
 
-                post10KVelX += post10KVelZ * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
-                post10KVelZ -= post10KVelX * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
+                post10KVelX += post10KVelZ * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
+                post10KVelZ -= post10KVelX * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
 
                 float newSpeed = sqrtf(post10KVelX * post10KVelX + post10KVelZ * post10KVelZ);
 
@@ -918,7 +898,7 @@ __device__ float find_pre10K_speed(float post10KSpeed, float strainX, float stra
                 post10KVelX += 7.0f * tenKFloors[sol2->tenKFloorIdx][6];
                 post10KVelZ += 7.0f * tenKFloors[sol2->tenKFloorIdx][8];
 
-                float forward = gCosineTableG[intendedDYaw >> 4] * (0.5f + 0.5f * pre10KSpeed / 100.0f);
+                float forward = cossG(intendedDYaw) * (0.5f + 0.5f * pre10KSpeed / 100.0f);
                 float lossFactor = intendedMag / 32.0f * forward * 0.02f + 0.92f;
 
                 post10KVelX *= lossFactor;
@@ -1038,10 +1018,9 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                 }
 
                 int returnFaceAngle = returnSlideYaw + newFacingDYaw;
-                returnFaceAngle = (65536 + returnFaceAngle) % 65536;
 
-                float postReturnVelX = sol->returnSpeed * gSineTableG[returnFaceAngle >> 4];
-                float postReturnVelZ = sol->returnSpeed * gCosineTableG[returnFaceAngle >> 4];
+                float postReturnVelX = sol->returnSpeed * sinsG(returnFaceAngle);
+                float postReturnVelZ = sol->returnSpeed * cossG(returnFaceAngle);
 
                 float intendedPosition[3] = { platSol->returnPosition[0] + postReturnVelX / 4.0f, platSol->returnPosition[1], platSol->returnPosition[2] + postReturnVelZ / 4.0f };
 
@@ -1058,8 +1037,8 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                 if (outOfBoundsTest) {
                     frame2Position[1] = floorHeight;
 
-                    float pre10KVelX = pre10KSpeed * gSineTableG[sol2->f2Angle >> 4] + sol->xStrain;
-                    float pre10KVelZ = pre10KSpeed * gCosineTableG[sol2->f2Angle >> 4] + sol->zStrain;
+                    float pre10KVelX = pre10KSpeed * sinsG(sol2->f2Angle) + sol->xStrain;
+                    float pre10KVelZ = pre10KSpeed * cossG(sol2->f2Angle) + sol->zStrain;
 
                     float frame1Position[3] = { frame2Position[0], frame2Position[1], frame2Position[2] };
 
@@ -1092,10 +1071,9 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                             for (int i = 0; i < nPoints; i++) {
                                 if (squishEdges[i] != -1 && nSquishSpots[squishEdges[i]] > 0) {
                                     int surfAngle = atan2sG(squishCeilingNormals[squishEdges[i]][2], squishCeilingNormals[squishEdges[i]][0]);
-                                    surfAngle = (65536 + surfAngle) % 65536;
 
-                                    float xPushVel = gSineTableG[surfAngle >> 4] * 10.0f;
-                                    float zPushVel = gCosineTableG[surfAngle >> 4] * 10.0f;
+                                    float xPushVel = sinsG(surfAngle) * 10.0f;
+                                    float zPushVel = cossG(surfAngle) * 10.0f;
 
                                     int squishFloorIdx = (squishEdges[i] == 0 || squishEdges[i] == 2) ? 0 : 1;
 
@@ -1214,10 +1192,8 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
 
                                 }
 
-                                int f1Angle0 = atan2sG(frame1Position[2] - startPositions[i][0][2], frame1Position[0] - startPositions[i][0][0]);
-                                int f1Angle1 = atan2sG(frame1Position[2] - startPositions[i][1][2], frame1Position[0] - startPositions[i][1][0]);
-                                f1Angle0 = (65536 + f1Angle0) % 65536;
-                                f1Angle1 = (65536 + f1Angle1) % 65536;
+                                int f1Angle0 = (unsigned short)atan2sG(frame1Position[2] - startPositions[i][0][2], frame1Position[0] - startPositions[i][0][0]);
+                                int f1Angle1 = (unsigned short)atan2sG(frame1Position[2] - startPositions[i][1][2], frame1Position[0] - startPositions[i][1][0]);
 
                                 if (f1Angle0 > f1Angle1) {
                                     int temp = f1Angle0;
@@ -1247,20 +1223,18 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                                     const float maxBullySpeed = nextafterf(powf(2.0f, 30), -INFINITY);
 
                                     int surfAngle = atan2sG(squishCeilingNormals[intersectionIdxs[i]][2], squishCeilingNormals[intersectionIdxs[i]][0]);
-                                    surfAngle = (65536 + surfAngle) % 65536;
 
-                                    float xPushVel = gSineTableG[surfAngle >> 4] * 10.0f;
-                                    float zPushVel = gCosineTableG[surfAngle >> 4] * 10.0f;
+                                    float xPushVel = sinsG(surfAngle) * 10.0f;
+                                    float zPushVel = cossG(surfAngle) * 10.0f;
 
                                     int squishFloorIdx = (intersectionIdxs[i] == 0 || intersectionIdxs[i] == 2) ? 0 : 1;
 
                                     int slopeAngle = atan2sG(startNormals[squishFloorIdx][2], startNormals[squishFloorIdx][0]);
-                                    slopeAngle = (slopeAngle + 65536) % 65536;
 
                                     float steepness = sqrtf(startNormals[squishFloorIdx][0] * startNormals[squishFloorIdx][0] + startNormals[squishFloorIdx][2] * startNormals[squishFloorIdx][2]);
 
-                                    float slopeXVel = accel * steepness * gSineTableG[slopeAngle >> 4];
-                                    float slopeZVel = accel * steepness * gCosineTableG[slopeAngle >> 4];
+                                    float slopeXVel = accel * steepness * sinsG(slopeAngle);
+                                    float slopeZVel = accel * steepness * cossG(slopeAngle);
 
                                     for (int j = 0; j < 2; j++) {
                                         float currentX = startPositions[i][j][0];
@@ -1285,8 +1259,7 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                                                     float dist = sqrtf(xDist * xDist + zDist * zDist);
 
                                                     if (dist >= pushRadius - bullyHurtbox && dist <= pushRadius - fmaxf(bullyHurtbox - 2.0f * maxSlidingSpeed - 1.85f, 0.0f)) {
-                                                        int angle = atan2sG(zDist, xDist);
-                                                        angle = (angle + 65536) % 65536;
+                                                        int angle = (unsigned short)atan2sG(zDist, xDist);
 
                                                         int angleDiff = (short)(angle - uphillAngle);
 
@@ -1303,39 +1276,39 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                                             }
 
                                             if (refAngle != 65536) {
-                                                minAngle = (65536 + minAngle + refAngle) % 65536;
-                                                maxAngle = (65536 + maxAngle + refAngle) % 65536;
+                                                minAngle = (unsigned short)(minAngle + refAngle);
+                                                maxAngle = (unsigned short)(maxAngle + refAngle);
 
                                                 if (minAngle > maxAngle) {
                                                     minBullyX = fminf(minBullyX, bullyPushX - pushRadius);
                                                 }
                                                 else {
-                                                    minBullyX = fminf(minBullyX, bullyPushX - pushRadius * gSineTableG[minAngle >> 4]);
-                                                    minBullyX = fminf(minBullyX, bullyPushX - pushRadius * gSineTableG[maxAngle >> 4]);
+                                                    minBullyX = fminf(minBullyX, bullyPushX - pushRadius * sinsG(minAngle));
+                                                    minBullyX = fminf(minBullyX, bullyPushX - pushRadius * sinsG(maxAngle));
                                                 }
 
                                                 if (minAngle < 16384 && maxAngle > 16384) {
                                                     minBullyZ = fminf(minBullyZ, bullyPushZ - pushRadius);
                                                 }
                                                 else {
-                                                    minBullyZ = fminf(minBullyZ, bullyPushZ - pushRadius * gCosineTableG[minAngle >> 4]);
-                                                    minBullyZ = fminf(minBullyZ, bullyPushZ - pushRadius * gCosineTableG[maxAngle >> 4]);
+                                                    minBullyZ = fminf(minBullyZ, bullyPushZ - pushRadius * cossG(minAngle));
+                                                    minBullyZ = fminf(minBullyZ, bullyPushZ - pushRadius * cossG(maxAngle));
                                                 }
 
                                                 if (minAngle < 32768 && maxAngle > 32768) {
                                                     maxBullyX = fmaxf(maxBullyX, bullyPushX - pushRadius);
                                                 }
                                                 else {
-                                                    maxBullyX = fmaxf(maxBullyX, bullyPushX - pushRadius * gSineTableG[minAngle >> 4]);
-                                                    maxBullyX = fmaxf(maxBullyX, bullyPushX - pushRadius * gSineTableG[maxAngle >> 4]);
+                                                    maxBullyX = fmaxf(maxBullyX, bullyPushX - pushRadius * sinsG(minAngle));
+                                                    maxBullyX = fmaxf(maxBullyX, bullyPushX - pushRadius * sinsG(maxAngle));
                                                 }
 
                                                 if (minAngle < 49152 && maxAngle > 49152) {
                                                     maxBullyZ = fmaxf(maxBullyZ, bullyPushZ - pushRadius);
                                                 }
                                                 else {
-                                                    maxBullyZ = fmaxf(maxBullyZ, bullyPushZ - pushRadius * gCosineTableG[minAngle >> 4]);
-                                                    maxBullyZ = fmaxf(maxBullyZ, bullyPushZ - pushRadius * gCosineTableG[maxAngle >> 4]);
+                                                    maxBullyZ = fmaxf(maxBullyZ, bullyPushZ - pushRadius * cossG(minAngle));
+                                                    maxBullyZ = fmaxf(maxBullyZ, bullyPushZ - pushRadius * cossG(maxAngle));
                                                 }
 
                                                 if (refPushAngle == 65536) {
@@ -1352,8 +1325,8 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                                     }
 
                                     if (refPushAngle != 65536) {
-                                        minPushAngle = (65536 + minPushAngle + refPushAngle) % 65536;
-                                        maxPushAngle = (65536 + maxPushAngle + refPushAngle) % 65536;
+                                        minPushAngle = minPushAngle + refPushAngle;
+                                        maxPushAngle = maxPushAngle + refPushAngle;
 
                                         float xDiff2;
 
@@ -1391,14 +1364,13 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
                                         float maxPushSpeed;
 
                                         int maxSpeedAngle = atan2sG(maxBullyXSpeed, maxBullyZSpeed);
-                                        maxSpeedAngle = (65536 + maxSpeedAngle) % 65536;
 
-                                        if ((65536 + maxSpeedAngle - minPushAngle) % 65536 < (65536 + maxPushAngle - minPushAngle) % 65536) {
-                                            maxPushSpeed = (fabsf(maxBullyXSpeed * gSineTableG[maxSpeedAngle >> 4]) + fabsf(maxBullyZSpeed * gCosineTableG[maxSpeedAngle >> 4])) * (73.0f / 53.0f) * 3.0f;
+                                        if ((unsigned short)(maxSpeedAngle - minPushAngle) < (unsigned short)(maxPushAngle - minPushAngle)) {
+                                            maxPushSpeed = (fabsf(maxBullyXSpeed * sinsG(maxSpeedAngle)) + fabsf(maxBullyZSpeed * cossG(maxSpeedAngle))) * (73.0f / 53.0f) * 3.0f;
                                         }
                                         else {
-                                            float minAngleSpeed = (fabsf(maxBullyXSpeed * gSineTableG[minPushAngle >> 4]) + fabsf(maxBullyZSpeed * gCosineTableG[minPushAngle >> 4])) * (73.0f / 53.0f) * 3.0f;
-                                            float maxAngleSpeed = (fabsf(maxBullyXSpeed * gSineTableG[maxPushAngle >> 4]) + fabsf(maxBullyZSpeed * gCosineTableG[maxPushAngle >> 4])) * (73.0f / 53.0f) * 3.0f;
+                                            float minAngleSpeed = (fabsf(maxBullyXSpeed * sinsG(minPushAngle)) + fabsf(maxBullyZSpeed * cossG(minPushAngle))) * (73.0f / 53.0f) * 3.0f;
+                                            float maxAngleSpeed = (fabsf(maxBullyXSpeed * sinsG(maxPushAngle)) + fabsf(maxBullyZSpeed * cossG(maxPushAngle))) * (73.0f / 53.0f) * 3.0f;
                                             maxPushSpeed = fmaxf(minAngleSpeed, maxAngleSpeed);
                                         }
 
@@ -1482,8 +1454,8 @@ __global__ void find_speed_solutions() {
         float signS = (strain->sidewardStrain > 0) - (strain->sidewardStrain < 0);
         float prevSStrain = strain->sidewardStrain - signS * 10.0f / (float)maxSSpeedLevels;
 
-        float xStrain = strain->sidewardStrain * gCosineTableG[sol2->f2Angle >> 4];
-        float zStrain = strain->sidewardStrain * -gSineTableG[sol2->f2Angle >> 4];
+        float xStrain = strain->sidewardStrain * cossG(sol2->f2Angle);
+        float zStrain = strain->sidewardStrain * -sinsG(sol2->f2Angle);
 
         float prevXStrain = prevSStrain - signS * 1.5f / (float)maxSSpeedLevels;
         float prevZStrain = prevSStrain - signS * 1.5f / (float)maxSSpeedLevels;
@@ -2230,16 +2202,16 @@ __global__ void find_sk_upwarp_solutions() {
                     int nFSpeedLevels = (int)ceilf(1.5f / speedRange);
                     atomicMax(&maxFSpeedLevels, nFSpeedLevels);
 
-                    float xVel = minPre10KSpeed * gSineTableG[sol2->f2Angle >> 4];
-                    float zVel = minPre10KSpeed * gCosineTableG[sol2->f2Angle >> 4];
+                    float xVel = minPre10KSpeed * sinsG(sol2->f2Angle);
+                    float zVel = minPre10KSpeed * cossG(sol2->f2Angle);
 
                     frexpf(xVel, &precision);
                     float xVelRange = powf(2.0f, precision - 24);
-                    int nXSpeedLevels = (int)ceilf(fabs(10.0f * gCosineTableG[sol2->f2Angle >> 4]) / xVelRange);
+                    int nXSpeedLevels = (int)ceilf(fabs(10.0f * cossG(sol2->f2Angle)) / xVelRange);
 
                     frexpf(zVel, &precision);
                     float zVelRange = powf(2.0f, precision - 24);
-                    int nZSpeedLevels = (int)ceilf(fabs(10.0f * -gSineTableG[sol2->f2Angle >> 4]) / zVelRange);
+                    int nZSpeedLevels = (int)ceilf(fabs(10.0f * -sinsG(sol2->f2Angle)) / zVelRange);
 
                     atomicMax(&maxSSpeedLevels, max(nXSpeedLevels, nZSpeedLevels));
 
@@ -2269,8 +2241,8 @@ __device__ int calculate_camera_yaw(float* currentPosition, float* lakituPositio
     SurfaceG* floor;
     float floorY;
 
-    float xOff = currentPosition[0] + gSineTableG[((65536 + (int)baseCameraYaw) % 65536) >> 4] * 40.f;
-    float zOff = currentPosition[2] + gCosineTableG[((65536 + (int)baseCameraYaw) % 65536) >> 4] * 40.f;
+    float xOff = currentPosition[0] + sinsG(baseCameraYaw) * 40.f;
+    float zOff = currentPosition[2] + cossG(baseCameraYaw) * 40.f;
     float offPos[3] = { xOff, currentPosition[1], zOff };
 
     int floorIdx = find_floor(offPos, &floor, floorY, floorsG, total_floorsG);
@@ -2286,9 +2258,9 @@ __device__ int calculate_camera_yaw(float* currentPosition, float* lakituPositio
 
     baseCameraPitch = baseCameraPitch + 2304;
 
-    float cameraPos[3] = { currentPosition[0] + baseCameraDist * gCosineTableG[((65536 + (int)baseCameraPitch) % 65536) >> 4] * gSineTableG[((65536 + (int)baseCameraYaw) % 65536) >> 4],
-                       currentPosition[1] + 125.0f + baseCameraDist * gSineTableG[((65536 + (int)baseCameraPitch) % 65536) >> 4],
-                       currentPosition[2] + baseCameraDist * gCosineTableG[((65536 + (int)baseCameraPitch) % 65536) >> 4] * gCosineTableG[((65536 + (int)baseCameraYaw) % 65536) >> 4]
+    float cameraPos[3] = { currentPosition[0] + baseCameraDist * cossG(baseCameraPitch) * sinsG(baseCameraYaw),
+                       currentPosition[1] + 125.0f + baseCameraDist * sinsG(baseCameraPitch),
+                       currentPosition[2] + baseCameraDist * cossG(baseCameraPitch) * cossG(baseCameraYaw)
     };
 
     float pan[3] = { 0, 0, 0 };
@@ -2300,18 +2272,18 @@ __device__ int calculate_camera_yaw(float* currentPosition, float* lakituPositio
     float dz = currentPosition[2] - cameraPos[2];
 
     float cameraDist = sqrtf(dx * dx + dy * dy + dz * dz);
-    float cameraPitch = atan2sG(sqrtf(dx * dx + dz * dz), dy);
-    float cameraYaw = atan2sG(dz, dx);
+    int cameraPitch = atan2sG(sqrtf(dx * dx + dz * dz), dy);
+    int cameraYaw = atan2sG(dz, dx);
 
     // The camera will pan ahead up to about 30% of the camera's distance to Mario.
-    pan[2] = gSineTableG[0xC0] * cameraDist;
+    pan[2] = sinsG(0xC00) * cameraDist;
 
     temp[0] = pan[0];
     temp[1] = pan[1];
     temp[2] = pan[2];
 
-    pan[0] = temp[2] * gSineTableG[((65536 + (int)faceAngle) % 65536) >> 4] + temp[0] * gCosineTableG[((65536 + (int)faceAngle) % 65536) >> 4];
-    pan[2] = temp[2] * gCosineTableG[((65536 + (int)faceAngle) % 65536) >> 4] + temp[0] * gSineTableG[((65536 + (int)faceAngle) % 65536) >> 4];
+    pan[0] = temp[2] * sinsG(faceAngle) + temp[0] * cossG(faceAngle);
+    pan[2] = temp[2] * cossG(faceAngle) + temp[0] * sinsG(faceAngle);
 
     // rotate in the opposite direction
     cameraYaw = -cameraYaw;
@@ -2320,8 +2292,8 @@ __device__ int calculate_camera_yaw(float* currentPosition, float* lakituPositio
     temp[1] = pan[1];
     temp[2] = pan[2];
 
-    pan[0] = temp[2] * gSineTableG[((65536 + (int)cameraYaw) % 65536) >> 4] + temp[0] * gCosineTableG[((65536 + (int)cameraYaw) % 65536) >> 4];
-    pan[2] = temp[2] * gCosineTableG[((65536 + (int)cameraYaw) % 65536) >> 4] + temp[0] * gSineTableG[((65536 + (int)cameraYaw) % 65536) >> 4];
+    pan[0] = temp[2] * sinsG(cameraYaw) + temp[0] * cossG(cameraYaw);
+    pan[2] = temp[2] * cossG(cameraYaw) + temp[0] * sinsG(cameraYaw);
 
     // Only pan left or right
     pan[2] = 0.f;
@@ -2332,8 +2304,8 @@ __device__ int calculate_camera_yaw(float* currentPosition, float* lakituPositio
     temp[1] = pan[1];
     temp[2] = pan[2];
 
-    pan[0] = temp[2] * gSineTableG[((65536 + (int)cameraYaw) % 65536) >> 4] + temp[0] * gCosineTableG[((65536 + (int)cameraYaw) % 65536) >> 4];
-    pan[2] = temp[2] * gCosineTableG[((65536 + (int)cameraYaw) % 65536) >> 4] + temp[0] * gSineTableG[((65536 + (int)cameraYaw) % 65536) >> 4];
+    pan[0] = temp[2] * sinsG(cameraYaw) + temp[0] * cossG(cameraYaw);
+    pan[2] = temp[2] * cossG(cameraYaw) + temp[0] * sinsG(cameraYaw);
 
     float cameraFocus[3] = { currentPosition[0] + pan[0], currentPosition[1] + 125.0f + pan[1], currentPosition[2] + pan[2] };
 
@@ -2352,9 +2324,9 @@ __device__ int calculate_camera_yaw(float* currentPosition, float* lakituPositio
         cameraPitch = -15872;
     }
 
-    cameraFocus[0] = lakituPosition[0] + cameraDist * gCosineTableG[((65536 + (int)cameraPitch) % 65536) >> 4] * gSineTableG[((65536 + (int)cameraYaw) % 65536) >> 4];
-    cameraFocus[1] = lakituPosition[1] + cameraDist * gSineTableG[((65536 + (int)cameraPitch) % 65536) >> 4];
-    cameraFocus[2] = lakituPosition[2] + cameraDist * gCosineTableG[((65536 + (int)cameraPitch) % 65536) >> 4] * gCosineTableG[((65536 + (int)cameraYaw) % 65536) >> 4];
+    cameraFocus[0] = lakituPosition[0] + cameraDist * cossG(cameraPitch) * sinsG(cameraYaw);
+    cameraFocus[1] = lakituPosition[1] + cameraDist * sinsG(cameraPitch);
+    cameraFocus[2] = lakituPosition[2] + cameraDist * cossG(cameraPitch) * cossG(cameraYaw);
 
     return atan2sG(lakituPosition[2] - cameraFocus[2], lakituPosition[0] - cameraFocus[0]);
 }
@@ -2504,7 +2476,6 @@ __global__ void find_breakdance_solutions() {
         int floorIdx = find_floor(slideSol->upwarpPosition, &floor, floorHeight, floorsG, total_floorsG);
 
         int slopeAngle = atan2sG(floor->normal[2], floor->normal[0]);
-        slopeAngle = (slopeAngle + 65536) % 65536;
 
         float steepness = sqrtf(floor->normal[0] * floor->normal[0] + floor->normal[2] * floor->normal[2]);
 
@@ -2514,7 +2485,6 @@ __global__ void find_breakdance_solutions() {
         int maxCameraYaw = 0;
 
         int refCameraYaw = calculate_camera_yaw(slideSol->upwarpPosition, cameraPositions[0], slideSol->postSlideAngle);
-        refCameraYaw = (65536 + refCameraYaw) % 65536;
 
         for (int i = 1; i < 4; i++) {
             int cameraYaw = calculate_camera_yaw(slideSol->upwarpPosition, cameraPositions[i], slideSol->postSlideAngle);
@@ -2523,16 +2493,15 @@ __global__ void find_breakdance_solutions() {
             maxCameraYaw = max(maxCameraYaw, cameraYaw);
         }
 
-        int minCameraIdx = gReverseArctanTableG[(65536 + minCameraYaw + refCameraYaw) % 65536];
-        int maxCameraIdx = gReverseArctanTableG[(65536 + maxCameraYaw + refCameraYaw) % 65536];
+        int minCameraIdx = revAtansG(minCameraYaw + refCameraYaw);
+        int maxCameraIdx = revAtansG(maxCameraYaw + refCameraYaw);
 
         if (minCameraIdx > maxCameraIdx) {
             maxCameraIdx += 8192;
         }
 
         for (int i = minCameraIdx; i <= maxCameraIdx; i++) {
-            int cameraYaw = gArctanTableG[i % 8192];
-            cameraYaw = (65536 + cameraYaw) % 65536;
+            int cameraYaw = (unsigned short)gArctanTableG[i % 8192];
 
             if (validCameraAngle[cameraYaw]) {
                 float stickX = x - (x < 0) + (x > 0);
@@ -2555,32 +2524,30 @@ __global__ void find_breakdance_solutions() {
 
                 if (intendedMag > 0.0f) {
                     intendedYaw = atan2sG(-stickY, stickX) + cameraYaw;
-                    intendedYaw = (65536 + intendedYaw) % 65536;
                 }
                 else {
                     intendedYaw = slideSol->postSlideAngle;
                 }
 
-                int intendedDYaw = (short)(intendedYaw - slideSol->postSlideAngle);
-                intendedDYaw = (65536 + intendedDYaw) % 65536;
+                int intendedDYaw = intendedYaw - slideSol->postSlideAngle;
 
-                float lossFactor = intendedMag / 32.0f * gCosineTableG[intendedDYaw >> 4] * 0.02f + 0.92f;
+                float lossFactor = intendedMag / 32.0f * cossG(intendedDYaw) * 0.02f + 0.92f;
 
-                float xVel = slideSol->postSlideSpeed * gSineTableG[slideSol->postSlideAngle >> 4];
-                float zVel = slideSol->postSlideSpeed * gCosineTableG[slideSol->postSlideAngle >> 4];
+                float xVel = slideSol->postSlideSpeed * sinsG(slideSol->postSlideAngle);
+                float zVel = slideSol->postSlideSpeed * cossG(slideSol->postSlideAngle);
 
                 float oldSpeed = sqrtf(xVel * xVel + zVel * zVel);
 
-                xVel += zVel * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
-                zVel -= xVel * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
+                xVel += zVel * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
+                zVel -= xVel * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
 
                 float newSpeed = sqrtf(xVel * xVel + zVel * zVel);
 
                 xVel = xVel * oldSpeed / newSpeed;
                 zVel = zVel * oldSpeed / newSpeed;
 
-                xVel += 7.0f * steepness * gSineTableG[slopeAngle >> 4];
-                zVel += 7.0f * steepness * gCosineTableG[slopeAngle >> 4];
+                xVel += 7.0f * steepness * sinsG(slopeAngle);
+                zVel += 7.0f * steepness * cossG(slopeAngle);
 
                 xVel *= lossFactor;
                 zVel *= lossFactor;
@@ -2606,7 +2573,6 @@ __global__ void find_breakdance_solutions() {
 
                 if (fallTest) {
                     int slideYaw = atan2sG(zVel, xVel);
-                    slideYaw = (65536 + slideYaw) % 65536;
 
                     int facingDYaw = slideSol->postSlideAngle - slideYaw;
 
@@ -2633,14 +2599,13 @@ __global__ void find_breakdance_solutions() {
                         }
                     }
 
-                    int postSlideAngle = slideYaw + newFacingDYaw;
-                    postSlideAngle = (65536 + postSlideAngle) % 65536;
+                    int postSlideAngle = (unsigned short)slideYaw + newFacingDYaw;
 
                     float postSlideSpeed = -sqrtf(xVel * xVel + zVel * zVel);
 
-                    xVel = postSlideSpeed * gSineTableG[postSlideAngle >> 4];
+                    xVel = postSlideSpeed * sinsG(postSlideAngle);
                     float yVel = 0.0f;
-                    zVel = postSlideSpeed * gCosineTableG[postSlideAngle >> 4];
+                    zVel = postSlideSpeed * cossG(postSlideAngle);
 
                     bool falling = true;
                     bool landed = false;
@@ -2747,31 +2712,30 @@ __device__ void try_upwarp_slide(int solIdx, int angle, int intendedDYaw, float 
     struct UpwarpSolution* uwSol = &(solutions.upwarpSolutions[skuwSol->uwIdx]);
     struct PlatformSolution* platSol = &(solutions.platSolutions[uwSol->platformSolutionIdx]);
 
-    float lossFactor = intendedMag / 32.0f * gCosineTableG[intendedDYaw >> 4] * 0.02f + 0.92f;
+    float lossFactor = intendedMag / 32.0f * cossG(intendedDYaw) * 0.02f + 0.92f;
     
     int slopeAngle = atan2sG(platSol->endTriangleNormals[platSol->endFloorIdx][2], platSol->endTriangleNormals[platSol->endFloorIdx][0]);
-    slopeAngle = (65536 + slopeAngle) % 65536;
 
     float steepness = sqrtf(platSol->endTriangleNormals[platSol->endFloorIdx][0] * platSol->endTriangleNormals[platSol->endFloorIdx][0] + platSol->endTriangleNormals[platSol->endFloorIdx][2] * platSol->endTriangleNormals[platSol->endFloorIdx][2]);
 
-    float xVel0 = speedSol->returnSpeed * gSineTableG[angle >> 4];
-    float zVel0 = speedSol->returnSpeed * gCosineTableG[angle >> 4];
+    float xVel0 = speedSol->returnSpeed * sinsG(angle);
+    float zVel0 = speedSol->returnSpeed * cossG(angle);
 
     float xVel1 = xVel0;
     float zVel1 = zVel0;
 
     float oldSpeed = sqrtf(xVel1 * xVel1 + zVel1 * zVel1);
 
-    xVel1 += zVel1 * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
-    zVel1 -= xVel1 * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
+    xVel1 += zVel1 * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
+    zVel1 -= xVel1 * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
 
     float newSpeed = sqrtf(xVel1 * xVel1 + zVel1 * zVel1);
 
     xVel1 = xVel1 * oldSpeed / newSpeed;
     zVel1 = zVel1 * oldSpeed / newSpeed;
 
-    xVel1 += 7.0f * steepness * gSineTableG[slopeAngle >> 4];
-    zVel1 += 7.0f * steepness * gCosineTableG[slopeAngle >> 4];
+    xVel1 += 7.0f * steepness * sinsG(slopeAngle);
+    zVel1 += 7.0f * steepness * cossG(slopeAngle);
 
     xVel1 *= lossFactor;
     zVel1 *= lossFactor;
@@ -2825,7 +2789,6 @@ __device__ void try_upwarp_slide(int solIdx, int angle, int intendedDYaw, float 
 
                 if (idx < limits.MAX_SLIDE_SOLUTIONS) {
                     int slideYaw = atan2sG(zVel1, xVel1);
-                    slideYaw = (65536 + slideYaw) % 65536;
 
                     int facingDYaw = angle - slideYaw;
 
@@ -2852,8 +2815,7 @@ __device__ void try_upwarp_slide(int solIdx, int angle, int intendedDYaw, float 
                         }
                     }
 
-                    int postSlideAngle = slideYaw + newFacingDYaw;
-                    postSlideAngle = (65536 + postSlideAngle) % 65536;
+                    int postSlideAngle = (unsigned short)(slideYaw + newFacingDYaw);
 
                     float postSlideSpeed = -sqrtf(xVel1 * xVel1 + zVel1 * zVel1);
 
@@ -2894,8 +2856,8 @@ __device__ void try_pu_slide_angle(int solIdx, int angle, double minEndAngle, do
             maxN = -cos(2.0 * M_PI * maxEndAngleA / 65536.0) / sinStartAngle;
         }
         else {
-            double sinStartAngle = gSineTableG[angle >> 4];
-            double cosStartAngle = gCosineTableG[angle >> 4];
+            double sinStartAngle = sinsG(angle);
+            double cosStartAngle = cossG(angle);
 
             double sinMinEndAngle = sin(2.0 * M_PI * minEndAngleA / 65536.0);
             double cosMinEndAngle = cos(2.0 * M_PI * minEndAngleA / 65536.0);
@@ -3041,9 +3003,7 @@ __global__ void test_slide_angle() {
         int angle = tenKSol->minStartAngle + angleIdx * slideAngleSampleRate;
 
         if (angle <= tenKSol->maxStartAngle) {
-            angle = angle % 65536;
-
-            try_pu_slide_angle(idx, angle, tenKSol->minEndAngle, tenKSol->maxEndAngle, tenKSol->minM1, tenKSol->maxM1);
+            try_pu_slide_angle(idx, (unsigned short)angle, tenKSol->minEndAngle, tenKSol->maxEndAngle, tenKSol->minM1, tenKSol->maxM1);
         }
     }
 }
@@ -4442,17 +4402,16 @@ __global__ void try_stick_positionG() {
         float intendedMag = ((mag / 64.0f) * (mag / 64.0f)) * 32.0f;
         int intendedYaw = atan2sG(-yS, xS) + sol4->cameraYaw;
         int intendedDYaw = intendedYaw - sol5->f1Angle;
-        intendedDYaw = (65536 + (intendedDYaw % 65536)) % 65536;
 
         float lower10KSpeed = sol4->minPre10KSpeed;
         float upper10KSpeed = sol4->maxPre10KSpeed;
 
-        float forward = gCosineTableG[intendedDYaw >> 4];
+        float forward = cossG(intendedDYaw);
         forward *= 0.5f + 0.5f * lower10KSpeed / 100.0f;
         float lossFactor = intendedMag / 32.0f * forward * 0.02f + 0.92f;
 
         lower10KSpeed *= lossFactor;
-        forward = gCosineTableG[intendedDYaw >> 4];
+        forward = cossG(intendedDYaw);
         forward *= 0.5f + 0.5f * upper10KSpeed / 100.0f;
         lossFactor = intendedMag / 32.0f * forward * 0.02f + 0.92f;
 
@@ -4462,11 +4421,11 @@ __global__ void try_stick_positionG() {
         upper10KSpeed = fmaxf(sol4->maxPost10KSpeed, upper10KSpeed);
 
         if (lower10KSpeed >= upper10KSpeed) {
-            float xVel = gSineTableG[sol2->f2Angle >> 4];
-            float zVel = gCosineTableG[sol2->f2Angle >> 4];
+            float xVel = sinsG(sol2->f2Angle);
+            float zVel = cossG(sol2->f2Angle);
 
-            xVel += zVel * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
-            zVel -= xVel * (intendedMag / 32.0f) * gSineTableG[intendedDYaw >> 4] * 0.05f;
+            xVel += zVel * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
+            zVel -= xVel * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
 
             double f3Angle = 65536.0 * atan2(xVel, zVel) / (2.0 * M_PI);
 
@@ -4474,7 +4433,7 @@ __global__ void try_stick_positionG() {
             angleDiff = fmod(angleDiff + 32768.0, 65536.0) - 32768.0;
 
             if (angleDiff >= sol4->minAngleDiff && angleDiff <= sol4->maxAngleDiff) {
-                double w = intendedMag * gCosineTableG[intendedDYaw >> 4];
+                double w = intendedMag * cossG(intendedDYaw);
                 double eqB = (50.0 + 147200.0 / w);
                 double eqC = -(320000.0 / w) * lower10KSpeed;
                 double eqDet = eqB * eqB - eqC;
@@ -4515,7 +4474,7 @@ __global__ void try_slide_kick_routeG2() {
         double maxStickY = -INFINITY;
 
         for (int j = sol1->minF1AngleIdx; j <= sol1->maxF1AngleIdx; j++) {
-            int f1Angle = (65536 + gArctanTableG[j % 8192]) % 65536;
+            int f1Angle = (unsigned short)gArctanTableG[j % 8192];
 
             for (int i = 0; i < 4; i++) {
                 double m1;
@@ -4671,16 +4630,16 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
                 double QZ1 = 65536.0 * sol3->z2 + ((((j + 1) % 4) / 2 == 0) ? tenKFloors[sol2->tenKFloorIdx][3] : tenKFloors[sol2->tenKFloorIdx][2]);
                 double QZ2 = 65536.0 * sol3->z2 + ((j / 2 == 0) ? tenKFloors[sol2->tenKFloorIdx][3] : tenKFloors[sol2->tenKFloorIdx][2]);
 
-                double s = ((QZ1 - PZ) * gSineTableG[sol2->f2Angle >> 4] - (QX1 - PX) * gCosineTableG[sol2->f2Angle >> 4]) / ((QX2 - QX1) * gCosineTableG[sol2->f2Angle >> 4] - (QZ2 - QZ1) * gSineTableG[sol2->f2Angle >> 4]);
+                double s = ((QZ1 - PZ) * sinsG(sol2->f2Angle) - (QX1 - PX) * cossG(sol2->f2Angle)) / ((QX2 - QX1) * cossG(sol2->f2Angle) - (QZ2 - QZ1) * sinsG(sol2->f2Angle));
 
                 if (s >= 0.0 && s <= 1.0) {
                     double dist;
                     
-                    if (fabs(gSineTableG[sol2->f2Angle >> 4]) > fabs(gCosineTableG[sol2->f2Angle >> 4])) {
-                        dist = (s * (QX2 - QX1) - (PX - QX1)) / gSineTableG[sol2->f2Angle >> 4];
+                    if (fabs(sinsG(sol2->f2Angle)) > fabs(cossG(sol2->f2Angle))) {
+                        dist = (s * (QX2 - QX1) - (PX - QX1)) / sinsG(sol2->f2Angle);
                     }
                     else {
-                        dist = (s * (QZ2 - QZ1) - (PZ - QZ1)) / gCosineTableG[sol2->f2Angle >> 4];
+                        dist = (s * (QZ2 - QZ1) - (PZ - QZ1)) / cossG(sol2->f2Angle);
                     }
 
                     minF2Dist = fmin(minF2Dist, dist);
@@ -4698,16 +4657,16 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
                 double QZ1 = 65536.0 * sol1->z1 + pyramidFloorPoints[3 * i + 2];
                 double QZ2 = 65536.0 * sol1->z1 + pyramidFloorPoints[3 * ((i + 1) % nPoints) + 2];
 
-                double s = ((QZ1 - PZ) * gSineTableG[sol2->f2Angle >> 4] - (QX1 - PX) * gCosineTableG[sol2->f2Angle >> 4]) / ((QX2 - QX1) * gCosineTableG[sol2->f2Angle >> 4] - (QZ2 - QZ1) * gSineTableG[sol2->f2Angle >> 4]);
+                double s = ((QZ1 - PZ) * sinsG(sol2->f2Angle) - (QX1 - PX) * cossG(sol2->f2Angle)) / ((QX2 - QX1) * cossG(sol2->f2Angle) - (QZ2 - QZ1) * sinsG(sol2->f2Angle));
 
                 if (s >= 0.0 && s <= 1.0) {
                     double dist;
 
-                    if (fabs(gSineTableG[sol2->f2Angle >> 4]) > fabs(gCosineTableG[sol2->f2Angle >> 4])) {
-                        dist = -(s * (QX2 - QX1) - (PX - QX1)) / gSineTableG[sol2->f2Angle >> 4];
+                    if (fabs(sinsG(sol2->f2Angle)) > fabs(cossG(sol2->f2Angle))) {
+                        dist = -(s * (QX2 - QX1) - (PX - QX1)) / sinsG(sol2->f2Angle);
                     }
                     else {
-                        dist = -(s * (QZ2 - QZ1) - (PZ - QZ1)) / gCosineTableG[sol2->f2Angle >> 4];
+                        dist = -(s * (QZ2 - QZ1) - (PZ - QZ1)) / cossG(sol2->f2Angle);
                     }
 
                     minF2Dist = fmin(minF2Dist, dist);
@@ -4777,8 +4736,8 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
                     maxN = -cos(2.0 * M_PI * maxF3Angle / 65536.0) / sinF2Angle;
                 }
                 else {
-                    double sinF2Angle = gSineTableG[sol2->f2Angle >> 4];
-                    double cosF2Angle = gCosineTableG[sol2->f2Angle >> 4];
+                    double sinF2Angle = sinsG(sol2->f2Angle);
+                    double cosF2Angle = cossG(sol2->f2Angle);
 
                     double sinMinF3Angle = sin(2.0 * M_PI * minF3Angle / 65536.0);
                     double cosMinF3Angle = cos(2.0 * M_PI * minF3Angle / 65536.0);
@@ -4877,16 +4836,15 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
                             maxCameraYaw = temp;
                         }
 
-                        int minCameraIdx = gReverseArctanTableG[(65536 + minCameraYaw) % 65536];
-                        int maxCameraIdx = gReverseArctanTableG[(65536 + maxCameraYaw) % 65536];
+                        int minCameraIdx = revAtansG(minCameraYaw);
+                        int maxCameraIdx = revAtansG(maxCameraYaw);
 
                         if (minCameraIdx > maxCameraIdx) {
                             maxCameraIdx += 8192;
                         }
 
                         for (int cIdx = minCameraIdx; cIdx <= maxCameraIdx; cIdx++) {
-                            int cameraYaw = gArctanTableG[(8192 + cIdx) % 8192];
-                            cameraYaw = (65536 + cameraYaw) % 65536;
+                            int cameraYaw = (unsigned short)gArctanTableG[(8192 + cIdx) % 8192];
 
                             if (validCameraAngle[cameraYaw]) {
                                 int solIdx = atomicAdd(&(counts.nSK4Solutions), 1);
@@ -5116,26 +5074,25 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
         double puAngle = 65536.0 * atan2((double)sol->x1, (double)sol->z1) / (2.0 * M_PI);
         puAngle = fmod(65536.0 + puAngle, 65536.0);
         
-        int puAngleClosest = (65536 + atan2sG(sol->z1, sol->x1)) % 65536;
+        int puAngleClosest = atan2sG(sol->z1, sol->x1);
 
         double sinMaxAngle = sin(2.0 * M_PI * (double)maxF3Turn / 65536.0);
         double maxF2AngleChange = fmod(32768.0 - (65536.0 * asin(sol->q2 * sinMaxAngle / (4.0 * floorNormalY)) / (2.0 * M_PI)) - maxF3Turn, 32768.0);
         maxF2AngleChange = fabs(fmod(maxF2AngleChange + 16384.0, 32768.0) - 16384.0);
 
-        int minF2AngleIdx = gReverseArctanTableG[puAngleClosest];
-        int maxF2AngleIdx = gReverseArctanTableG[puAngleClosest];
+        int minF2AngleIdx = revAtansG(puAngleClosest);
+        int maxF2AngleIdx = revAtansG(puAngleClosest);
 
-        while ((65536 + puAngleClosest - ((gArctanTableG[(minF2AngleIdx + 8191) % 8192] >> 4) << 4)) % 65536 < maxF2AngleChange) {
+        while ((unsigned short)(puAngleClosest - ((gArctanTableG[(minF2AngleIdx + 8191) % 8192] >> 4) << 4)) < maxF2AngleChange) {
             minF2AngleIdx = minF2AngleIdx - 1;
         }
 
-        while ((65536 + ((gArctanTableG[(maxF2AngleIdx + 1) % 8192] >> 4) << 4) - puAngleClosest) % 65536 < maxF2AngleChange) {
+        while ((unsigned short)(((gArctanTableG[(maxF2AngleIdx + 1) % 8192] >> 4) << 4) - puAngleClosest) < maxF2AngleChange) {
             maxF2AngleIdx = maxF2AngleIdx + 1;
         }
 
         for (int a = minF2AngleIdx; a <= maxF2AngleIdx; a++) {
-            int f2Angle = gArctanTableG[(8192 + a) % 8192];
-            f2Angle = (65536 + f2Angle) % 65536;
+            int f2Angle = (unsigned short)gArctanTableG[(8192 + a) % 8192];
 
             if (f2Angle == 0 || f2Angle == 32768) {
                 for (int i = 0; i < nTenKFloors; i++) {
@@ -5198,8 +5155,8 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
                 }
             }
             else {
-                double sinAngle = gSineTableG[f2Angle >> 4];
-                double cosAngle = gCosineTableG[f2Angle >> 4];
+                double sinAngle = sinsG(f2Angle);
+                double cosAngle = cossG(f2Angle);
 
                 if (fabs(sinAngle) < fabs(cosAngle)) {
                     float lowerZ = INFINITY;
@@ -5232,7 +5189,7 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
                         if (solIdx < limits.MAX_SK_PHASE_TWO_C) {
                             struct SKPhase2* solution = &(solutions.sk2CSolutions[solIdx]);
                             solution->p1Idx = idx;
-                            solution->f2Angle = (f2Angle + 32768) % 65536;
+                            solution->f2Angle = (unsigned short)(f2Angle + 32768);
                             solution->tenKFloorIdx = i;
                             solution->lower = lowerZ;
                             solution->upper = upperZ;
@@ -5272,7 +5229,7 @@ __global__ void find_slide_kick_setupG2(short* floorPoints, const int nPoints, f
                         if (solIdx < limits.MAX_SK_PHASE_TWO_D) {
                             struct SKPhase2* solution = &(solutions.sk2DSolutions[solIdx]);
                             solution->p1Idx = idx;
-                            solution->f2Angle = (f2Angle + 32768) % 65536;
+                            solution->f2Angle = (unsigned short)(f2Angle + 32768);
                             solution->tenKFloorIdx = i;
                             solution->lower = lowerX;
                             solution->upper = upperX;
@@ -5348,11 +5305,11 @@ __global__ void find_slide_kick_setupG(short* floorPoints, const int nPoints, fl
             double maxSpeedF1 = fmin(maxSpeed, maxF1Dist / floorNormalY);
 
             if (minSpeedF1 < maxSpeedF1) {
-                minF1Angle = (65536 + minF1Angle + refAngle) % 65536;
-                maxF1Angle = (65536 + maxF1Angle + refAngle) % 65536;
+                minF1Angle = minF1Angle + refAngle;
+                maxF1Angle = maxF1Angle + refAngle;
 
-                int minF1AngleIdx = gReverseArctanTableG[minF1Angle];
-                int maxF1AngleIdx = gReverseArctanTableG[maxF1Angle];
+                int minF1AngleIdx = revAtansG(minF1Angle);
+                int maxF1AngleIdx = revAtansG(maxF1Angle);
 
                 if (maxF1AngleIdx < minF1AngleIdx) {
                     maxF1AngleIdx = maxF1AngleIdx + 8192;
@@ -5554,18 +5511,16 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
         int floorIdx = (tenKSol->squishCeiling == 0 || tenKSol->squishCeiling == 2) ? 0 : 1;
 
         int surfAngle = atan2sG(squishCeilingNormals[tenKSol->squishCeiling][2], squishCeilingNormals[tenKSol->squishCeiling][0]);
-        surfAngle = (65536 + surfAngle) % 65536;
 
-        float xPushVel = gSineTableG[surfAngle >> 4] * 10.0f;
-        float zPushVel = gCosineTableG[surfAngle >> 4] * 10.0f;
+        float xPushVel = sinsG(surfAngle) * 10.0f;
+        float zPushVel = cossG(surfAngle) * 10.0f;
 
         int slopeAngle = atan2sG(startNormals[floorIdx][2], startNormals[floorIdx][0]);
-        slopeAngle = (slopeAngle + 65536) % 65536;
 
         float steepness = sqrtf(startNormals[floorIdx][0] * startNormals[floorIdx][0] + startNormals[floorIdx][2] * startNormals[floorIdx][2]);
 
-        float slopeXVel = accel * steepness * gSineTableG[slopeAngle >> 4];
-        float slopeZVel = accel * steepness * gCosineTableG[slopeAngle >> 4];
+        float slopeXVel = accel * steepness * sinsG(slopeAngle);
+        float slopeZVel = accel * steepness * cossG(slopeAngle);
 
         float minBullyPushX = doubleTenKSol->minStartX;
         float maxBullyPushX = doubleTenKSol->maxStartX;
@@ -5604,7 +5559,6 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
 
                     if (dist >= pushRadius - bullyHurtbox && dist <= pushRadius - fmaxf(bullyHurtbox - 2.0f * maxSlidingSpeed - 1.85f, 0.0f)) {
                         int angle = atan2sG(zDist, xDist);
-                        angle = (angle + 65536) % 65536;
 
                         int angleDiff = (short)(angle - uphillAngle);
 
@@ -5622,13 +5576,13 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
         }
 
         if (refAngle != 65536) {
-            minAngle = (minAngle + refAngle + 65536) % 65536;
-            maxAngle = (maxAngle + refAngle + 65536) % 65536;
+            minAngle = (unsigned short)(minAngle + refAngle);
+            maxAngle = (unsigned short)(maxAngle + refAngle);
 
-            int minAngleIdx = gReverseArctanTableG[minAngle];
-            int maxAngleIdx = gReverseArctanTableG[maxAngle];
+            int minAngleIdx = revAtansG(minAngle);
+            int maxAngleIdx = revAtansG(maxAngle);
 
-            while (((((gArctanTableG[minAngleIdx] + 65536) % 65536) >> 4) << 4) < minAngle) {
+            while ((((unsigned short)gArctanTableG[minAngleIdx] >> 4) << 4) < minAngle) {
                 minAngleIdx = (minAngleIdx + 1) % 8192;
             }
 
@@ -5637,12 +5591,12 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
             }
 
             for (int j = minAngleIdx; j <= maxAngleIdx; j++) {
-                int angle = (gArctanTableG[j % 8192] + 65536) % 65536;
+                int angle = (unsigned short)(gArctanTableG[j % 8192]);
 
-                float minBullyX = minBullyPushX - pushRadius * gSineTableG[angle >> 4];
-                float maxBullyX = maxBullyPushX - pushRadius * gSineTableG[angle >> 4];
-                float minBullyZ = minBullyPushZ - pushRadius * gCosineTableG[angle >> 4];
-                float maxBullyZ = maxBullyPushZ - pushRadius * gCosineTableG[angle >> 4];
+                float minBullyX = minBullyPushX - pushRadius * sinsG(angle);
+                float maxBullyX = maxBullyPushX - pushRadius * sinsG(angle);
+                float minBullyZ = minBullyPushZ - pushRadius * cossG(angle);
+                float maxBullyZ = maxBullyPushZ - pushRadius * cossG(angle);
 
                 float xDiff2;
 
@@ -5677,7 +5631,7 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
                 float maxBullyXSpeed = fminf(nextafterf(xDiff2 * baseBullySpeed, -INFINITY), maxBullySpeed);
                 float maxBullyZSpeed = fminf(nextafterf(zDiff2 * baseBullySpeed, -INFINITY), maxBullySpeed);
 
-                float maxPushSpeed = (fabsf(maxBullyXSpeed * gSineTableG[angle >> 4]) + fabsf(maxBullyZSpeed * gCosineTableG[angle >> 4])) * (73.0f / 53.0f) * 3.0f;
+                float maxPushSpeed = (fabsf(maxBullyXSpeed * sinsG(angle)) + fabsf(maxBullyZSpeed * cossG(angle))) * (73.0f / 53.0f) * 3.0f;
 
                 float maxLossFactor = (-1.0 * (0.5f + 0.5f * maxPushSpeed / 100.0f)) * 0.02 + 0.92;
                 float slidingSpeedX = (doubleTenKSol->post10KXVel / maxLossFactor) - slopeXVel;
@@ -6338,8 +6292,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
         return false;
     }
 
-    int uphillAngle = atan2s(-platform1.normal[2], -platform1.normal[0]);
-    uphillAngle = (65536 + uphillAngle) % 65536;
+    int uphillAngle = (unsigned short)atan2s(-platform1.normal[2], -platform1.normal[0]);
 
     Platform platform = Platform(o->platformPos[0], o->platformPos[1], o->platformPos[2], platform1.normal);
     platform.platform_logic(offPlatformPosition);
