@@ -9,7 +9,6 @@
 # define cossG(x)              gCosineTableG[(unsigned short) (x) >> 4]
 # define revAtansG(x)          gReverseArctanTableG[(unsigned short) x]
 
-
 class SurfaceG {
 public:
     short vertices[3][3];
@@ -2599,7 +2598,7 @@ __global__ void find_breakdance_solutions() {
                         }
                     }
 
-                    int postSlideAngle = (unsigned short)slideYaw + newFacingDYaw;
+                    int postSlideAngle = (unsigned short)(slideYaw + newFacingDYaw);
 
                     float postSlideSpeed = -sqrtf(xVel * xVel + zVel * zVel);
 
