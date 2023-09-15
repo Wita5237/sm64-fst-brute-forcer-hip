@@ -46,6 +46,8 @@ This program accepts the following options:
 </pre>
 #### GPU Settings ####
 <pre>
+-g &lt;device_id&gt;:                             The CUDA device used to run the program.
+  
 -t &lt;threads&gt;:                               Number of CUDA threads to assign to the program.
   
 -lsk1 &lt;n_solutions&gt;:                        Maximum number of phase 1 solutions for 10k setup search.
@@ -92,7 +94,7 @@ This program accepts the following options:
 
 -s:                                         Silent mode. Suppresses all print statements output by the brute forcer.
   
--h --help:                                  Prints this text.
+-h --help:                                  Prints the help text.
 </pre>
 
 ## Dependencies ##
