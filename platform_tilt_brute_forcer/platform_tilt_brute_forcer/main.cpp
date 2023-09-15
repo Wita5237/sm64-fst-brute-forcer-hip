@@ -98,6 +98,9 @@ void print_help_text(struct SearchOptions* s, struct FSTOptions* o) {
     printf("         Minimal output mode. The program will only write a list of normals with solutions to the output file.\n");
     printf("             Default: off\n\n");
     printf("  GPU settings:\n");
+    printf("    -d <device_id>\n");
+    printf("         The CUDA device used to run this program.\n");
+    printf("             Default: %d\n\n", o->cudaDevice);
     printf("    -t <threads>\n");
     printf("         Number of CUDA threads to assign to the program.\n");
     printf("             Default: %d\n\n", o->nThreads);
@@ -169,176 +172,193 @@ void print_help_text(struct SearchOptions* s, struct FSTOptions* o) {
     printf("         Prints this text.\n");
 }
 
-void parse_inputs(int argc, char* argv[], struct SearchOptions* s, struct FSTOptions* o) {
-    for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
-            print_help_text(s, o);
-            exit(0);
-        }
-        else if (!strcmp(argv[i], "-f")) {
-            o->maxFrames = std::stoi(argv[i + 1]);
+bool parse_inputs(int argc, char* argv[], struct SearchOptions* s, struct FSTOptions* o) {
+    bool success = true;
 
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-pu")) {
-            o->nPUFrames = std::stoi(argv[i + 1]);
+    int i;
 
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-t")) {
-            o->nThreads = std::stoi(argv[i + 1]);
-
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-nx")) {
-            s->minNX = std::stof(argv[i + 1]);
-            s->maxNX = std::stof(argv[i + 2]);
-
-            if (s->minNX == s->maxNX) {
-                s->nSamplesNX = 1;
+    try {
+        for (i = 1; i < argc; i++) {
+            if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
+                print_help_text(s, o);
+                exit(0);
             }
-            else {
-                s->nSamplesNX = std::stoi(argv[i + 3]);
-            }
+            else if (!strcmp(argv[i], "-f")) {
+                o->maxFrames = std::stoi(argv[i + 1]);
 
-            i += 3;
-        }
-        else if (!strcmp(argv[i], "-nxz")) {
-            s->minNXZ = std::stof(argv[i + 1]);
-            s->maxNXZ = std::stof(argv[i + 2]);
-
-            if (s->minNXZ == s->maxNXZ) {
-                s->nSamplesNXZ = 1;
+                i += 1;
             }
-            else {
-                s->nSamplesNXZ = std::stoi(argv[i + 3]);
-            }
+            else if (!strcmp(argv[i], "-pu")) {
+                o->nPUFrames = std::stoi(argv[i + 1]);
 
-            i += 3;
-        }
-        else if (!strcmp(argv[i], "-ny")) {
-            s->minNY = std::stof(argv[i + 1]);
-            s->maxNY = std::stof(argv[i + 2]);
-
-            if (s->minNY == s->maxNY) {
-                s->nSamplesNY = 1;
+                i += 1;
             }
-            else {
-                s->nSamplesNY = std::stoi(argv[i + 3]);
-            }
+            else if (!strcmp(argv[i], "-d")) {
+                o->cudaDevice = std::stoi(argv[i + 1]);
 
-            i += 3;
-        }
-        else if (!strcmp(argv[i], "-nz")) {
-            s->zMode = true;
-        }
-        else if (!strcmp(argv[i], "-dx")) {
-            o->deltaX = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-dz")) {
-            o->deltaZ = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-p")) {
-            o->platformPos[0] = std::stof(argv[i + 1]);
-            o->platformPos[1] = std::stof(argv[i + 2]);
-            o->platformPos[2] = std::stof(argv[i + 3]);
-            i += 3;
-        }
-        else if (!strcmp(argv[i], "-q")) {
-            s->quadMode = true;
-        }
-        else if (!strcmp(argv[i], "-o")) {
-            s->outFile = argv[i + 1];
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-m")) {
-            o->minimalOutput = true;
-        }
-        else if (!strcmp(argv[i], "-lsk1")) {
-            o->limits.MAX_SK_PHASE_ONE = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lsk2a")) {
-            o->limits.MAX_SK_PHASE_TWO_A = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lsk2b")) {
-            o->limits.MAX_SK_PHASE_TWO_B = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lsk2c")) {
-            o->limits.MAX_SK_PHASE_TWO_C = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lsk2d")) {
-            o->limits.MAX_SK_PHASE_TWO_D = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lsk3")) {
-            o->limits.MAX_SK_PHASE_THREE = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lsk4")) {
-            o->limits.MAX_SK_PHASE_FOUR = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lsk5")) {
-            o->limits.MAX_SK_PHASE_FIVE = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lsk6")) {
-            o->limits.MAX_SK_PHASE_SIX = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lp")) {
-            o->limits.MAX_PLAT_SOLUTIONS = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lu")) {
-            o->limits.MAX_UPWARP_SOLUTIONS = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lsku")) {
-            o->limits.MAX_SK_UPWARP_SOLUTIONS = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-ls")) {
-            o->limits.MAX_SPEED_SOLUTIONS = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-l10k")) {
-            o->limits.MAX_10K_SOLUTIONS = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lbd")) {
-            o->limits.MAX_BD_SOLUTIONS = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-ld10k")) {
-            o->limits.MAX_DOUBLE_10K_SOLUTIONS = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lbp")) {
-            o->limits.MAX_BULLY_PUSH_SOLUTIONS = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lsq")) {
-            o->limits.MAX_SQUISH_SPOTS = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-lst")) {
-            o->limits.MAX_STRAIN_SETUPS = std::stof(argv[i + 1]);
-            i += 1;
-        }
-        else if (!strcmp(argv[i], "-s")) {
-            o->silent = true;
-        }
-        else if (!strcmp(argv[i], "-v")) {
-            s->verbose = true;
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-t")) {
+                o->nThreads = std::stoi(argv[i + 1]);
+
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-nx")) {
+                s->minNX = std::stof(argv[i + 1]);
+                s->maxNX = std::stof(argv[i + 2]);
+
+                if (s->minNX == s->maxNX) {
+                    s->nSamplesNX = 1;
+                }
+                else {
+                    s->nSamplesNX = std::stoi(argv[i + 3]);
+                }
+
+                i += 3;
+            }
+            else if (!strcmp(argv[i], "-nxz")) {
+                s->minNXZ = std::stof(argv[i + 1]);
+                s->maxNXZ = std::stof(argv[i + 2]);
+
+                if (s->minNXZ == s->maxNXZ) {
+                    s->nSamplesNXZ = 1;
+                }
+                else {
+                    s->nSamplesNXZ = std::stoi(argv[i + 3]);
+                }
+
+                i += 3;
+            }
+            else if (!strcmp(argv[i], "-ny")) {
+                s->minNY = std::stof(argv[i + 1]);
+                s->maxNY = std::stof(argv[i + 2]);
+
+                if (s->minNY == s->maxNY) {
+                    s->nSamplesNY = 1;
+                }
+                else {
+                    s->nSamplesNY = std::stoi(argv[i + 3]);
+                }
+
+                i += 3;
+            }
+            else if (!strcmp(argv[i], "-nz")) {
+                s->zMode = true;
+            }
+            else if (!strcmp(argv[i], "-dx")) {
+                o->deltaX = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-dz")) {
+                o->deltaZ = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-p")) {
+                o->platformPos[0] = std::stof(argv[i + 1]);
+                o->platformPos[1] = std::stof(argv[i + 2]);
+                o->platformPos[2] = std::stof(argv[i + 3]);
+                i += 3;
+            }
+            else if (!strcmp(argv[i], "-q")) {
+                s->quadMode = true;
+            }
+            else if (!strcmp(argv[i], "-o")) {
+                s->outFile = argv[i + 1];
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-m")) {
+                o->minimalOutput = true;
+            }
+            else if (!strcmp(argv[i], "-lsk1")) {
+                o->limits.MAX_SK_PHASE_ONE = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lsk2a")) {
+                o->limits.MAX_SK_PHASE_TWO_A = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lsk2b")) {
+                o->limits.MAX_SK_PHASE_TWO_B = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lsk2c")) {
+                o->limits.MAX_SK_PHASE_TWO_C = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lsk2d")) {
+                o->limits.MAX_SK_PHASE_TWO_D = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lsk3")) {
+                o->limits.MAX_SK_PHASE_THREE = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lsk4")) {
+                o->limits.MAX_SK_PHASE_FOUR = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lsk5")) {
+                o->limits.MAX_SK_PHASE_FIVE = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lsk6")) {
+                o->limits.MAX_SK_PHASE_SIX = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lp")) {
+                o->limits.MAX_PLAT_SOLUTIONS = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lu")) {
+                o->limits.MAX_UPWARP_SOLUTIONS = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lsku")) {
+                o->limits.MAX_SK_UPWARP_SOLUTIONS = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-ls")) {
+                o->limits.MAX_SPEED_SOLUTIONS = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-l10k")) {
+                o->limits.MAX_10K_SOLUTIONS = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lbd")) {
+                o->limits.MAX_BD_SOLUTIONS = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-ld10k")) {
+                o->limits.MAX_DOUBLE_10K_SOLUTIONS = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lbp")) {
+                o->limits.MAX_BULLY_PUSH_SOLUTIONS = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lsq")) {
+                o->limits.MAX_SQUISH_SPOTS = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-lst")) {
+                o->limits.MAX_STRAIN_SETUPS = std::stof(argv[i + 1]);
+                i += 1;
+            }
+            else if (!strcmp(argv[i], "-s")) {
+                o->silent = true;
+            }
+            else if (!strcmp(argv[i], "-v")) {
+                s->verbose = true;
+            }
         }
     }
+    catch (std::invalid_argument const& ex) {
+        fprintf(stderr, "Error: Arguments to option %s are invalid.\n", argv[i]);
+        success = false;
+    }
+
+    return success;
 }
 
 int main(int argc, char* argv[]) {
@@ -347,7 +367,9 @@ int main(int argc, char* argv[]) {
     struct FSTData p;
     std::ofstream wf;
 
-    parse_inputs(argc, argv, &s, &o);
+    if (!parse_inputs(argc, argv, &s, &o)) {
+        return -1;
+    }
 
     s.nSamplesNX = s.minNX == s.maxNX ? 1 : s.nSamplesNX;
     s.nSamplesNY = s.minNY == s.maxNY ? 1 : s.nSamplesNY;
@@ -362,7 +384,8 @@ int main(int argc, char* argv[]) {
     int err = initialise_fst_vars(&p, &o);
 
     if (err != 0) {
-        if (!o.silent) fprintf(stderr, "       Run this program with --help for details on how to change internal memory limits.\n");
+        if (!o.silent & err & 0x2) fprintf(stderr, "       Run this program with --help for details on how to change internal memory limits.\n");
+
         return err;
     }
 
