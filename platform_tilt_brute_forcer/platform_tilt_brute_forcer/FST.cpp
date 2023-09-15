@@ -9,7 +9,6 @@
 # define cossG(x)              gCosineTableG[(unsigned short) (x) >> 4]
 # define revAtansG(x)          gReverseArctanTableG[(unsigned short) x]
 
-
 class SurfaceG {
 public:
     short vertices[3][3];
@@ -6620,12 +6619,25 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 int initialise_fst_vars(struct FSTData* p, struct FSTOptions* o) {
     int cudaError = 0;
 
+    cudaError |= cudaSetDevice(o->cudaDevice);
+
+    if (cudaError != 0) {
+        if (cudaError & cudaErrorInvalidDevice) {
+            if (!o->silent) fprintf(stderr, "Error: Device %d is not a valid CUDA device.\n", o->cudaDevice);
+        }
+        else {
+            if (!o->silent) fprintf(stderr, "Error: Setting CUDA device failed with error code: %d.\n", cudaError);
+        }
+
+        return cudaError;
+    }
+
     init_reverse_atanG<<<1, 1>>>();
     init_camera_angles<<<1, 1>>>();
     init_mag_set<<<1, 1>>>();
     init_unique_stick_positions<<<1, 1>>>();
     initialise_floors<<<1, 1>>>();
-
+    
     cudaMemcpyToSymbol(limits, &(o->limits), sizeof(GPULimits), 0, cudaMemcpyHostToDevice);
     cudaError |= init_solution_structs(&(p->s), &(o->limits));
 
@@ -6660,7 +6672,7 @@ int initialise_fst_vars(struct FSTData* p, struct FSTOptions* o) {
     cudaError |= cudaMalloc((void**)&(p->devSquishEdges), 4 * sizeof(int));
 
     if (cudaError != 0) {
-        if (cudaError | 0x2) {
+        if (cudaError & cudaErrorMemoryAllocation) {
             if (!o->silent) fprintf(stderr, "Error: GPU memory allocation failed due to insufficient memory.\n");
             if (!o->silent) fprintf(stderr, "       It is recommended that you decrease the size of the\n");
             if (!o->silent) fprintf(stderr, "       reserved memory used for storing sub-solutions.\n");

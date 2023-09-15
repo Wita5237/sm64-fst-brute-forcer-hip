@@ -38,6 +38,7 @@ struct GPULimits {
 
 struct FSTOptions {
     int nThreads = 256;
+    int cudaDevice = 0;
 
     int nPUFrames = 3;
     int maxFrames = 100;
