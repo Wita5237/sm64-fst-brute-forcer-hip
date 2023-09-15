@@ -46,7 +46,7 @@ This program accepts the following options:
 </pre>
 #### GPU Settings ####
 <pre>
--g &lt;device_id&gt;:                             The CUDA device used to run the program.
+-d &lt;device_id&gt;:                             The CUDA device used to run the program.
   
 -t &lt;threads&gt;:                               Number of CUDA threads to assign to the program.
   
