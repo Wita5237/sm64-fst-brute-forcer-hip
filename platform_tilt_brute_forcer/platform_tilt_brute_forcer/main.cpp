@@ -384,7 +384,7 @@ int main(int argc, char* argv[]) {
     int err = initialise_fst_vars(&p, &o);
 
     if (err != 0) {
-        if (!o.silent & err & 0x2) fprintf(stderr, "       Run this program with --help for details on how to change internal memory limits.\n");
+        if (!o.silent && (err & 0x2)) fprintf(stderr, "       Run this program with --help for details on how to change internal memory limits.\n");
 
         return err;
     }
