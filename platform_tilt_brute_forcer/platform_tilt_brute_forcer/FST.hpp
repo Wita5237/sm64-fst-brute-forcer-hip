@@ -184,7 +184,7 @@ struct SKPhase6 {
     float maxPre10KSpeed;
     float minPost10KSpeed;
     float maxPost10KSpeed;
-    double angleDiff;
+    int f3Angle;
 };
 
 struct UpwarpSolution {

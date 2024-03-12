@@ -8,6 +8,7 @@
 # define sinsG(x)              gSineTableG[(unsigned short) (x) >> 4]
 # define cossG(x)              gCosineTableG[(unsigned short) (x) >> 4]
 # define revAtansG(x)          gReverseArctanTableG[(unsigned short) x]
+# define sign(x)               ((x > 0) - (x < 0))
 
 class SurfaceG {
 public:
@@ -509,7 +510,7 @@ __device__ bool check_inbounds(const float* mario_pos) {
     short y_mod = (short)(int)mario_pos[1];
     short z_mod = (short)(int)mario_pos[2];
 
-    return (abs(x_mod) < 8192 & abs(y_mod) < 8192 & abs(z_mod) < 8192);
+    return x_mod >= -8191 && x_mod <= 8192 && y_mod > -3149 && z_mod >= -8191 && z_mod <= 8192;
 }
 
 __global__ void set_platform_pos(float x, float y, float z) {
@@ -827,8 +828,8 @@ __global__ void init_unique_stick_positions() {
                 if (mag >= 4096) {
                     angleCheck[(unsigned short)yaw] = true;
                 }
-                uniqueSticks[nUniqueSticks][0] = xS + 6 * (xS > 0) - 6 * (xS < 0);
-                uniqueSticks[nUniqueSticks][1] = yS + 6 * (yS > 0) - 6 * (yS < 0);
+                uniqueSticks[nUniqueSticks][0] = xS + 6 * sign(xS);
+                uniqueSticks[nUniqueSticks][1] = yS + 6 * sign(yS);
                 nUniqueSticks++;
             }
         }
@@ -993,418 +994,422 @@ __global__ void test_speed_solution(int* squishEdges, const int nPoints, float f
 
             if (floorIdx != -1 && floor->normal[1] == tenKFloors[sol2->tenKFloorIdx][7] && floorHeight < platSol->returnPosition[1] && floorHeight >= platSol->returnPosition[1] - 78.0f && floorHeight > -2971.0f) {
                 int returnSlideYaw = atan2sG(returnVelZ, returnVelX);
-                int newFacingDYaw = (short)(sol2->f2Angle - returnSlideYaw);
 
-                if (newFacingDYaw > 0 && newFacingDYaw <= 0x4000) {
-                    if ((newFacingDYaw -= 0x200) < 0) {
-                        newFacingDYaw = 0;
+                if ((unsigned short)returnSlideYaw == (unsigned short)sol6->f3Angle) {
+                    int newFacingDYaw = (short)(sol2->f2Angle - returnSlideYaw);
+
+                    if (newFacingDYaw > 0 && newFacingDYaw <= 0x4000) {
+                        if ((newFacingDYaw -= 0x200) < 0) {
+                            newFacingDYaw = 0;
+                        }
                     }
-                }
-                else if (newFacingDYaw > -0x4000 && newFacingDYaw < 0) {
-                    if ((newFacingDYaw += 0x200) > 0) {
-                        newFacingDYaw = 0;
+                    else if (newFacingDYaw > -0x4000 && newFacingDYaw < 0) {
+                        if ((newFacingDYaw += 0x200) > 0) {
+                            newFacingDYaw = 0;
+                        }
                     }
-                }
-                else if (newFacingDYaw > 0x4000 && newFacingDYaw < 0x8000) {
-                    if ((newFacingDYaw += 0x200) > 0x8000) {
-                        newFacingDYaw = 0x8000;
+                    else if (newFacingDYaw > 0x4000 && newFacingDYaw < 0x8000) {
+                        if ((newFacingDYaw += 0x200) > 0x8000) {
+                            newFacingDYaw = 0x8000;
+                        }
                     }
-                }
-                else if (newFacingDYaw > -0x8000 && newFacingDYaw < -0x4000) {
-                    if ((newFacingDYaw -= 0x200) < -0x8000) {
-                        newFacingDYaw = -0x8000;
-                    }
-                }
-
-                int returnFaceAngle = returnSlideYaw + newFacingDYaw;
-
-                float postReturnVelX = sol->returnSpeed * sinsG(returnFaceAngle);
-                float postReturnVelZ = sol->returnSpeed * cossG(returnFaceAngle);
-
-                float intendedPosition[3] = { platSol->returnPosition[0] + postReturnVelX / 4.0f, platSol->returnPosition[1], platSol->returnPosition[2] + postReturnVelZ / 4.0f };
-
-                bool outOfBoundsTest = !check_inbounds(intendedPosition);
-
-                for (int f = 0; outOfBoundsTest && f < 3; f++) {
-                    intendedPosition[0] = platSol->landingPositions[f][0] + platSol->landingFloorNormalsY[f] * (postReturnVelX / 4.0f);
-                    intendedPosition[1] = platSol->landingPositions[f][1];
-                    intendedPosition[2] = platSol->landingPositions[f][2] + platSol->landingFloorNormalsY[f] * (postReturnVelZ / 4.0f);
-
-                    outOfBoundsTest = !check_inbounds(intendedPosition);
-                }
-
-                if (outOfBoundsTest) {
-                    frame2Position[1] = floorHeight;
-
-                    float pre10KVelX = pre10KSpeed * sinsG(sol2->f2Angle) + sol->xStrain;
-                    float pre10KVelZ = pre10KSpeed * cossG(sol2->f2Angle) + sol->zStrain;
-
-                    float frame1Position[3] = { frame2Position[0], frame2Position[1], frame2Position[2] };
-
-                    bool inBoundsTest = true;
-
-                    for (int q = 0; q < sol1->q2; q++) {
-                        frame1Position[0] = frame1Position[0] - (pre10KVelX / 4.0f);
-                        frame1Position[2] = frame1Position[2] - (pre10KVelZ / 4.0f);
-
-                        if (!check_inbounds(frame1Position)) {
-                            inBoundsTest = false;
-                            break;
+                    else if (newFacingDYaw > -0x8000 && newFacingDYaw < -0x4000) {
+                        if ((newFacingDYaw -= 0x200) < -0x8000) {
+                            newFacingDYaw = -0x8000;
                         }
                     }
 
-                    if (inBoundsTest) {
-                        floorIdx = find_floor(frame1Position, startTriangles, startNormals, &floorHeight);
+                    int returnFaceAngle = returnSlideYaw + newFacingDYaw;
 
-                        if (floorIdx != -1 && startNormals[floorIdx][1] == floorNormalY && floorHeight + (sol1->q2 * 20.0f / 4.0f) < frame2Position[1] && floorHeight + (sol1->q2 * 20.0f / 4.0f) >= frame2Position[1] - 78.0f && floorHeight > -3071.0f) {
-                            frame1Position[1] = floorHeight;
+                    float postReturnVelX = sol->returnSpeed * sinsG(returnFaceAngle);
+                    float postReturnVelZ = sol->returnSpeed * cossG(returnFaceAngle);
 
-                            float startSpeed = pre10KSpeed + 1.0f;
-                            startSpeed = startSpeed - sol->forwardStrain;
-                            startSpeed = startSpeed + 0.35f;
+                    float intendedPosition[3] = { platSol->returnPosition[0] + postReturnVelX / 4.0f, platSol->returnPosition[1], platSol->returnPosition[2] + postReturnVelZ / 4.0f };
 
-                            float startPositions[2][2][3];
-                            int intersectionIdxs[2];
-                            int intersections = 0;
+                    bool outOfBoundsTest = !check_inbounds(intendedPosition);
 
-                            for (int i = 0; i < nPoints; i++) {
-                                if (squishEdges[i] != -1 && nSquishSpots[squishEdges[i]] > 0) {
-                                    int surfAngle = atan2sG(squishCeilingNormals[squishEdges[i]][2], squishCeilingNormals[squishEdges[i]][0]);
+                    for (int f = 0; outOfBoundsTest && f < 3; f++) {
+                        intendedPosition[0] = platSol->landingPositions[f][0] + platSol->landingFloorNormalsY[f] * (postReturnVelX / 4.0f);
+                        intendedPosition[1] = platSol->landingPositions[f][1];
+                        intendedPosition[2] = platSol->landingPositions[f][2] + platSol->landingFloorNormalsY[f] * (postReturnVelZ / 4.0f);
 
-                                    float xPushVel = sinsG(surfAngle) * 10.0f;
-                                    float zPushVel = cossG(surfAngle) * 10.0f;
+                        outOfBoundsTest = !check_inbounds(intendedPosition);
+                    }
 
-                                    int squishFloorIdx = (squishEdges[i] == 0 || squishEdges[i] == 2) ? 0 : 1;
+                    if (outOfBoundsTest) {
+                        frame2Position[1] = floorHeight;
 
-                                    float xOffset = squishNormals[squishFloorIdx][1] * (xPushVel / 4.0f);
-                                    float zOffset = squishNormals[squishFloorIdx][1] * (zPushVel / 4.0f);
+                        float pre10KVelX = pre10KSpeed * sinsG(sol2->f2Angle) + sol->xStrain;
+                        float pre10KVelZ = pre10KSpeed * cossG(sol2->f2Angle) + sol->zStrain;
 
-                                    float p[2][3];
-                                    float q[2][3];
-                                    int pIdx = 0;
+                        float frame1Position[3] = { frame2Position[0], frame2Position[1], frame2Position[2] };
 
-                                    for (int j = 0; j < 3; j++) {
-                                        if (squishCeilingTriangles[squishEdges[i]][j][0] != platform_pos[0] || squishCeilingTriangles[squishEdges[i]][j][1] != platform_pos[1] || startCeilingTriangles[squishEdges[i]][j][2] != platform_pos[2]) {
-                                            float oo = -(startNormals[squishFloorIdx][0] * startTriangles[squishFloorIdx][0][0] + startNormals[squishFloorIdx][1] * startTriangles[squishFloorIdx][0][1] + startNormals[squishFloorIdx][2] * startTriangles[squishFloorIdx][0][2]);
+                        bool inBoundsTest = true;
 
-                                            p[pIdx][0] = squishCeilingTriangles[squishEdges[i]][j][0] + xOffset;
-                                            p[pIdx][2] = squishCeilingTriangles[squishEdges[i]][j][2] + zOffset;
-                                            p[pIdx][1] = -(p[pIdx][0] * startNormals[squishFloorIdx][0] + startNormals[squishFloorIdx][2] * p[pIdx][2] + oo) / startNormals[squishFloorIdx][1];
+                        for (int q = 0; q < sol1->q2; q++) {
+                            frame1Position[0] = frame1Position[0] - (pre10KVelX / 4.0f);
+                            frame1Position[2] = frame1Position[2] - (pre10KVelZ / 4.0f);
 
-                                            q[pIdx][0] = squishCeilingTriangles[squishEdges[i]][j][0];
-                                            q[pIdx][2] = squishCeilingTriangles[squishEdges[i]][j][2];
-                                            q[pIdx][1] = -(q[pIdx][0] * startNormals[squishFloorIdx][0] + startNormals[squishFloorIdx][2] * q[pIdx][2] + oo) / startNormals[squishFloorIdx][1];
+                            if (!check_inbounds(frame1Position)) {
+                                inBoundsTest = false;
+                                break;
+                            }
+                        }
 
-                                            pIdx++;
+                        if (inBoundsTest) {
+                            floorIdx = find_floor(frame1Position, startTriangles, startNormals, &floorHeight);
+
+                            if (floorIdx != -1 && startNormals[floorIdx][1] == floorNormalY && floorHeight + (sol1->q2 * 20.0f / 4.0f) < frame2Position[1] && floorHeight + (sol1->q2 * 20.0f / 4.0f) >= frame2Position[1] - 78.0f && floorHeight > -3071.0f) {
+                                frame1Position[1] = floorHeight;
+
+                                float startSpeed = pre10KSpeed + 1.0f;
+                                startSpeed = startSpeed - sol->forwardStrain;
+                                startSpeed = startSpeed + 0.35f;
+
+                                float startPositions[2][2][3];
+                                int intersectionIdxs[2];
+                                int intersections = 0;
+
+                                for (int i = 0; i < nPoints; i++) {
+                                    if (squishEdges[i] != -1 && nSquishSpots[squishEdges[i]] > 0) {
+                                        int surfAngle = atan2sG(squishCeilingNormals[squishEdges[i]][2], squishCeilingNormals[squishEdges[i]][0]);
+
+                                        float xPushVel = sinsG(surfAngle) * 10.0f;
+                                        float zPushVel = cossG(surfAngle) * 10.0f;
+
+                                        int squishFloorIdx = (squishEdges[i] == 0 || squishEdges[i] == 2) ? 0 : 1;
+
+                                        float xOffset = squishNormals[squishFloorIdx][1] * (xPushVel / 4.0f);
+                                        float zOffset = squishNormals[squishFloorIdx][1] * (zPushVel / 4.0f);
+
+                                        float p[2][3];
+                                        float q[2][3];
+                                        int pIdx = 0;
+
+                                        for (int j = 0; j < 3; j++) {
+                                            if (squishCeilingTriangles[squishEdges[i]][j][0] != platform_pos[0] || squishCeilingTriangles[squishEdges[i]][j][1] != platform_pos[1] || startCeilingTriangles[squishEdges[i]][j][2] != platform_pos[2]) {
+                                                float oo = -(startNormals[squishFloorIdx][0] * startTriangles[squishFloorIdx][0][0] + startNormals[squishFloorIdx][1] * startTriangles[squishFloorIdx][0][1] + startNormals[squishFloorIdx][2] * startTriangles[squishFloorIdx][0][2]);
+
+                                                p[pIdx][0] = squishCeilingTriangles[squishEdges[i]][j][0] + xOffset;
+                                                p[pIdx][2] = squishCeilingTriangles[squishEdges[i]][j][2] + zOffset;
+                                                p[pIdx][1] = -(p[pIdx][0] * startNormals[squishFloorIdx][0] + startNormals[squishFloorIdx][2] * p[pIdx][2] + oo) / startNormals[squishFloorIdx][1];
+
+                                                q[pIdx][0] = squishCeilingTriangles[squishEdges[i]][j][0];
+                                                q[pIdx][2] = squishCeilingTriangles[squishEdges[i]][j][2];
+                                                q[pIdx][1] = -(q[pIdx][0] * startNormals[squishFloorIdx][0] + startNormals[squishFloorIdx][2] * q[pIdx][2] + oo) / startNormals[squishFloorIdx][1];
+
+                                                pIdx++;
+                                            }
+                                        }
+
+                                        double eqA1 = ((double)p[1][0] - (double)p[0][0]) * ((double)p[1][0] - (double)p[0][0]) + ((double)p[1][2] - (double)p[0][2]) * ((double)p[1][2] - (double)p[0][2]);
+                                        double eqB1 = 2.0 * (((double)p[1][0] - (double)p[0][0]) * ((double)p[0][0] - frame1Position[0]) + ((double)p[1][2] - (double)p[0][2]) * ((double)p[0][2] - frame1Position[2]));
+                                        double eqC1 = ((double)p[0][0] - frame1Position[0]) * ((double)p[0][0] - frame1Position[0]) + ((double)p[0][2] - frame1Position[2]) * ((double)p[0][2] - frame1Position[2]) - ((double)startSpeed * (double)floorNormalY) * ((double)startSpeed * (double)floorNormalY);
+                                        double eqDet1 = eqB1 * eqB1 - 4.0 * eqA1 * eqC1;
+
+                                        double eqA2 = ((double)q[1][0] - (double)q[0][0]) * ((double)q[1][0] - (double)q[0][0]) + ((double)q[1][2] - (double)q[0][2]) * ((double)q[1][2] - (double)q[0][2]);
+                                        double eqB2 = 2.0 * (((double)q[1][0] - (double)q[0][0]) * ((double)q[0][0] - frame1Position[0]) + ((double)q[1][2] - (double)q[0][2]) * ((double)q[0][2] - frame1Position[2]));
+                                        double eqC2 = ((double)q[0][0] - frame1Position[0]) * ((double)q[0][0] - frame1Position[0]) + ((double)q[0][2] - frame1Position[2]) * ((double)q[0][2] - frame1Position[2]) - ((double)startSpeed * (double)floorNormalY) * ((double)startSpeed * (double)floorNormalY);
+                                        double eqDet2 = eqB2 * eqB2 - 4.0 * eqA2 * eqC2;
+
+                                        if (eqDet1 >= 0 && eqDet2 >= 0) {
+                                            double s = (-eqB1 + sqrt(eqDet1)) / (2.0 * eqA1);
+                                            double t = (-eqB2 + sqrt(eqDet2)) / (2.0 * eqA2);
+
+                                            if (s >= 0.0 && s <= 1.0 || t >= 0.0 && t <= 1.0) {
+                                                intersectionIdxs[intersections] = squishEdges[i];
+                                                startPositions[intersections][0][0] = ((double)p[1][0] - (double)p[0][0]) * s + (double)p[0][0];
+                                                startPositions[intersections][0][1] = ((double)p[1][1] - (double)p[0][1]) * s + (double)p[0][1];
+                                                startPositions[intersections][0][2] = ((double)p[1][2] - (double)p[0][2]) * s + (double)p[0][2];
+                                                startPositions[intersections][1][0] = ((double)q[1][0] - (double)q[0][0]) * t + (double)q[0][0];
+                                                startPositions[intersections][1][1] = ((double)q[1][1] - (double)q[0][1]) * t + (double)q[0][1];
+                                                startPositions[intersections][1][2] = ((double)q[1][2] - (double)q[0][2]) * t + (double)q[0][2];
+
+                                                adjust_position_to_ints(startPositions[intersections][0], startPositions[intersections][1], p);
+                                                adjust_position_to_ints(startPositions[intersections][1], startPositions[intersections][0], q);
+
+                                                intersections++;
+                                                continue;
+                                            }
+
+                                            s = (-eqB1 - sqrt(eqDet1)) / (2.0 * eqA1);
+                                            t = (-eqB2 - sqrt(eqDet2)) / (2.0 * eqA2);
+
+                                            if (s >= 0.0 && s <= 1.0 || t >= 0.0 && t <= 1.0) {
+                                                intersectionIdxs[intersections] = squishEdges[i];
+                                                startPositions[intersections][0][0] = ((double)p[1][0] - (double)p[0][0]) * s + (double)p[0][0];
+                                                startPositions[intersections][0][1] = ((double)p[1][1] - (double)p[0][1]) * s + (double)p[0][1];
+                                                startPositions[intersections][0][2] = ((double)p[1][2] - (double)p[0][2]) * s + (double)p[0][2];
+                                                startPositions[intersections][1][0] = ((double)q[1][0] - (double)q[0][0]) * t + (double)q[0][0];
+                                                startPositions[intersections][1][1] = ((double)q[1][1] - (double)q[0][1]) * t + (double)q[0][1];
+                                                startPositions[intersections][1][2] = ((double)q[1][2] - (double)q[0][2]) * t + (double)q[0][2];
+
+                                                adjust_position_to_ints(startPositions[intersections][0], startPositions[intersections][1], p);
+                                                adjust_position_to_ints(startPositions[intersections][1], startPositions[intersections][0], q);
+
+                                                intersections++;
+                                            }
                                         }
                                     }
+                                }
 
-                                    double eqA1 = ((double)p[1][0] - (double)p[0][0]) * ((double)p[1][0] - (double)p[0][0]) + ((double)p[1][2] - (double)p[0][2]) * ((double)p[1][2] - (double)p[0][2]);
-                                    double eqB1 = 2.0 * (((double)p[1][0] - (double)p[0][0]) * ((double)p[0][0] - frame1Position[0]) + ((double)p[1][2] - (double)p[0][2]) * ((double)p[0][2] - frame1Position[2]));
-                                    double eqC1 = ((double)p[0][0] - frame1Position[0]) * ((double)p[0][0] - frame1Position[0]) + ((double)p[0][2] - frame1Position[2]) * ((double)p[0][2] - frame1Position[2]) - ((double)startSpeed * (double)floorNormalY) * ((double)startSpeed * (double)floorNormalY);
-                                    double eqDet1 = eqB1 * eqB1 - 4.0 * eqA1 * eqC1;
+                                for (int i = 0; i < intersections; i++) {
+                                    float lowestPos = nextafterf(-2971.0f, INFINITY);
+                                    float highestPos = nextafterf(-2921.0f - (52.0f * sqrtf(1.0f - floorNormalY * floorNormalY) / floorNormalY), -INFINITY);
 
-                                    double eqA2 = ((double)q[1][0] - (double)q[0][0]) * ((double)q[1][0] - (double)q[0][0]) + ((double)q[1][2] - (double)q[0][2]) * ((double)q[1][2] - (double)q[0][2]);
-                                    double eqB2 = 2.0 * (((double)q[1][0] - (double)q[0][0]) * ((double)q[0][0] - frame1Position[0]) + ((double)q[1][2] - (double)q[0][2]) * ((double)q[0][2] - frame1Position[2]));
-                                    double eqC2 = ((double)q[0][0] - frame1Position[0]) * ((double)q[0][0] - frame1Position[0]) + ((double)q[0][2] - frame1Position[2]) * ((double)q[0][2] - frame1Position[2]) - ((double)startSpeed * (double)floorNormalY) * ((double)startSpeed * (double)floorNormalY);
-                                    double eqDet2 = eqB2 * eqB2 - 4.0 * eqA2 * eqC2;
-
-                                    if (eqDet1 >= 0 && eqDet2 >= 0) {
-                                        double s = (-eqB1 + sqrt(eqDet1)) / (2.0 * eqA1);
-                                        double t = (-eqB2 + sqrt(eqDet2)) / (2.0 * eqA2);
-
-                                        if (s >= 0.0 && s <= 1.0 || t >= 0.0 && t <= 1.0) {
-                                            intersectionIdxs[intersections] = squishEdges[i];
-                                            startPositions[intersections][0][0] = ((double)p[1][0] - (double)p[0][0]) * s + (double)p[0][0];
-                                            startPositions[intersections][0][1] = ((double)p[1][1] - (double)p[0][1]) * s + (double)p[0][1];
-                                            startPositions[intersections][0][2] = ((double)p[1][2] - (double)p[0][2]) * s + (double)p[0][2];
-                                            startPositions[intersections][1][0] = ((double)q[1][0] - (double)q[0][0]) * t + (double)q[0][0];
-                                            startPositions[intersections][1][1] = ((double)q[1][1] - (double)q[0][1]) * t + (double)q[0][1];
-                                            startPositions[intersections][1][2] = ((double)q[1][2] - (double)q[0][2]) * t + (double)q[0][2];
-
-                                            adjust_position_to_ints(startPositions[intersections][0], startPositions[intersections][1], p);
-                                            adjust_position_to_ints(startPositions[intersections][1], startPositions[intersections][0], q);
-
-                                            intersections++;
+                                    if (startPositions[i][0][1] < lowestPos) {
+                                        if (startPositions[i][1][1] < lowestPos) {
                                             continue;
                                         }
-
-                                        s = (-eqB1 - sqrt(eqDet1)) / (2.0 * eqA1);
-                                        t = (-eqB2 - sqrt(eqDet2)) / (2.0 * eqA2);
-
-                                        if (s >= 0.0 && s <= 1.0 || t >= 0.0 && t <= 1.0) {
-                                            intersectionIdxs[intersections] = squishEdges[i];
-                                            startPositions[intersections][0][0] = ((double)p[1][0] - (double)p[0][0]) * s + (double)p[0][0];
-                                            startPositions[intersections][0][1] = ((double)p[1][1] - (double)p[0][1]) * s + (double)p[0][1];
-                                            startPositions[intersections][0][2] = ((double)p[1][2] - (double)p[0][2]) * s + (double)p[0][2];
-                                            startPositions[intersections][1][0] = ((double)q[1][0] - (double)q[0][0]) * t + (double)q[0][0];
-                                            startPositions[intersections][1][1] = ((double)q[1][1] - (double)q[0][1]) * t + (double)q[0][1];
-                                            startPositions[intersections][1][2] = ((double)q[1][2] - (double)q[0][2]) * t + (double)q[0][2];
-
-                                            adjust_position_to_ints(startPositions[intersections][0], startPositions[intersections][1], p);
-                                            adjust_position_to_ints(startPositions[intersections][1], startPositions[intersections][0], q);
-
-                                            intersections++;
+                                        else {
+                                            double t = (lowestPos - startPositions[i][0][1]) / (startPositions[i][1][1] - startPositions[i][0][1]);
+                                            startPositions[i][0][0] = (startPositions[i][1][0] - startPositions[i][0][0]) * t + startPositions[i][0][0];
+                                            startPositions[i][0][1] = (startPositions[i][1][1] - startPositions[i][0][1]) * t + startPositions[i][0][1];
+                                            startPositions[i][0][2] = (startPositions[i][1][2] - startPositions[i][0][2]) * t + startPositions[i][0][2];
                                         }
                                     }
-                                }
-                            }
-
-                            for (int i = 0; i < intersections; i++) {
-                                float lowestPos = nextafterf(-2971.0f, INFINITY);
-                                float highestPos = nextafterf(-2921.0f - (52.0f * sqrtf(1.0f - floorNormalY * floorNormalY) / floorNormalY), -INFINITY);
-
-                                if (startPositions[i][0][1] < lowestPos) {
-                                    if (startPositions[i][1][1] < lowestPos) {
-                                        continue;
-                                    }
-                                    else {
+                                    else if (startPositions[i][1][1] < lowestPos) {
                                         double t = (lowestPos - startPositions[i][0][1]) / (startPositions[i][1][1] - startPositions[i][0][1]);
-                                        startPositions[i][0][0] = (startPositions[i][1][0] - startPositions[i][0][0]) * t + startPositions[i][0][0];
-                                        startPositions[i][0][1] = (startPositions[i][1][1] - startPositions[i][0][1]) * t + startPositions[i][0][1];
-                                        startPositions[i][0][2] = (startPositions[i][1][2] - startPositions[i][0][2]) * t + startPositions[i][0][2];
+                                        startPositions[i][1][0] = (startPositions[i][1][0] - startPositions[i][0][0]) * t + startPositions[i][0][0];
+                                        startPositions[i][1][1] = (startPositions[i][1][1] - startPositions[i][0][1]) * t + startPositions[i][0][1];
+                                        startPositions[i][1][2] = (startPositions[i][1][2] - startPositions[i][0][2]) * t + startPositions[i][0][2];
                                     }
-                                }
-                                else if (startPositions[i][1][1] < lowestPos) {
-                                    double t = (lowestPos - startPositions[i][0][1]) / (startPositions[i][1][1] - startPositions[i][0][1]);
-                                    startPositions[i][1][0] = (startPositions[i][1][0] - startPositions[i][0][0]) * t + startPositions[i][0][0];
-                                    startPositions[i][1][1] = (startPositions[i][1][1] - startPositions[i][0][1]) * t + startPositions[i][0][1];
-                                    startPositions[i][1][2] = (startPositions[i][1][2] - startPositions[i][0][2]) * t + startPositions[i][0][2];
-                                }
 
-                                if (startPositions[i][0][1] > highestPos) {
-                                    if (startPositions[i][1][1] > highestPos) {
-                                        continue;
+                                    if (startPositions[i][0][1] > highestPos) {
+                                        if (startPositions[i][1][1] > highestPos) {
+                                            continue;
+                                        }
+                                        else {
+                                            double t = (highestPos - startPositions[i][0][1]) / (startPositions[i][1][1] - startPositions[i][0][1]);
+                                            startPositions[i][0][0] = (startPositions[i][1][0] - startPositions[i][0][0]) * t + startPositions[i][0][0];
+                                            startPositions[i][0][1] = (startPositions[i][1][1] - startPositions[i][0][1]) * t + startPositions[i][0][1];
+                                            startPositions[i][0][2] = (startPositions[i][1][2] - startPositions[i][0][2]) * t + startPositions[i][0][2];
+                                        }
                                     }
-                                    else {
+                                    else if (startPositions[i][1][1] > highestPos) {
                                         double t = (highestPos - startPositions[i][0][1]) / (startPositions[i][1][1] - startPositions[i][0][1]);
-                                        startPositions[i][0][0] = (startPositions[i][1][0] - startPositions[i][0][0]) * t + startPositions[i][0][0];
-                                        startPositions[i][0][1] = (startPositions[i][1][1] - startPositions[i][0][1]) * t + startPositions[i][0][1];
-                                        startPositions[i][0][2] = (startPositions[i][1][2] - startPositions[i][0][2]) * t + startPositions[i][0][2];
+                                        startPositions[i][1][0] = (startPositions[i][1][0] - startPositions[i][0][0]) * t + startPositions[i][0][0];
+                                        startPositions[i][1][1] = (startPositions[i][1][1] - startPositions[i][0][1]) * t + startPositions[i][0][1];
+                                        startPositions[i][1][2] = (startPositions[i][1][2] - startPositions[i][0][2]) * t + startPositions[i][0][2];
+
                                     }
-                                }
-                                else if (startPositions[i][1][1] > highestPos) {
-                                    double t = (highestPos - startPositions[i][0][1]) / (startPositions[i][1][1] - startPositions[i][0][1]);
-                                    startPositions[i][1][0] = (startPositions[i][1][0] - startPositions[i][0][0]) * t + startPositions[i][0][0];
-                                    startPositions[i][1][1] = (startPositions[i][1][1] - startPositions[i][0][1]) * t + startPositions[i][0][1];
-                                    startPositions[i][1][2] = (startPositions[i][1][2] - startPositions[i][0][2]) * t + startPositions[i][0][2];
 
-                                }
+                                    int f1Angle0 = atan2sG(frame1Position[2] - startPositions[i][0][2], frame1Position[0] - startPositions[i][0][0]);
+                                    int f1Angle1 = atan2sG(frame1Position[2] - startPositions[i][1][2], frame1Position[0] - startPositions[i][1][0]);
 
-                                int f1Angle0 = atan2sG(frame1Position[2] - startPositions[i][0][2], frame1Position[0] - startPositions[i][0][0]);
-                                int f1Angle1 = atan2sG(frame1Position[2] - startPositions[i][1][2], frame1Position[0] - startPositions[i][1][0]);
+                                    if ((unsigned short)(f1Angle1 - f1Angle0) > 32768) {
+                                        int temp = f1Angle0;
+                                        f1Angle0 = f1Angle1;
+                                        f1Angle1 = temp;
+                                    }
 
-                                if ((unsigned short)(f1Angle1 - f1Angle0) > 32768) {
-                                    int temp = f1Angle0;
-                                    f1Angle0 = f1Angle1;
-                                    f1Angle1 = temp;
-                                }
+                                    if ((unsigned short)(sol5->f1Angle - f1Angle0) <= (unsigned short)(f1Angle1 - f1Angle0)) {
+                                        float minBullyX = INFINITY;
+                                        float maxBullyX = -INFINITY;
+                                        float minBullyZ = INFINITY;
+                                        float maxBullyZ = -INFINITY;
+                                        int minPushAngle = INT_MAX;
+                                        int maxPushAngle = INT_MIN;
+                                        int refPushAngle = 65536;
 
-                                if ((unsigned short)(sol5->f1Angle - f1Angle0) <= (unsigned short)(f1Angle1 - f1Angle0)) {
-                                    float minBullyX = INFINITY;
-                                    float maxBullyX = -INFINITY;
-                                    float minBullyZ = INFINITY;
-                                    float maxBullyZ = -INFINITY;
-                                    int minPushAngle = INT_MAX;
-                                    int maxPushAngle = INT_MIN;
-                                    int refPushAngle = 65536;
+                                        const float accel = 7.0f;
+                                        const float pushRadius = 115.0f;
+                                        const float bullyHurtbox = 63.0f;
+                                        const float baseBullySpeed = powf(2.0f, 24);
+                                        const float maxBullySpeed = nextafterf(powf(2.0f, 30), -INFINITY);
 
-                                    const float accel = 7.0f;
-                                    const float pushRadius = 115.0f;
-                                    const float bullyHurtbox = 63.0f;
-                                    const float baseBullySpeed = powf(2.0f, 24);
-                                    const float maxBullySpeed = nextafterf(powf(2.0f, 30), -INFINITY);
+                                        int surfAngle = atan2sG(squishCeilingNormals[intersectionIdxs[i]][2], squishCeilingNormals[intersectionIdxs[i]][0]);
 
-                                    int surfAngle = atan2sG(squishCeilingNormals[intersectionIdxs[i]][2], squishCeilingNormals[intersectionIdxs[i]][0]);
+                                        float xPushVel = sinsG(surfAngle) * 10.0f;
+                                        float zPushVel = cossG(surfAngle) * 10.0f;
 
-                                    float xPushVel = sinsG(surfAngle) * 10.0f;
-                                    float zPushVel = cossG(surfAngle) * 10.0f;
+                                        int squishFloorIdx = (intersectionIdxs[i] == 0 || intersectionIdxs[i] == 2) ? 0 : 1;
 
-                                    int squishFloorIdx = (intersectionIdxs[i] == 0 || intersectionIdxs[i] == 2) ? 0 : 1;
+                                        int slopeAngle = atan2sG(startNormals[squishFloorIdx][2], startNormals[squishFloorIdx][0]);
 
-                                    int slopeAngle = atan2sG(startNormals[squishFloorIdx][2], startNormals[squishFloorIdx][0]);
+                                        float steepness = sqrtf(startNormals[squishFloorIdx][0] * startNormals[squishFloorIdx][0] + startNormals[squishFloorIdx][2] * startNormals[squishFloorIdx][2]);
 
-                                    float steepness = sqrtf(startNormals[squishFloorIdx][0] * startNormals[squishFloorIdx][0] + startNormals[squishFloorIdx][2] * startNormals[squishFloorIdx][2]);
+                                        float slopeXVel = accel * steepness * sinsG(slopeAngle);
+                                        float slopeZVel = accel * steepness * cossG(slopeAngle);
 
-                                    float slopeXVel = accel * steepness * sinsG(slopeAngle);
-                                    float slopeZVel = accel * steepness * cossG(slopeAngle);
+                                        for (int j = 0; j < 2; j++) {
+                                            float currentX = startPositions[i][j][0];
+                                            float currentZ = startPositions[i][j][2];
 
-                                    for (int j = 0; j < 2; j++) {
-                                        float currentX = startPositions[i][j][0];
-                                        float currentZ = startPositions[i][j][2];
+                                            for (int k = 0; k < 3; k++) {
+                                                float bullyPushX = currentX - xPushVel / 4.0f;
+                                                float bullyPushZ = currentZ - zPushVel / 4.0f;
 
-                                        for (int k = 0; k < 3; k++) {
-                                            float bullyPushX = currentX - xPushVel / 4.0f;
-                                            float bullyPushZ = currentZ - zPushVel / 4.0f;
+                                                int minAngle = INT_MAX;
+                                                int maxAngle = INT_MIN;
+                                                int refAngle = 65536;
 
-                                            int minAngle = INT_MAX;
-                                            int maxAngle = INT_MIN;
-                                            int refAngle = 65536;
+                                                for (int l = 0; l < min(nSquishSpots[intersectionIdxs[i]], limits.MAX_SQUISH_SPOTS); l++) {
+                                                    float signX = sign(squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l)]);
+                                                    float signZ = sign(squishSpots[(2 * l) + 1]);
 
-                                            for (int l = 0; l < min(nSquishSpots[intersectionIdxs[i]], limits.MAX_SQUISH_SPOTS); l++) {
-                                                float signX = (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l)] > 0) - (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l)] < 0);
-                                                float signZ = (squishSpots[(2 * l) + 1] > 0) - (squishSpots[(2 * l) + 1] < 0);
+                                                    for (int m = 0; m < 4; m++) {
+                                                        float xDist = bullyPushX - (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l)] + signX * (m % 2));
+                                                        float zDist = bullyPushZ - (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l) + 1] + signZ * (m / 2));
 
-                                                for (int m = 0; m < 4; m++) {
-                                                    float xDist = bullyPushX - (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l)] + signX * (m % 2));
-                                                    float zDist = bullyPushZ - (squishSpots[(2 * intersectionIdxs[i] * limits.MAX_SQUISH_SPOTS) + (2 * l) + 1] + signZ * (m / 2));
+                                                        float dist = sqrtf(xDist * xDist + zDist * zDist);
 
-                                                    float dist = sqrtf(xDist * xDist + zDist * zDist);
+                                                        if (dist >= pushRadius - bullyHurtbox && dist <= pushRadius - fmaxf(bullyHurtbox - 2.0f * maxSlidingSpeed - 1.85f, 0.0f)) {
+                                                            int angle = (unsigned short)atan2sG(zDist, xDist);
 
-                                                    if (dist >= pushRadius - bullyHurtbox && dist <= pushRadius - fmaxf(bullyHurtbox - 2.0f * maxSlidingSpeed - 1.85f, 0.0f)) {
-                                                        int angle = (unsigned short)atan2sG(zDist, xDist);
+                                                            int angleDiff = (short)(angle - uphillAngle);
 
-                                                        int angleDiff = (short)(angle - uphillAngle);
+                                                            if (angleDiff < -0x4000 || angleDiff > 0x4000) {
+                                                                if (refAngle == 65536) {
+                                                                    refAngle = angle;
+                                                                }
 
-                                                        if (angleDiff < -0x4000 || angleDiff > 0x4000) {
-                                                            if (refAngle == 65536) {
-                                                                refAngle = angle;
+                                                                minAngle = min(minAngle, (int)(short)(angle - refAngle));
+                                                                maxAngle = max(maxAngle, (int)(short)(angle - refAngle));
                                                             }
-
-                                                            minAngle = min(minAngle, (int)(short)(angle - refAngle));
-                                                            maxAngle = max(maxAngle, (int)(short)(angle - refAngle));
                                                         }
                                                     }
                                                 }
-                                            }
 
-                                            if (refAngle != 65536) {
-                                                minAngle = (unsigned short)(minAngle + refAngle);
-                                                maxAngle = (unsigned short)(maxAngle + refAngle);
+                                                if (refAngle != 65536) {
+                                                    minAngle = (unsigned short)(minAngle + refAngle);
+                                                    maxAngle = (unsigned short)(maxAngle + refAngle);
 
-                                                if (minAngle > maxAngle) {
-                                                    minBullyX = fminf(minBullyX, bullyPushX - pushRadius);
+                                                    if (minAngle > maxAngle) {
+                                                        minBullyX = fminf(minBullyX, bullyPushX - pushRadius);
+                                                    }
+                                                    else {
+                                                        minBullyX = fminf(minBullyX, bullyPushX - pushRadius * sinsG(minAngle));
+                                                        minBullyX = fminf(minBullyX, bullyPushX - pushRadius * sinsG(maxAngle));
+                                                    }
+
+                                                    if (minAngle < 16384 && maxAngle > 16384) {
+                                                        minBullyZ = fminf(minBullyZ, bullyPushZ - pushRadius);
+                                                    }
+                                                    else {
+                                                        minBullyZ = fminf(minBullyZ, bullyPushZ - pushRadius * cossG(minAngle));
+                                                        minBullyZ = fminf(minBullyZ, bullyPushZ - pushRadius * cossG(maxAngle));
+                                                    }
+
+                                                    if (minAngle < 32768 && maxAngle > 32768) {
+                                                        maxBullyX = fmaxf(maxBullyX, bullyPushX - pushRadius);
+                                                    }
+                                                    else {
+                                                        maxBullyX = fmaxf(maxBullyX, bullyPushX - pushRadius * sinsG(minAngle));
+                                                        maxBullyX = fmaxf(maxBullyX, bullyPushX - pushRadius * sinsG(maxAngle));
+                                                    }
+
+                                                    if (minAngle < 49152 && maxAngle > 49152) {
+                                                        maxBullyZ = fmaxf(maxBullyZ, bullyPushZ - pushRadius);
+                                                    }
+                                                    else {
+                                                        maxBullyZ = fmaxf(maxBullyZ, bullyPushZ - pushRadius * cossG(minAngle));
+                                                        maxBullyZ = fmaxf(maxBullyZ, bullyPushZ - pushRadius * cossG(maxAngle));
+                                                    }
+
+                                                    if (refPushAngle == 65536) {
+                                                        refPushAngle = minAngle;
+                                                    }
+
+                                                    minPushAngle = min(minPushAngle, (int)(short)(minAngle - refAngle));
+                                                    maxPushAngle = max(maxPushAngle, (int)(short)(maxAngle - refAngle));
                                                 }
-                                                else {
-                                                    minBullyX = fminf(minBullyX, bullyPushX - pushRadius * sinsG(minAngle));
-                                                    minBullyX = fminf(minBullyX, bullyPushX - pushRadius * sinsG(maxAngle));
-                                                }
 
-                                                if (minAngle < 16384 && maxAngle > 16384) {
-                                                    minBullyZ = fminf(minBullyZ, bullyPushZ - pushRadius);
-                                                }
-                                                else {
-                                                    minBullyZ = fminf(minBullyZ, bullyPushZ - pushRadius * cossG(minAngle));
-                                                    minBullyZ = fminf(minBullyZ, bullyPushZ - pushRadius * cossG(maxAngle));
-                                                }
-
-                                                if (minAngle < 32768 && maxAngle > 32768) {
-                                                    maxBullyX = fmaxf(maxBullyX, bullyPushX - pushRadius);
-                                                }
-                                                else {
-                                                    maxBullyX = fmaxf(maxBullyX, bullyPushX - pushRadius * sinsG(minAngle));
-                                                    maxBullyX = fmaxf(maxBullyX, bullyPushX - pushRadius * sinsG(maxAngle));
-                                                }
-
-                                                if (minAngle < 49152 && maxAngle > 49152) {
-                                                    maxBullyZ = fmaxf(maxBullyZ, bullyPushZ - pushRadius);
-                                                }
-                                                else {
-                                                    maxBullyZ = fmaxf(maxBullyZ, bullyPushZ - pushRadius * cossG(minAngle));
-                                                    maxBullyZ = fmaxf(maxBullyZ, bullyPushZ - pushRadius * cossG(maxAngle));
-                                                }
-
-                                                if (refPushAngle == 65536) {
-                                                    refPushAngle = minAngle;
-                                                }
-
-                                                minPushAngle = min(minPushAngle, (int)(short)(minAngle - refAngle));
-                                                maxPushAngle = max(maxPushAngle, (int)(short)(maxAngle - refAngle));
-                                            }
-
-                                            currentX = currentX - squishNormals[squishFloorIdx][1] * xPushVel / 4.0f;
-                                            currentZ = currentZ - squishNormals[squishFloorIdx][1] * zPushVel / 4.0f;
-                                        }
-                                    }
-
-                                    if (refPushAngle != 65536) {
-                                        minPushAngle = minPushAngle + refPushAngle;
-                                        maxPushAngle = maxPushAngle + refPushAngle;
-
-                                        float xDiff2;
-
-                                        if (minBullyX == maxBullyX) {
-                                            int precision;
-                                            frexpf(minBullyX, &precision);
-                                            xDiff2 = powf(2.0f, precision - 24);
-                                        }
-                                        else {
-                                            xDiff2 = powf(2.0f, floorf(log2f(maxBullyX - minBullyX)));
-
-                                            while (floorf(maxBullyX / (2.0f * xDiff2)) >= ceilf(minBullyX / (2.0f * xDiff2))) {
-                                                xDiff2 = xDiff2 * 2.0f;
+                                                currentX = currentX - squishNormals[squishFloorIdx][1] * xPushVel / 4.0f;
+                                                currentZ = currentZ - squishNormals[squishFloorIdx][1] * zPushVel / 4.0f;
                                             }
                                         }
 
-                                        float zDiff2;
+                                        if (refPushAngle != 65536) {
+                                            minPushAngle = minPushAngle + refPushAngle;
+                                            maxPushAngle = maxPushAngle + refPushAngle;
 
-                                        if (minBullyZ == maxBullyZ) {
-                                            int precision;
-                                            frexpf(minBullyZ, &precision);
-                                            zDiff2 = powf(2.0f, precision - 24);
-                                        }
-                                        else {
-                                            zDiff2 = powf(2.0f, floorf(log2f(maxBullyZ - minBullyZ)));
+                                            float xDiff2;
 
-                                            while (floorf(maxBullyZ / (2.0f * zDiff2)) >= ceilf(minBullyZ / (2.0f * zDiff2))) {
-                                                zDiff2 = zDiff2 * 2.0f;
+                                            if (minBullyX == maxBullyX) {
+                                                int precision;
+                                                frexpf(minBullyX, &precision);
+                                                xDiff2 = powf(2.0f, precision - 24);
                                             }
-                                        }
+                                            else {
+                                                xDiff2 = powf(2.0f, floorf(log2f(maxBullyX - minBullyX)));
 
-                                        float maxBullyXSpeed = fminf(nextafterf(xDiff2 * baseBullySpeed, -INFINITY), maxBullySpeed);
-                                        float maxBullyZSpeed = fminf(nextafterf(zDiff2 * baseBullySpeed, -INFINITY), maxBullySpeed);
+                                                while (floorf(maxBullyX / (2.0f * xDiff2)) >= ceilf(minBullyX / (2.0f * xDiff2))) {
+                                                    xDiff2 = xDiff2 * 2.0f;
+                                                }
+                                            }
 
-                                        float maxPushSpeed;
+                                            float zDiff2;
 
-                                        int maxSpeedAngle = atan2sG(maxBullyXSpeed, maxBullyZSpeed);
+                                            if (minBullyZ == maxBullyZ) {
+                                                int precision;
+                                                frexpf(minBullyZ, &precision);
+                                                zDiff2 = powf(2.0f, precision - 24);
+                                            }
+                                            else {
+                                                zDiff2 = powf(2.0f, floorf(log2f(maxBullyZ - minBullyZ)));
 
-                                        if ((unsigned short)(maxSpeedAngle - minPushAngle) <= (unsigned short)(maxPushAngle - minPushAngle)) {
-                                            maxPushSpeed = (fabsf(maxBullyXSpeed * sinsG(maxSpeedAngle)) + fabsf(maxBullyZSpeed * cossG(maxSpeedAngle))) * (73.0f / 53.0f) * 3.0f;
-                                        }
-                                        else {
-                                            float minAngleSpeed = (fabsf(maxBullyXSpeed * sinsG(minPushAngle)) + fabsf(maxBullyZSpeed * cossG(minPushAngle))) * (73.0f / 53.0f) * 3.0f;
-                                            float maxAngleSpeed = (fabsf(maxBullyXSpeed * sinsG(maxPushAngle)) + fabsf(maxBullyZSpeed * cossG(maxPushAngle))) * (73.0f / 53.0f) * 3.0f;
-                                            maxPushSpeed = fmaxf(minAngleSpeed, maxAngleSpeed);
-                                        }
+                                                while (floorf(maxBullyZ / (2.0f * zDiff2)) >= ceilf(minBullyZ / (2.0f * zDiff2))) {
+                                                    zDiff2 = zDiff2 * 2.0f;
+                                                }
+                                            }
 
-                                        float maxLossFactor = (-1.0 * (0.5f + 0.5f * maxPushSpeed / 100.0f)) * 0.02 + 0.92;
+                                            float maxBullyXSpeed = fminf(nextafterf(xDiff2 * baseBullySpeed, -INFINITY), maxBullySpeed);
+                                            float maxBullyZSpeed = fminf(nextafterf(zDiff2 * baseBullySpeed, -INFINITY), maxBullySpeed);
 
-                                        float post10KXVel = (frame1Position[0] - ((startPositions[i][0][0] + startPositions[i][1][0]) / 2.0f)) / startNormals[squishFloorIdx][1];
-                                        float post10KZVel = (frame1Position[2] - ((startPositions[i][0][2] + startPositions[i][1][2]) / 2.0f)) / startNormals[squishFloorIdx][1];
+                                            float maxPushSpeed;
 
-                                        float slidingSpeedX = (post10KXVel / maxLossFactor) - slopeXVel;
-                                        float slidingSpeedZ = (post10KZVel / maxLossFactor) - slopeZVel;
+                                            int maxSpeedAngle = atan2sG(maxBullyXSpeed, maxBullyZSpeed);
 
-                                        float slidingSpeedToPlatformOptions[4] = { -slidingSpeedX, slidingSpeedZ, -slidingSpeedZ, slidingSpeedX };
+                                            if ((unsigned short)(maxSpeedAngle - minPushAngle) <= (unsigned short)(maxPushAngle - minPushAngle)) {
+                                                maxPushSpeed = (fabsf(maxBullyXSpeed * sinsG(maxSpeedAngle)) + fabsf(maxBullyZSpeed * cossG(maxSpeedAngle))) * (73.0f / 53.0f) * 3.0f;
+                                            }
+                                            else {
+                                                float minAngleSpeed = (fabsf(maxBullyXSpeed * sinsG(minPushAngle)) + fabsf(maxBullyZSpeed * cossG(minPushAngle))) * (73.0f / 53.0f) * 3.0f;
+                                                float maxAngleSpeed = (fabsf(maxBullyXSpeed * sinsG(maxPushAngle)) + fabsf(maxBullyZSpeed * cossG(maxPushAngle))) * (73.0f / 53.0f) * 3.0f;
+                                                maxPushSpeed = fmaxf(minAngleSpeed, maxAngleSpeed);
+                                            }
 
-                                        float slidingSpeedToPlatform = slidingSpeedToPlatformOptions[intersectionIdxs[i]];
+                                            float maxLossFactor = (-1.0 * (0.5f + 0.5f * maxPushSpeed / 100.0f)) * 0.02 + 0.92;
 
-                                        if (fabsf(slidingSpeedX) <= maxSlidingSpeed && fabsf(slidingSpeedZ) <= maxSlidingSpeed && slidingSpeedToPlatform <= maxSlidingSpeedToPlatform) {
-                                            int solIdx = atomicAdd(&(counts.n10KSolutions), 1);
+                                            float post10KXVel = (frame1Position[0] - ((startPositions[i][0][0] + startPositions[i][1][0]) / 2.0f)) / startNormals[squishFloorIdx][1];
+                                            float post10KZVel = (frame1Position[2] - ((startPositions[i][0][2] + startPositions[i][1][2]) / 2.0f)) / startNormals[squishFloorIdx][1];
 
-                                            if (solIdx < limits.MAX_10K_SOLUTIONS) {
-                                                struct TenKSolution* solution = &(solutions.tenKSolutions[solIdx]);
-                                                solution->speedSolutionIdx = idx;
-                                                solution->departureSpeed = startSpeed;
-                                                solution->pre10KVel[0] = pre10KVelX;
-                                                solution->pre10KVel[1] = pre10KVelZ;
-                                                solution->returnVel[0] = returnVelX;
-                                                solution->returnVel[1] = returnVelZ;
-                                                solution->frame2Position[0] = frame2Position[0];
-                                                solution->frame2Position[1] = frame2Position[1];
-                                                solution->frame2Position[2] = frame2Position[2];
-                                                solution->frame1Position[0] = frame1Position[0];
-                                                solution->frame1Position[1] = frame1Position[1];
-                                                solution->frame1Position[2] = frame1Position[2];
-                                                solution->startPosition[0][0] = startPositions[i][0][0];
-                                                solution->startPosition[0][1] = startPositions[i][0][1];
-                                                solution->startPosition[0][2] = startPositions[i][0][2];
-                                                solution->startPosition[1][0] = startPositions[i][1][0];
-                                                solution->startPosition[1][1] = startPositions[i][1][1];
-                                                solution->startPosition[1][2] = startPositions[i][1][2];
-                                                solution->squishCeiling = intersectionIdxs[i];
-                                                solution->bdSetups = 0;
-                                                solution->bpSetups = 0;
+                                            float slidingSpeedX = (post10KXVel / maxLossFactor) - slopeXVel;
+                                            float slidingSpeedZ = (post10KZVel / maxLossFactor) - slopeZVel;
+
+                                            float slidingSpeedToPlatformOptions[4] = { -slidingSpeedX, slidingSpeedZ, -slidingSpeedZ, slidingSpeedX };
+
+                                            float slidingSpeedToPlatform = slidingSpeedToPlatformOptions[intersectionIdxs[i]];
+
+                                            if (fabsf(slidingSpeedX) <= maxSlidingSpeed && fabsf(slidingSpeedZ) <= maxSlidingSpeed && slidingSpeedToPlatform <= maxSlidingSpeedToPlatform) {
+                                                int solIdx = atomicAdd(&(counts.n10KSolutions), 1);
+
+                                                if (solIdx < limits.MAX_10K_SOLUTIONS) {
+
+                                                    struct TenKSolution* solution = &(solutions.tenKSolutions[solIdx]);
+                                                    solution->speedSolutionIdx = idx;
+                                                    solution->departureSpeed = startSpeed;
+                                                    solution->pre10KVel[0] = pre10KVelX;
+                                                    solution->pre10KVel[1] = pre10KVelZ;
+                                                    solution->returnVel[0] = returnVelX;
+                                                    solution->returnVel[1] = returnVelZ;
+                                                    solution->frame2Position[0] = frame2Position[0];
+                                                    solution->frame2Position[1] = frame2Position[1];
+                                                    solution->frame2Position[2] = frame2Position[2];
+                                                    solution->frame1Position[0] = frame1Position[0];
+                                                    solution->frame1Position[1] = frame1Position[1];
+                                                    solution->frame1Position[2] = frame1Position[2];
+                                                    solution->startPosition[0][0] = startPositions[i][0][0];
+                                                    solution->startPosition[0][1] = startPositions[i][0][1];
+                                                    solution->startPosition[0][2] = startPositions[i][0][2];
+                                                    solution->startPosition[1][0] = startPositions[i][1][0];
+                                                    solution->startPosition[1][1] = startPositions[i][1][1];
+                                                    solution->startPosition[1][2] = startPositions[i][1][2];
+                                                    solution->squishCeiling = intersectionIdxs[i];
+                                                    solution->bdSetups = 0;
+                                                    solution->bpSetups = 0;
+                                                }
                                             }
                                         }
                                     }
@@ -1437,14 +1442,14 @@ __global__ void find_speed_solutions() {
         struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(solutions.sk2ASolutions[sol3->p2Idx]) : &(solutions.sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(solutions.sk2CSolutions[sol3->p2Idx]) : &(solutions.sk2DSolutions[sol3->p2Idx]));
         struct SKPhase1* sol1 = &(solutions.sk1Solutions[sol2->p1Idx]);
 
-        float signF = (strain->forwardStrain > 0) - (strain->forwardStrain < 0);
+        float signF = sign(strain->forwardStrain);
         float fStrain = strain->forwardStrain;
         float prevFStrain = strain->forwardStrain - signF*1.5f/(float)maxFSpeedLevels;
 
         fStrain = roundf(fStrain / sol->speedRange) * sol->speedRange;
         prevFStrain = roundf(prevFStrain / sol->speedRange) * sol->speedRange;
 
-        float signS = (strain->sidewardStrain > 0) - (strain->sidewardStrain < 0);
+        float signS = sign(strain->sidewardStrain);
         float prevSStrain = strain->sidewardStrain - signS * 10.0f / (float)maxSSpeedLevels;
 
         float xStrain = strain->sidewardStrain * cossG(sol2->f2Angle);
@@ -1465,10 +1470,10 @@ __global__ void find_speed_solutions() {
             float minZ = 65536.0f * sol3->z2 + tenKFloors[sol2->tenKFloorIdx][2];
             float maxZ = 65536.0f * sol3->z2 + tenKFloors[sol2->tenKFloorIdx][3];
 
-            minX = nextafter(minX + (minX > 0) - (minX < 0), 0.0f);
-            maxX = nextafter(maxX + (maxX > 0) - (maxX < 0), 0.0f);
-            minZ = nextafter(minZ + (minZ > 0) - (minZ < 0), 0.0f);
-            maxZ = nextafter(maxZ + (maxZ > 0) - (maxZ < 0), 0.0f);
+            minX = nextafter(minX + sign(minX), 0.0f);
+            maxX = nextafter(maxX + sign(maxX), 0.0f);
+            minZ = nextafter(minZ + sign(minZ), 0.0f);
+            maxZ = nextafter(maxZ + sign(maxZ), 0.0f);
 
             float minSpeed = sol->minSpeed;
             float maxSpeed = sol->maxSpeed;
@@ -2136,6 +2141,206 @@ __global__ void find_speed_solutions() {
     }
 }
 
+__device__ float next_out_of_bounds_speed(float currentSpeed, float floorNormalY, float* position, int angle, int searchDir) {
+    angle = (unsigned short)angle;
+    searchDir = sign(searchDir);
+
+    float sinAngle = sinsG(angle);
+    float cosAngle = cossG(angle);
+
+    float xVel = sinAngle * currentSpeed;
+    float zVel = cosAngle * currentSpeed;
+
+    float nextPosition[3] = { position[0] + floorNormalY * (xVel / 4.0f), position[1], position[2] + floorNormalY * (zVel / 4.0f) };
+
+    bool inBounds = check_inbounds(nextPosition);
+
+    if (!inBounds) {
+        return currentSpeed;
+    }
+    else {
+        float nextSpeedX;
+        float nextSpeedZ;
+
+        if (sinAngle == 0) {
+            nextSpeedX = searchDir * INFINITY;
+        }
+        else {
+            int xDir = sign(sinAngle) * searchDir;
+            float nextOOBX = 65536.0f * floorf((nextPosition[0] - -8192.0f) / 65536.0f) + (xDir * 8192.5f + 0.5f);
+
+            while ((short)(int)nextOOBX >= -8191 && (short)(int)nextOOBX <= 8192) {
+                nextOOBX = nextafterf(nextOOBX, xDir * INFINITY);
+            }
+
+            nextSpeedX = 4.0f * ((nextOOBX - position[0]) / floorNormalY) / sinAngle;
+
+            short nextPositionX = (short)(int)(position[0] + floorNormalY * ((sinAngle * nextSpeedX) / 4.0f));
+
+            while (nextPositionX >= -8191 && nextPositionX <= 8192) {
+                nextSpeedX = nextafterf(nextSpeedX, searchDir * INFINITY);
+                nextPositionX = (short)(int)(position[0] + floorNormalY * ((sinAngle * nextSpeedX) / 4.0f));
+            }
+        }
+
+        if (cosAngle == 0) {
+            nextSpeedZ = searchDir * INFINITY;
+        }
+        else {
+            int zDir = sign(cosAngle) * searchDir;
+            float nextOOBZ = 65536.0f * floorf((nextPosition[2] - -8192.0f) / 65536.0f) + (zDir * 8192.5f + 0.5f);
+
+            while ((short)(int)nextOOBZ >= -8191 && (short)(int)nextOOBZ <= 8192) {
+                nextOOBZ = nextafterf(nextOOBZ, zDir * INFINITY);
+            }
+
+            nextSpeedZ = 4.0f * ((nextOOBZ - position[2]) / floorNormalY) / cosAngle;
+
+            short nextPositionZ = (short)(int)(position[2] + floorNormalY * ((cosAngle * nextSpeedZ) / 4.0f));
+
+            while (nextPositionZ >= -8191 && nextPositionZ <= 8192) {
+                nextSpeedZ = nextafterf(nextSpeedZ, searchDir * INFINITY);
+                nextPositionZ = (short)(int)(position[2] + floorNormalY * ((cosAngle * nextSpeedZ) / 4.0f));
+            }
+        }
+
+        return searchDir * fminf(searchDir * nextSpeedX, searchDir * nextSpeedZ);
+    }
+}
+
+__device__ float next_in_bounds_speed(float currentSpeed, float floorNormalY, float* position, int angle, int searchDir) {
+    angle = (unsigned short)angle;
+    searchDir = sign(searchDir);
+
+    float oobSpeed = next_out_of_bounds_speed(currentSpeed, floorNormalY, position, angle, searchDir);
+
+    float sinAngle = sinsG(angle);
+    float cosAngle = cossG(angle);
+
+    if (sinAngle == 0) {
+        short xInt = (short)(int)position[0];
+
+        if (xInt < -8191 || xInt > 8192) {
+            return searchDir * INFINITY;
+        }
+    }
+
+    if (cosAngle == 0) {
+        short zInt = (short)(int)position[2];
+
+        if (zInt < -8191 || zInt > 8192) {
+            return searchDir * INFINITY;
+        }
+    }
+
+    int xDir = sign(sinAngle) * searchDir;
+    int zDir = sign(cosAngle) * searchDir;
+
+    float xOffset = xDir * 32767.5f + 24575.5f;
+    float zOffset = zDir * 32767.5f + 24575.5f;
+
+    bool searchLoop = true;
+
+    while (searchLoop) {
+        float xVel = sinAngle * currentSpeed;
+        float zVel = cosAngle * currentSpeed;
+
+        float nextPosition[3] = { position[0] + floorNormalY * (xVel / 4.0f), position[1], position[2] + floorNormalY * (zVel / 4.0f) };
+
+        float nextIBSpeedX;
+        float nextOOBSpeedX;
+        float nextIBSpeedZ;
+        float nextOOBSpeedZ;
+
+        if (sinAngle == 0) {
+            nextIBSpeedX = currentSpeed;
+            nextOOBSpeedX = searchDir * INFINITY;
+        }
+        else {
+            float nextIBX = 65536.0f * floorf((nextPosition[0] + xOffset) / 65536.0f) + (-xDir * 8192.5f + 0.5f);
+            float nextOOBX = nextIBX + (xDir * 16385.0f);
+
+            while ((short)(int)nextIBX < -8191 || (short)(int)nextIBX > 8192) {
+                nextIBX = nextafterf(nextIBX, xDir * INFINITY);
+            }
+
+            while ((short)(int)nextOOBX >= -8191 && (short)(int)nextOOBX <= 8192) {
+                nextOOBX = nextafterf(nextOOBX, xDir * INFINITY);
+            }
+
+            nextIBSpeedX = 4.0f * ((nextIBX - position[0]) / floorNormalY) / sinAngle;
+            nextOOBSpeedX = 4.0f * ((nextOOBX - position[0]) / floorNormalY) / sinAngle;
+
+            short nextPositionX = (short)(int)(position[0] + floorNormalY * ((sinAngle * nextIBSpeedX) / 4.0f));
+
+            while (nextPositionX < -8191 || nextPositionX > 8192) {
+                nextIBSpeedX = nextafterf(nextIBSpeedX, searchDir * INFINITY);
+                nextPositionX = (short)(int)(position[0] + floorNormalY * ((sinAngle * nextIBSpeedX) / 4.0f));
+            }
+
+            nextPositionX = (short)(int)(position[0] + floorNormalY * ((sinAngle * nextOOBSpeedX) / 4.0f));
+
+            while (nextPositionX >= -8191 && nextPositionX <= 8192) {
+                nextOOBSpeedX = nextafterf(nextOOBSpeedX, searchDir * INFINITY);
+                nextPositionX = (short)(int)(position[0] + floorNormalY * ((sinAngle * nextOOBSpeedX) / 4.0f));
+            }
+
+            nextIBSpeedX = searchDir * fmaxf(searchDir * nextIBSpeedX, searchDir * currentSpeed);
+        }
+
+        if (cosAngle == 0) {
+            nextIBSpeedZ = currentSpeed;
+            nextOOBSpeedZ = searchDir * INFINITY;
+        }
+        else {
+            float nextIBZ = 65536.0f * floorf((nextPosition[2] + zOffset) / 65536.0f) + (-zDir * 8192.5f + 0.5f);
+            float nextOOBZ = nextIBZ + (zDir * 16385.0f);
+
+            while ((short)(int)nextIBZ < -8191 || (short)(int)nextIBZ > 8192) {
+                nextIBZ = nextafterf(nextIBZ, zDir * INFINITY);
+            }
+
+            while ((short)(int)nextOOBZ >= -8191 && (short)(int)nextOOBZ <= 8192) {
+                nextOOBZ = nextafterf(nextOOBZ, zDir * INFINITY);
+            }
+
+            nextIBSpeedZ = 4.0f * ((nextIBZ - position[2]) / floorNormalY) / cosAngle;
+            nextOOBSpeedZ = 4.0f * ((nextOOBZ - position[2]) / floorNormalY) / cosAngle;
+
+            short nextPositionZ = (short)(int)(position[2] + floorNormalY * ((cosAngle * nextIBSpeedZ) / 4.0f));
+
+            while (nextPositionZ < -8191 || nextPositionZ > 8192) {
+                nextIBSpeedZ = nextafterf(nextIBSpeedZ, searchDir * INFINITY);
+                nextPositionZ = (short)(int)(position[2] + floorNormalY * ((cosAngle * nextIBSpeedZ) / 4.0f));
+            }
+
+            nextPositionZ = (short)(int)(position[2] + floorNormalY * ((cosAngle * nextOOBSpeedZ) / 4.0f));
+
+            while (nextPositionZ >= -8191 && nextPositionZ <= 8192) {
+                nextOOBSpeedZ = nextafterf(nextOOBSpeedZ, searchDir * INFINITY);
+                nextPositionZ = (short)(int)(position[2] + floorNormalY * ((cosAngle * nextOOBSpeedZ) / 4.0f));
+            }
+
+            nextIBSpeedZ = searchDir * fmaxf(searchDir * nextIBSpeedZ, searchDir * currentSpeed);
+        }
+
+        currentSpeed = searchDir * fmaxf(searchDir * nextIBSpeedX, searchDir * nextIBSpeedZ);
+
+        if (searchDir * nextIBSpeedX > searchDir * nextIBSpeedZ) {
+            if (searchDir * nextIBSpeedX < searchDir * nextOOBSpeedZ) {
+                searchLoop = false;
+            }
+        }
+        else {
+            if (searchDir * nextIBSpeedZ < searchDir * nextOOBSpeedX) {
+                searchLoop = false;
+            }
+        }
+    }
+
+    return currentSpeed;
+}
+
 __global__ void find_sk_upwarp_solutions() {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -2168,25 +2373,26 @@ __global__ void find_sk_upwarp_solutions() {
             struct SKPhase3* sol3 = &(solutions.sk3Solutions[sol4->p3Idx]);
             struct SKPhase2* sol2 = (sol3->p2Type / 2 == 0) ? ((sol3->p2Type % 2 == 0) ? &(solutions.sk2ASolutions[sol3->p2Idx]) : &(solutions.sk2BSolutions[sol3->p2Idx])) : ((sol3->p2Type % 2 == 0) ? &(solutions.sk2CSolutions[sol3->p2Idx]) : &(solutions.sk2DSolutions[sol3->p2Idx]));
             struct SKPhase1* sol1 = &(solutions.sk1Solutions[sol2->p1Idx]);
-            
+
             float minSpeed = fminf(lowerSpeed, sk6Sol->minPost10KSpeed);
             float maxSpeed = fmaxf(upperSpeed, sk6Sol->maxPost10KSpeed);
-            
+
             if (minSpeed >= maxSpeed) {
                 float minReturnVelX;
                 float minReturnVelZ;
 
                 float minPre10KSpeed = NAN;
+                float testMinSpeed = minSpeed;
 
-                while (isnan(minPre10KSpeed) && minSpeed >= maxSpeed) {
-                    minPre10KSpeed = find_pre10K_speed(minSpeed, 0.0f, 0.0f, minReturnVelX, minReturnVelZ, i);
+                while (isnan(minPre10KSpeed) && testMinSpeed >= maxSpeed) {
+                    minPre10KSpeed = find_pre10K_speed(testMinSpeed, 0.0f, 0.0f, minReturnVelX, minReturnVelZ, i);
 
                     if (isnan(minPre10KSpeed)) {
-                        minSpeed = nextafterf(minSpeed, -INFINITY);
+                        testMinSpeed = nextafterf(testMinSpeed, -INFINITY);
                     }
                 }
 
-                if (minSpeed >= maxSpeed) {
+                if (testMinSpeed >= maxSpeed) {
                     int precision;
 
                     frexpf(minPre10KSpeed, &precision);
@@ -2208,17 +2414,48 @@ __global__ void find_sk_upwarp_solutions() {
 
                     atomicMax(&maxSSpeedLevels, max(nXSpeedLevels, nZSpeedLevels));
 
-                    int solIdx = atomicAdd(&(counts.nSKUWSolutions), 1);
+                    float currentSpeed = minSpeed;
+                    bool inBounds = true;
+                    
+                    while (currentSpeed >= maxSpeed) {
+                        bool oldInBounds = inBounds;
 
-                    if (solIdx < limits.MAX_SK_UPWARP_SOLUTIONS) {
-                        struct SKUpwarpSolution* solution = &(solutions.skuwSolutions[solIdx]);
-                        solution->skIdx = i;
-                        solution->uwIdx = idx;
-                        solution->minSpeed = minSpeed;
-                        solution->maxSpeed = maxSpeed;
-                        solution->speedRange = speedRange;
-                        solution->xVelRange = xVelRange;
-                        solution->zVelRange = zVelRange;
+                        float oobSpeed0 = NAN;
+                        float oobSpeed1 = NAN;
+                        float oobSpeed2 = NAN;
+                        float oobSpeed3 = NAN;
+
+                        while (fmaxf(fmaxf(oobSpeed0, oobSpeed1), fmaxf(oobSpeed2, oobSpeed3)) != currentSpeed) {
+                            oobSpeed0 = next_out_of_bounds_speed(currentSpeed, 1.0f, platSol->returnPosition, sk6Sol->f3Angle, -1);
+                            oobSpeed1 = next_out_of_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[0], platSol->landingPositions[0], sk6Sol->f3Angle, -1);
+                            oobSpeed2 = next_out_of_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[1], platSol->landingPositions[1], sk6Sol->f3Angle, -1);
+                            oobSpeed3 = next_out_of_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[2], platSol->landingPositions[2], sk6Sol->f3Angle, -1);
+
+                            currentSpeed = fminf(fminf(oobSpeed0, oobSpeed1), fminf(oobSpeed2, oobSpeed3));
+                        }
+
+                        float ibSpeed0 = next_in_bounds_speed(currentSpeed, 1.0f, platSol->returnPosition, sk6Sol->f3Angle, -1);
+                        float ibSpeed1 = next_in_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[0], platSol->landingPositions[0], sk6Sol->f3Angle, -1);
+                        float ibSpeed2 = next_in_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[1], platSol->landingPositions[1], sk6Sol->f3Angle, -1);
+                        float ibSpeed3 = next_in_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[2], platSol->landingPositions[2], sk6Sol->f3Angle, -1);
+
+                        float nextIBSpeed = fmaxf(fmaxf(ibSpeed0, ibSpeed1), fmaxf(ibSpeed2, ibSpeed3));
+
+                        int solIdx = atomicAdd(&(counts.nSKUWSolutions), 1);
+
+                        if (solIdx < limits.MAX_SK_UPWARP_SOLUTIONS) {
+                            struct SKUpwarpSolution* solution = &(solutions.skuwSolutions[solIdx]);
+                            solution->skIdx = i;
+                            solution->uwIdx = idx;
+                            solution->minSpeed = currentSpeed;
+                            solution->maxSpeed = fmaxf(nextafterf(nextIBSpeed, INFINITY), maxSpeed);
+                            solution->speedRange = speedRange;
+                            solution->xVelRange = xVelRange;
+                            solution->zVelRange = zVelRange;
+                        }
+
+                        currentSpeed = nextIBSpeed;
+
                     }
                 }
             }
@@ -4436,16 +4673,80 @@ __global__ void try_stick_positionG() {
                 eqDet = eqB * eqB - eqC;
                 float maxSpeed = sqrt(eqDet) - eqB;
 
-                int solIdx = atomicAdd(&(counts.nSK6Solutions), 1);
+                xVel = minSpeed * sinsG(sol2->f2Angle) + 10.0f * cossG(sol2->f2Angle);
+                zVel = minSpeed * cossG(sol2->f2Angle) - 10.0f * sinsG(sol2->f2Angle);
 
-                if (solIdx < limits.MAX_SK_PHASE_SIX) {
-                    struct SKPhase6* solution = &(solutions.sk6Solutions[solIdx]);
-                    solution->p5Idx = idx;
-                    solution->minPre10KSpeed = minSpeed;
-                    solution->maxPre10KSpeed = maxSpeed;
-                    solution->minPost10KSpeed = lower10KSpeed;
-                    solution->maxPost10KSpeed = upper10KSpeed;
-                    solution->angleDiff = angleDiff;
+                float oldSpeed = sqrtf(xVel * xVel + zVel * zVel);
+
+                xVel += zVel * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
+                zVel -= xVel * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
+
+                float newSpeed = sqrtf(xVel * xVel + zVel * zVel);
+
+                xVel = xVel * oldSpeed / newSpeed;
+                zVel = zVel * oldSpeed / newSpeed;
+
+                xVel += 7.0f * tenKFloors[sol2->tenKFloorIdx][6];
+                zVel += 7.0f * tenKFloors[sol2->tenKFloorIdx][8];
+
+                int f3Angle1 = atan2sG(-zVel, -xVel);
+                int f3Angle1Idx = revAtansG(f3Angle1);
+
+                xVel = minSpeed * sinsG(sol2->f2Angle) - 10.0f * cossG(sol2->f2Angle);
+                zVel = minSpeed * cossG(sol2->f2Angle) + 10.0f * sinsG(sol2->f2Angle);
+
+                oldSpeed = sqrtf(xVel * xVel + zVel * zVel);
+
+                xVel += zVel * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
+                zVel -= xVel * (intendedMag / 32.0f) * sinsG(intendedDYaw) * 0.05f;
+
+                newSpeed = sqrtf(xVel * xVel + zVel * zVel);
+
+                xVel = xVel * oldSpeed / newSpeed;
+                zVel = zVel * oldSpeed / newSpeed;
+
+                xVel += 7.0f * tenKFloors[sol2->tenKFloorIdx][6];
+                zVel += 7.0f * tenKFloors[sol2->tenKFloorIdx][8];
+
+                int f3Angle2 = atan2sG(-zVel, -xVel);
+                int f3Angle2Idx = revAtansG(f3Angle2);
+
+                int minF3AngleIdx;
+                int maxF3AngleIdx;
+
+                if (f3Angle1Idx > f3Angle2Idx) {
+                    if (f3Angle1Idx - f3Angle2Idx > 4096) {
+                        minF3AngleIdx = f3Angle1Idx;
+                        maxF3AngleIdx = f3Angle2Idx + 8192;
+                    }
+                    else {
+                        minF3AngleIdx = f3Angle2Idx;
+                        maxF3AngleIdx = f3Angle1Idx;
+                    }
+                }
+                else {
+                    if (f3Angle2Idx - f3Angle1Idx > 4096) {
+                        minF3AngleIdx = f3Angle2Idx;
+                        maxF3AngleIdx = f3Angle1Idx + 8192;
+                    }
+                    else {
+                        minF3AngleIdx = f3Angle1Idx;
+                        maxF3AngleIdx = f3Angle2Idx;
+                    }
+                }
+
+                for (int a = minF3AngleIdx; a <= maxF3AngleIdx; a++) {
+                    int solIdx = atomicAdd(&(counts.nSK6Solutions), 1);
+
+                    if (solIdx < limits.MAX_SK_PHASE_SIX) {
+                        struct SKPhase6* solution = &(solutions.sk6Solutions[solIdx]);
+                        solution->p5Idx = idx;
+                        solution->minPre10KSpeed = minSpeed;
+                        solution->maxPre10KSpeed = maxSpeed;
+                        solution->minPost10KSpeed = lower10KSpeed;
+                        solution->maxPost10KSpeed = upper10KSpeed;
+                        solution->f3Angle = gArctanTableG[a % 8192];
+                    }
                 }
             }
         }
@@ -4873,7 +5174,7 @@ __global__ void find_slide_kick_setupG3a(float platformMinZ, float platformMaxZ)
         struct SKPhase2* sol2 = &(solutions.sk2CSolutions[idx]);
         struct SKPhase1* sol1 = &(solutions.sk1Solutions[sol2->p1Idx]);
 
-        int cosSign = (sol2->cosAngle > 0) - (sol2->cosAngle < 0);
+        int cosSign = sign(sol2->cosAngle);
 
         double speed1 = ((cosSign + 1) >> 1) * (sol1->minSpeed - 2.85f) + (((cosSign + 1) >> 1) ^ 1) * (sol1->maxSpeed + 0.15f);
         double speed2 = ((cosSign + 1) >> 1) * (sol1->maxSpeed + 0.15f) + (((cosSign + 1) >> 1) ^ 1) * (sol1->minSpeed - 2.85f);
@@ -4906,7 +5207,7 @@ __global__ void find_slide_kick_setupG3b(float platformMinX, float platformMaxX)
         struct SKPhase2* sol2 = &(solutions.sk2CSolutions[idx]);
         struct SKPhase1* sol1 = &(solutions.sk1Solutions[sol2->p1Idx]);
 
-        int sinSign = (sol2->sinAngle > 0) - (sol2->sinAngle < 0);
+        int sinSign = sign(sol2->sinAngle);
 
         double speed1 = ((sinSign + 1) >> 1) * (sol1->minSpeed - 2.85f) + (((sinSign + 1) >> 1) ^ 1) * (sol1->maxSpeed + 0.15f);
         double speed2 = ((sinSign + 1) >> 1) * (sol1->maxSpeed + 0.15f) + (((sinSign + 1) >> 1) ^ 1) * (sol1->minSpeed - 2.85f);
@@ -4940,9 +5241,9 @@ __global__ void find_slide_kick_setupG3c(float platformMinX, float platformMaxX,
 
         double cotAngle = sol2->cosAngle / sol2->sinAngle;
 
-        int sinSign = (sol2->sinAngle > 0) - (sol2->sinAngle < 0);
-        int cosSign = (sol2->cosAngle > 0) - (sol2->cosAngle < 0);
-        int cotSign = (cotAngle > 0) - (cotAngle < 0);
+        int sinSign = sign(sol2->sinAngle);
+        int cosSign = sign(sol2->cosAngle);
+        int cotSign = sign(cotAngle);
 
         double speed1 = ((sinSign + 1) >> 1) * (sol1->minSpeed - 2.85f) + (((sinSign + 1) >> 1) ^ 1) * (sol1->maxSpeed + 0.15f);
         double speed2 = ((sinSign + 1) >> 1) * (sol1->maxSpeed + 0.15f) + (((sinSign + 1) >> 1) ^ 1) * (sol1->minSpeed - 2.85f);
@@ -5004,9 +5305,9 @@ __global__ void find_slide_kick_setupG3d(float platformMinX, float platformMaxX,
 
         double tanAngle = sol2->sinAngle / sol2->cosAngle;
 
-        int sinSign = (sol2->sinAngle > 0) - (sol2->sinAngle < 0);
-        int cosSign = (sol2->cosAngle > 0) - (sol2->cosAngle < 0);
-        int tanSign = (tanAngle > 0) - (tanAngle < 0);
+        int sinSign = sign(sol2->sinAngle);
+        int cosSign = sign(sol2->cosAngle);
+        int tanSign = sign(tanAngle);
 
         double speed1 = ((sinSign + 1) >> 1) * (sol1->minSpeed - 2.85f) + (((sinSign + 1) >> 1) ^ 1) * (sol1->maxSpeed + 0.15f);
         double speed2 = ((sinSign + 1) >> 1) * (sol1->maxSpeed + 0.15f) + (((sinSign + 1) >> 1) ^ 1) * (sol1->minSpeed - 2.85f);
@@ -5541,8 +5842,8 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
             float bullyPushZ = (j / 2 == 0) ? minBullyPushZ : maxBullyPushZ;
 
             for (int k = 0; k < nSquishSpots[tenKSol->squishCeiling]; k++) {
-                float signX = (squishSpots[(2 * tenKSol->squishCeiling * limits.MAX_SQUISH_SPOTS) + (2 * k)] > 0) - (squishSpots[(2 * tenKSol->squishCeiling * limits.MAX_SQUISH_SPOTS) + (2 * k)] < 0);
-                float signZ = (squishSpots[(2 * k) + 1] > 0) - (squishSpots[(2 * k) + 1] < 0);
+                float signX = sign(squishSpots[(2 * tenKSol->squishCeiling * limits.MAX_SQUISH_SPOTS) + (2 * k)]);
+                float signZ = sign(squishSpots[(2 * k) + 1]);
 
                 for (int l = 0; l < 4; l++) {
                     float xDist = bullyPushX - (squishSpots[(2 * tenKSol->squishCeiling * limits.MAX_SQUISH_SPOTS) + (2 * k)] + signX * (l % 2));
@@ -5694,7 +5995,7 @@ __device__ float find_speed_boundary(float minValue, float maxValue, float targe
 }
 
 __device__ bool search_xVel(float& xVel, float zVel, float targetSpeed, float* targetPosition, float yNormal, int idx) {
-    float xDir = (xVel > 0) - (xVel < 0);
+    float xDir = sign(xVel);
 
     float speed = sqrtf(xVel * xVel + zVel * zVel);
 
@@ -6160,8 +6461,10 @@ void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FS
                 m++;
             }
 
-            while (m < countsCPU->nBullyPushSolutions && solutionsCPU.doubleTenKSolutions[solutionsCPU.bullyPushSolutions[m].doubleTenKSolutionIdx].tenKSolutionIdx == slideSol->tenKSolutionIdx) {
-                struct BullyPushSolution* bpSol = &(solutionsCPU.bullyPushSolutions[m]);
+            int n = m;
+
+            while (n < countsCPU->nBullyPushSolutions && solutionsCPU.doubleTenKSolutions[solutionsCPU.bullyPushSolutions[n].doubleTenKSolutionIdx].tenKSolutionIdx == slideSol->tenKSolutionIdx) {
+                struct BullyPushSolution* bpSol = &(solutionsCPU.bullyPushSolutions[n]);
                 struct DoubleTenKSolution* doubleTenKSol = &(solutionsCPU.doubleTenKSolutions[bpSol->doubleTenKSolutionIdx]);
 
                 //if (!o->silent) printf("---------------------------------------\nFound Solution:\n---------------------------------------\n    Start Position Range: [%.10g, %.10g], [%.10g, %.10g]\n    Frame 1 Position: %.10g, %.10g, %.10g\n    Frame 2 Position: %.10g, %.10g, %.10g\n    Return Position: %.10g, %.10g, %.10g\n    PU Departure Speed: %.10g (x=%.10g, z=%.10g)\n    PU Strain Speed: (x=%.10g, z=%.10g, fwd=%.10g)\n    Pre-10K Speed: (x=%.10g, z=%.10g)\n    PU Return Speed: %.10g (x=%.10g, z=%.10g)\n    Frame 1 Q-steps: %d\n    Frame 2 Q-steps: %d\n    Frame 3 Q-steps: %d\n", doubleTenKSol->minStartX, doubleTenKSol->maxStartX, doubleTenKSol->minStartZ, doubleTenKSol->maxStartZ, tenKSol->frame1Position[0], tenKSol->frame1Position[1], tenKSol->frame1Position[2], tenKSol->frame2Position[0], tenKSol->frame2Position[1], tenKSol->frame2Position[2], platSol->returnPosition[0], platSol->returnPosition[1], platSol->returnPosition[2], tenKSol->departureSpeed, doubleTenKSol->post10KXVel, doubleTenKSol->post10KZVel, speedSol->xStrain, speedSol->zStrain, speedSol->forwardStrain, tenKSol->pre10KVel[0], tenKSol->pre10KVel[1], speedSol->returnSpeed, tenKSol->returnVel[0], tenKSol->returnVel[1], 4, p1Sol->q2, 1);
@@ -6169,7 +6472,7 @@ void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FS
                 //if (!o->silent) printf("---------------------------------------\n    Tilt Frames: %d\n    Post-Tilt Platform Normal: %.10g, %.10g, %.10g\n    Post-Tilt Position: %.10g, %.10g, %.10g\n    Pre-Upwarp Position: %.10g, %.10g, %.10g\n    Post-Upwarp Position: %.10g, %.10g, %.10g\n    Upwarp PU X: %d\n    Upwarp PU Z: %d\n    Upwarp Slide Facing Angle: %d\n    Upwarp Slide Intended Mag: %.10g\n    Upwarp Slide Intended DYaw: %d\n", platSol->nFrames, platSol->endNormal[0], platSol->endNormal[1], platSol->endNormal[2], platSol->endPosition[0], platSol->endPosition[1], platSol->endPosition[2], slideSol->preUpwarpPosition[0], slideSol->preUpwarpPosition[1], slideSol->preUpwarpPosition[2], slideSol->upwarpPosition[0], slideSol->upwarpPosition[1], slideSol->upwarpPosition[2], uwSol->pux, uwSol->puz, slideSol->angle, slideSol->stickMag, slideSol->intendedDYaw);
                 //if (!o->silent) printf("---------------------------------------\n    Post-Breakdance Camera Yaw: %d\n    Post-Breakdance Stick X: %d\n    Post-Breakdance Stick Y: %d\n    Landing Position: %.10g, %.10g, %.10g\n    Landing Speed: %.10g\n---------------------------------------\n\n\n", bdSol->cameraYaw, bdSol->stickX, bdSol->stickY, bdSol->landingPosition[0], bdSol->landingPosition[1], bdSol->landingPosition[2], bdSol->postSlideSpeed);
                 //if (!o->silent) printf("---------------------------------------\n    Squish Push Position Range: [%.10g, %.10g], [%.10g, %.10g]\n    Squish Push Q-steps: %d\n    Bully Position Range: [%.10g, %.10g], [%.10g, %.10g]\n    Bully Push Angle: %d\n    Max Bully Speed: %.10g\n    Min Sliding Spped: (x=%.10g, z=%.10g)\n---------------------------------------\n\n\n", bpSol->squishPushMinX, bpSol->squishPushMaxX, bpSol->squishPushMinZ, bpSol->squishPushMaxZ, bpSol->squishPushQF, bpSol->bullyMinX, bpSol->bullyMaxX, bpSol->bullyMinZ, bpSol->bullyMaxZ, bpSol->pushAngle, bpSol->maxSpeed, bpSol->minSlidingSpeedX, bpSol->minSlidingSpeedZ);
-
+                
                 wf << startNormal[0] << "," << startNormal[1] << "," << startNormal[2] << ",";
                 wf << doubleTenKSol->minStartX << "," << doubleTenKSol->maxStartX << ",";
                 wf << doubleTenKSol->minStartZ << "," << doubleTenKSol->maxStartZ << ",";
@@ -6199,7 +6502,7 @@ void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FS
                 wf << bpSol->bullyMinX << "," << bpSol->bullyMaxX << "," << bpSol->bullyMinZ << "," << bpSol->bullyMaxZ << "," << bpSol->pushAngle << ",";
                 wf << bpSol->maxSpeed << "," << bpSol->minSlidingSpeedX << "," << bpSol->minSlidingSpeedZ << endl;
 
-                m++;
+                n++;
             }
         }
     }
@@ -6391,7 +6694,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
                 countsCPU.nPlatSolutions = o->limits.MAX_PLAT_SOLUTIONS;
             }
 
-            //if (!o->silent) printf("---------------------------------------\nTesting Normal: %.10g, %.10g, %.10g\nPlatform Position: %.10g, %.10g, %.10g\n        Index: %d, %d, %d, %d\n", startNormal[0], startNormal[1], startNormal[2], platformPos[0], platformPos[1], platformPos[2], h, i, j, quad);
+            //if (!o->silent) printf("---------------------------------------\nTesting Normal: %.10g, %.10g, %.10g\n", startNormal[0], startNormal[1], startNormal[2]);
             //if (!o->silent) printf("        # Platform Solutions: %d\n", countsCPU.nPlatSolutions);
 
             nBlocks = (countsCPU.nPlatSolutions + o->nThreads - 1) / o->nThreads;
@@ -6522,6 +6825,11 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
                     }
 
                     if (!o->silent) printf("---------------------------------------\nTesting Normal: %g, %g, %g\n", startNormal[0], startNormal[1], startNormal[2]);
+                    if (!o->silent) printf("        # Platform Solutions: %d\n", countsCPU.nPlatSolutions);
+                    if (!o->silent) printf("        # Upwarp Solutions: %d\n", countsCPU.nUpwarpSolutions);
+                    if (!o->silent) printf("        # Slide Kick Routes: %d\n", countsCPU.nSK6Solutions);
+                    if (!o->silent) printf("        # Slide Kick Upwarp Solutions: %d\n", countsCPU.nSKUWSolutions);
+                    if (!o->silent) printf("        # Speed Solutions: %d\n", countsCPU.nSpeedSolutions);
                     if (!o->silent) printf("        # 10K Solutions: %d\n", countsCPU.n10KSolutions);
 
                     int maxAngleRangeCPU = 0;
