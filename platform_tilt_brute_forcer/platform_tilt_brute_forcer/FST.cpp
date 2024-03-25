@@ -2413,31 +2413,53 @@ __global__ void find_sk_upwarp_solutions() {
                     int nZSpeedLevels = (int)ceilf(fabs(10.0f * -sinsG(sol2->f2Angle)) / zVelRange);
 
                     atomicMax(&maxSSpeedLevels, max(nXSpeedLevels, nZSpeedLevels));
-
+                    /*
                     float currentSpeed = minSpeed;
-                    bool inBounds = true;
+
+                    int newFacingDYaw = (short)(sol2->f2Angle - sk6Sol->f3Angle);
+
+                    if (newFacingDYaw > 0 && newFacingDYaw <= 0x4000) {
+                        if ((newFacingDYaw -= 0x200) < 0) {
+                            newFacingDYaw = 0;
+                        }
+                    }
+                    else if (newFacingDYaw > -0x4000 && newFacingDYaw < 0) {
+                        if ((newFacingDYaw += 0x200) > 0) {
+                            newFacingDYaw = 0;
+                        }
+                    }
+                    else if (newFacingDYaw > 0x4000 && newFacingDYaw < 0x8000) {
+                        if ((newFacingDYaw += 0x200) > 0x8000) {
+                            newFacingDYaw = 0x8000;
+                        }
+                    }
+                    else if (newFacingDYaw > -0x8000 && newFacingDYaw < -0x4000) {
+                        if ((newFacingDYaw -= 0x200) < -0x8000) {
+                            newFacingDYaw = -0x8000;
+                        }
+                    }
+
+                    int returnFaceAngle = sk6Sol->f3Angle + newFacingDYaw;
                     
                     while (currentSpeed >= maxSpeed) {
-                        bool oldInBounds = inBounds;
-
                         float oobSpeed0 = NAN;
                         float oobSpeed1 = NAN;
                         float oobSpeed2 = NAN;
                         float oobSpeed3 = NAN;
 
                         while (fmaxf(fmaxf(oobSpeed0, oobSpeed1), fmaxf(oobSpeed2, oobSpeed3)) != currentSpeed) {
-                            oobSpeed0 = next_out_of_bounds_speed(currentSpeed, 1.0f, platSol->returnPosition, sk6Sol->f3Angle, -1);
-                            oobSpeed1 = next_out_of_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[0], platSol->landingPositions[0], sk6Sol->f3Angle, -1);
-                            oobSpeed2 = next_out_of_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[1], platSol->landingPositions[1], sk6Sol->f3Angle, -1);
-                            oobSpeed3 = next_out_of_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[2], platSol->landingPositions[2], sk6Sol->f3Angle, -1);
+                            oobSpeed0 = next_out_of_bounds_speed(currentSpeed, 1.0f, platSol->returnPosition, returnFaceAngle, -1);
+                            oobSpeed1 = next_out_of_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[0], platSol->landingPositions[0], returnFaceAngle, -1);
+                            oobSpeed2 = next_out_of_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[1], platSol->landingPositions[1], returnFaceAngle, -1);
+                            oobSpeed3 = next_out_of_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[2], platSol->landingPositions[2], returnFaceAngle, -1);
 
                             currentSpeed = fminf(fminf(oobSpeed0, oobSpeed1), fminf(oobSpeed2, oobSpeed3));
                         }
 
-                        float ibSpeed0 = next_in_bounds_speed(currentSpeed, 1.0f, platSol->returnPosition, sk6Sol->f3Angle, -1);
-                        float ibSpeed1 = next_in_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[0], platSol->landingPositions[0], sk6Sol->f3Angle, -1);
-                        float ibSpeed2 = next_in_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[1], platSol->landingPositions[1], sk6Sol->f3Angle, -1);
-                        float ibSpeed3 = next_in_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[2], platSol->landingPositions[2], sk6Sol->f3Angle, -1);
+                        float ibSpeed0 = next_in_bounds_speed(currentSpeed, 1.0f, platSol->returnPosition, returnFaceAngle, -1);
+                        float ibSpeed1 = next_in_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[0], platSol->landingPositions[0], returnFaceAngle, -1);
+                        float ibSpeed2 = next_in_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[1], platSol->landingPositions[1], returnFaceAngle, -1);
+                        float ibSpeed3 = next_in_bounds_speed(currentSpeed, platSol->landingFloorNormalsY[2], platSol->landingPositions[2], returnFaceAngle, -1);
 
                         float nextIBSpeed = fmaxf(fmaxf(ibSpeed0, ibSpeed1), fmaxf(ibSpeed2, ibSpeed3));
 
@@ -2456,6 +2478,20 @@ __global__ void find_sk_upwarp_solutions() {
 
                         currentSpeed = nextIBSpeed;
 
+                    }
+                    */
+                    
+                    int solIdx = atomicAdd(&(counts.nSKUWSolutions), 1);
+
+                    if (solIdx < limits.MAX_SK_UPWARP_SOLUTIONS) {
+                        struct SKUpwarpSolution* solution = &(solutions.skuwSolutions[solIdx]);
+                        solution->skIdx = i;
+                        solution->uwIdx = idx;
+                        solution->minSpeed = minSpeed;
+                        solution->maxSpeed = maxSpeed;
+                        solution->speedRange = speedRange;
+                        solution->xVelRange = xVelRange;
+                        solution->zVelRange = zVelRange;
                     }
                 }
             }
@@ -4860,41 +4896,41 @@ __global__ void try_slide_kick_routeG2() {
                         maxStickY = fmax(maxStickY, yS);
                     }
                 }
+            }
 
-                if (maxStickX - minStickX < maxStickY - minStickY) {
-                    for (int x = (int)ceil(minStickX); x <= (int)floor(maxStickX); x++) {
-                        if (x != 1) {
-                            int y = (int)round(((double)x - minStickX) * (maxStickY - minStickY) / (maxStickX - minStickX) + minStickY);
+            if (maxStickX - minStickX < maxStickY - minStickY) {
+                for (int x = (int)ceil(minStickX); x <= (int)floor(maxStickX); x++) {
+                    if (x != 1) {
+                        int y = (int)round(((double)x - minStickX) * (maxStickY - minStickY) / (maxStickX - minStickX) + minStickY);
 
-                            if (y != 1) {
-                                int solIdx = atomicAdd(&(counts.nSK5Solutions), 1);
+                        if (y != 1) {
+                            int solIdx = atomicAdd(&(counts.nSK5Solutions), 1);
 
-                                if (solIdx < limits.MAX_SK_PHASE_FIVE) {
-                                    struct SKPhase5* solution = &(solutions.sk5Solutions[solIdx]);
-                                    solution->p4Idx = idx;
-                                    solution->stickX = x;
-                                    solution->stickY = y;
-                                    solution->f1Angle = f1Angle;
-                                }
+                            if (solIdx < limits.MAX_SK_PHASE_FIVE) {
+                                struct SKPhase5* solution = &(solutions.sk5Solutions[solIdx]);
+                                solution->p4Idx = idx;
+                                solution->stickX = x;
+                                solution->stickY = y;
+                                solution->f1Angle = f1Angle;
                             }
                         }
                     }
                 }
-                else {
-                    for (int y = (int)ceil(minStickY); y <= (int)floor(maxStickY); y++) {
-                        if (y != 1) {
-                            int x = (int)round(((double)y - minStickY) * (maxStickX - minStickX) / (maxStickY - minStickY) + minStickX);
+            }
+            else {
+                for (int y = (int)ceil(minStickY); y <= (int)floor(maxStickY); y++) {
+                    if (y != 1) {
+                        int x = (int)round(((double)y - minStickY) * (maxStickX - minStickX) / (maxStickY - minStickY) + minStickX);
 
-                            if (x != 1) {
-                                int solIdx = atomicAdd(&(counts.nSK5Solutions), 1);
+                        if (x != 1) {
+                            int solIdx = atomicAdd(&(counts.nSK5Solutions), 1);
 
-                                if (solIdx < limits.MAX_SK_PHASE_FIVE) {
-                                    struct SKPhase5* solution = &(solutions.sk5Solutions[solIdx]);
-                                    solution->p4Idx = idx;
-                                    solution->stickX = x;
-                                    solution->stickY = y;
-                                    solution->f1Angle = f1Angle;
-                                }
+                            if (solIdx < limits.MAX_SK_PHASE_FIVE) {
+                                struct SKPhase5* solution = &(solutions.sk5Solutions[solIdx]);
+                                solution->p4Idx = idx;
+                                solution->stickX = x;
+                                solution->stickY = y;
+                                solution->f1Angle = f1Angle;
                             }
                         }
                     }
