@@ -7,8 +7,8 @@
 
 # define sinsG(x)              gSineTableG[(unsigned short) (x) >> 4]
 # define cossG(x)              gCosineTableG[(unsigned short) (x) >> 4]
-# define revAtansG(x)          gReverseArctanTableG[(unsigned short) x]
-# define sign(x)               ((x > 0) - (x < 0))
+# define revAtansG(x)          gReverseArctanTableG[(unsigned short) (x)]
+# define sign(x)               (((x) > 0) - ((x) < 0))
 
 class SurfaceG {
 public:
