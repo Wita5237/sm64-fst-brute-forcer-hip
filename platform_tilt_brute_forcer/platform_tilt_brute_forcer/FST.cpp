@@ -5,9 +5,9 @@
 
 # define M_PI                  3.14159265358979323846  /* pi */
 
-# define sinsG(x)              gSineTableG[(unsigned short) (x) >> 4]
-# define cossG(x)              gCosineTableG[(unsigned short) (x) >> 4]
-# define revAtansG(x)          gReverseArctanTableG[(unsigned short) (x)]
+# define sinsG(x)              gSineTableG[(unsigned short)(int) (x) >> 4]
+# define cossG(x)              gCosineTableG[(unsigned short)(int) (x) >> 4]
+# define revAtansG(x)          gReverseArctanTableG[(unsigned short)(int) (x)]
 # define sign(x)               (((x) > 0) - ((x) < 0))
 
 class SurfaceG {
