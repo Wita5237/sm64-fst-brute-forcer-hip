@@ -9,17 +9,17 @@ This program accepts the following options:
 #### Platform Normal Search Settings ####
 <pre>
 -nx &lt;min_nx&gt; &lt;max_nx&gt; &lt;n_samples&gt;:          Inclusive range of x normals to be considered, and the number of normals to sample.
-                                            If min_nx==max_nx then n_samples will be set to 1.
+                                              If min_nx==max_nx then n_samples will be set to 1.
   
 -nxz &lt;min_nxz&gt; &lt;max_nxz&gt; &lt;n_samples&gt;:       Inclusive range of xz sums to be considered, and the number of z normals to sample.
-                                            If min_nxz==max_nxz then n_samples will be set to 1.
-                                            To search negative z normals, set to min_nxz and max_nxz to negative values.
+                                              If min_nxz==max_nxz then n_samples will be set to 1.
+                                              To search negative z normals, set to min_nxz and max_nxz to negative values.
   
 -ny &lt;min_ny&gt; &lt;max_ny&gt; &lt;n_samples&gt;:          Inclusive range of y normals to be considered, and the number of normals to sample.
-                                            If min_ny==max_ny then n_samples will be set to 1.
+                                              If min_ny==max_ny then n_samples will be set to 1.
 
 -nz:                                        Search by z normal instead of xz sum.
-                                            Ranges supplied with -nxz will be converted to z normal ranges.
+                                              Ranges supplied with -nxz will be converted to z normal ranges.
   
 -q:                                         Search all 8 "quadrants" simultaneously. Overrides platform position set by -p.
 </pre>
@@ -29,7 +29,7 @@ This program accepts the following options:
 -f &lt;frames&gt;:                                Maximum frames of platform tilt considered.
   
 -pu &lt;frames&gt;:                               Number of frames of PU movement for 10k PU route.
-                                            Currently, only 3 frame routes are supported.
+                                              Currently, only 3 frame routes are supported.
   
 -dx &lt;delta_x&gt;:                              x coordinate spacing of positions on the platform.
   
@@ -41,8 +41,10 @@ This program accepts the following options:
 <pre>
 -o &lt;path&gt;:                                  Path to the output file.
 
--m:                                         Minimal output mode. 
-                                            The program will only write a list of normals with solutions to the output file.
+-m:                                         Output mode. The amount of detail provided in the output file.
+                                              0: Minimal output. Prints all normals with full solutions, along with number of full solutions found.
+                                              1: Minimal output with partial solutions. Prints all normals with 10k partial solutions or better, along with the latest stage with solutions.
+                                              2: Full output. Prints all normals with full solutions, along with full details of the setup.
 </pre>
 #### GPU Settings ####
 <pre>
