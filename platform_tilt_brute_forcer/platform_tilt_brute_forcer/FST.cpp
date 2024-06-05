@@ -6410,6 +6410,42 @@ void copy_solutions_to_cpu(struct FSTData* p, struct SolStruct* solutionsCPU, st
     cudaMemcpy(solutionsCPU->sk6Solutions, p->s.sk6Solutions, countsCPU->nSK6Solutions * sizeof(struct SKPhase6), cudaMemcpyDeviceToHost);
 }
 
+SolutionStage get_best_stage(struct SolCounts* countsCPU) {
+    if (countsCPU->nPlatSolutions == 0) {
+        return STAGE_NOTHING;
+    } 
+    else if (countsCPU->nUpwarpSolutions == 0) {
+        return STAGE_PLATFORM;
+    } 
+    else if (countsCPU->nSK6Solutions == 0) {
+        return STAGE_UPWARP;
+    }
+    else if (countsCPU->nSKUWSolutions == 0) {
+        return STAGE_SLIDE_KICK;
+    }
+    else if (countsCPU->nSpeedSolutions == 0) {
+        return STAGE_SKUW;
+    }
+    else if (countsCPU->n10KSolutions == 0) {
+        return STAGE_SPEED;
+    }
+    else if (countsCPU->nSlideSolutions == 0) {
+        return STAGE_TEN_K;
+    }
+    else if (countsCPU->nBDSolutions == 0) {
+        return STAGE_SLIDE;
+    }
+    else if (countsCPU->nDouble10KSolutions == 0) {
+        return STAGE_BREAKDANCE;
+    }
+    else if (countsCPU->nBullyPushSolutions == 0) {
+        return STAGE_DOUBLE_TEN_K;
+    }
+    else {
+        return STAGE_BULLY_PUSH;
+    }
+}
+
 void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FSTData* p, struct SolCounts* countsCPU, int floorIdx, std::ofstream& wf) {
     struct SolStruct solutionsCPU;
 
@@ -6420,19 +6456,32 @@ void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FS
 
     int solTotal = 0;
 
-    for (int l = 0; l < countsCPU->n10KSolutions; l++) {
-        solTotal += solutionsCPU.tenKSolutions[l].bdSetups * solutionsCPU.tenKSolutions[l].bpSetups;
-        bdRunningSum += solutionsCPU.tenKSolutions[l].bdSetups;
-        solutionsCPU.tenKSolutions[l].bdSetups = bdRunningSum - solutionsCPU.tenKSolutions[l].bdSetups;
-        bpRunningSum += solutionsCPU.tenKSolutions[l].bpSetups;
-        solutionsCPU.tenKSolutions[l].bpSetups = bpRunningSum - solutionsCPU.tenKSolutions[l].bpSetups;
+    int bestStage = get_best_stage(countsCPU);
+
+    if (bestStage == STAGE_BULLY_PUSH) {
+        for (int l = 0; l < countsCPU->n10KSolutions; l++) {
+            solTotal += solutionsCPU.tenKSolutions[l].bdSetups * solutionsCPU.tenKSolutions[l].bpSetups;
+            bdRunningSum += solutionsCPU.tenKSolutions[l].bdSetups;
+            solutionsCPU.tenKSolutions[l].bdSetups = bdRunningSum - solutionsCPU.tenKSolutions[l].bdSetups;
+            bpRunningSum += solutionsCPU.tenKSolutions[l].bpSetups;
+            solutionsCPU.tenKSolutions[l].bpSetups = bpRunningSum - solutionsCPU.tenKSolutions[l].bpSetups;
+        }
+
+        if (!o->silent) printf("        # Full Solutions: %d\n", solTotal);
+
+        if (solTotal > 0) {
+            bestStage = STAGE_COMPLETE;
+        }
     }
 
-    if (!o->silent) printf("        # Full Solutions: %d\n", solTotal);
-
-    if (o->minimalOutput) {
-        if (solTotal > 0) {
-            wf << startNormal[0] << "," << startNormal[1] << "," << startNormal[2] << endl;
+    if (o->outputLevel == 0) {
+        if (bestStage == STAGE_COMPLETE) {
+            wf << startNormal[0] << "," << startNormal[1] << "," << startNormal[2] << "," << solTotal << endl;
+        }
+    }
+    else if (o->outputLevel == 1) {
+        if (bestStage >= STAGE_TEN_K) {
+            wf << startNormal[0] << "," << startNormal[1] << "," << startNormal[2] << "," << bestStage << endl;
         }
     }
     else {
@@ -6551,7 +6600,7 @@ void initialise_solution_file_stream(std::ofstream& wf, std::string outFile, str
 
     if (wf.is_open()) {
         wf << std::fixed;
-        write_solution_file_header(o->minimalOutput, wf);
+        write_solution_file_header(o->outputLevel, wf);
     }
     else {
         if (!o->silent) fprintf(stderr, "Warning: ofstream is not open. No solutions will be written to the output file.\n");
@@ -6559,10 +6608,16 @@ void initialise_solution_file_stream(std::ofstream& wf, std::string outFile, str
     }
 }
 
-void write_solution_file_header(bool minimalOutput, std::ofstream& wf) {
+void write_solution_file_header(int outputLevel, std::ofstream& wf) {
     wf << "Start Normal X,Start Normal Y,Start Normal Z";
 
-    if (!minimalOutput) {
+    if (outputLevel == 0) {
+        wf << ",Number of Solutions,";
+    }
+    else if (outputLevel == 1) {
+        wf << ",Latest Stage Reached,";
+    }
+    else if (outputLevel == 2) {
         wf << ",";
         wf << "Start Position Min X,Start Position Max X,";
         wf << "Start Position Min Z,Start Position Max Z,";
@@ -6934,7 +6989,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 
                     find_bully_positions<<<nBlocks, o->nThreads>>>(uphillAngle, o->maxSlidingSpeed, o->maxSlidingSpeedToPlatform);
 
-                    cudaMemcpyFromSymbol(&(countsCPU.nBullyPushSolutions), counts, sizeof(int), offsetof(struct SolCounts, nBullyPushSolutions), cudaMemcpyDeviceToHost);
+                    cudaMemcpyFromSymbol(&(countsCPU.nBullyPushSolutions), counts, sizeof(int), offsetof(struct SolCounts, nBullyPushSolutions), cudaMemcpyDeviceToHost); 
                 }
 
                 if (countsCPU.nBullyPushSolutions > 0) {
@@ -6945,13 +7000,14 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 
                     if (!o->silent) printf("        # Bully Push Solutions: %d\n", countsCPU.nBullyPushSolutions);
 
-                    if (wf.is_open()) {
-                        write_solutions_to_file(startNormal, o, p, &countsCPU, x, wf);
-                    } else {
-                        if (!o->silent) fprintf(stderr, "Warning: ofstream is not open. No solutions will be written to the output file.\n");
-                    }
-
                     foundSolution = true;
+                }
+
+                if (wf.is_open()) {
+                    write_solutions_to_file(startNormal, o, p, &countsCPU, x, wf);
+                }
+                else {
+                    if (!o->silent) fprintf(stderr, "Warning: ofstream is not open. No solutions will be written to the output file.\n");
                 }
             }
         }

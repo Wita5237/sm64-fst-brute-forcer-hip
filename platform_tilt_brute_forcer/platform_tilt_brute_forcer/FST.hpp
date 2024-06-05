@@ -54,7 +54,7 @@ struct FSTOptions {
     float maxSlidingSpeed = 20.0f;
     float maxSlidingSpeedToPlatform = 5.0f;
 
-    bool minimalOutput = false;
+    int outputLevel = 1;
     bool silent = false;
 
     struct GPULimits limits;
@@ -291,11 +291,26 @@ struct BDSolution {
     float postSlideSpeed;
 };
 
+enum SolutionStage {
+    STAGE_NOTHING = 0,
+    STAGE_PLATFORM = 1,
+    STAGE_UPWARP = 2,
+    STAGE_SLIDE_KICK = 3,
+    STAGE_SKUW = 4,
+    STAGE_SPEED = 5,
+    STAGE_TEN_K = 6,
+    STAGE_SLIDE = 7,
+    STAGE_BREAKDANCE = 8,
+    STAGE_DOUBLE_TEN_K = 9,
+    STAGE_BULLY_PUSH = 10,
+    STAGE_COMPLETE = 11
+};
+
 void initialise_solution_file_stream(std::ofstream& wf, std::string outPath, struct FSTOptions* o);
 int initialise_fst_vars(struct FSTData* p, struct FSTOptions* o);
 void copy_solution_counts_to_cpu(struct SolCounts* countsCPU);
 void copy_solutions_to_cpu(struct FSTData* p, struct SolStruct* solutionsCPU, struct SolCounts* countsCPU);
-void write_solution_file_header(bool minimalOutput, std::ofstream& wf);
+void write_solution_file_header(int outputLevel, std::ofstream& wf);
 void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FSTData* p, struct SolCounts* counts, int floorIdx, std::ofstream& wf);
 bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf);
 void free_fst_vars(struct FSTData* p);

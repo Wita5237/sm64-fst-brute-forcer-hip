@@ -11,9 +11,9 @@ struct SearchOptions {
     float maxNY = 0.882f;
     float minNXZ = 0.575f;
     float maxNXZ = 0.5775f;
-    
+
     int nSamplesNX = 51;
-    int nSamplesNXZ = 26;
+    int nSamplesNXZ = 51;
     int nSamplesNY = 51;
 
     bool zMode = false;
@@ -95,11 +95,14 @@ void print_help_text(struct SearchOptions* s, struct FSTOptions* o) {
     printf("         Path to the output file.\n");
     printf("             Default: %s\n\n", s->outFile.c_str());
     printf("    -m\n");
-    printf("         Minimal output mode. The program will only write a list of normals with solutions to the output file.\n");
-    printf("             Default: off\n\n");
+    printf("         Output Level. The amount of detail provided in the output file.\n");
+    printf("           0: Minimal output. Prints all normals with full solutions, along with number of full solutions found.\n");
+    printf("           1: Minimal output with partial solutions. Prints all normals with 10k partial solutions or better, along with the latest stage with solutions.\n");
+    printf("           2: Full output. Prints all normals with full solutions, along with full details of the setup.\n");
+    printf("             Default: %d\n\n", o->outputLevel);
     printf("  GPU settings:\n");
     printf("    -d <device_id>\n");
-    printf("         The CUDA device used to run this program.\n");
+    printf("         The CUDA device used to run the program.\n");
     printf("             Default: %d\n\n", o->cudaDevice);
     printf("    -t <threads>\n");
     printf("         Number of CUDA threads to assign to the program.\n");
@@ -267,7 +270,8 @@ bool parse_inputs(int argc, char* argv[], struct SearchOptions* s, struct FSTOpt
                 i += 1;
             }
             else if (!strcmp(argv[i], "-m")) {
-                o->minimalOutput = true;
+                o->outputLevel = std::stof(argv[i + 1]);
+                i += 1;
             }
             else if (!strcmp(argv[i], "-lsk1")) {
                 o->limits.MAX_SK_PHASE_ONE = std::stof(argv[i + 1]);
@@ -398,11 +402,11 @@ int main(int argc, char* argv[]) {
     const float deltaNX = (s.nSamplesNX > 1) ? (s.maxNX - s.minNX) / (s.nSamplesNX - 1) : 0;
     const float deltaNY = (s.nSamplesNY > 1) ? (s.maxNY - s.minNY) / (s.nSamplesNY - 1) : 0;
     const float deltaNXZ = (s.nSamplesNXZ > 1) ? (s.maxNXZ - s.minNXZ) / (s.nSamplesNXZ - 1) : 0;
-    
+
     for (int j = 0; j < s.nSamplesNXZ; j++) {
         for (int h = 0; h < s.nSamplesNY; h++) {
             for (int i = 0; i < s.nSamplesNX; i++) {
-               for (int quad = 0; quad < (s.quadMode ? 8 : 1); quad++) {
+                for (int quad = 0; quad < (s.quadMode ? 8 : 1); quad++) {
                     float normX;
                     float normY;
                     float normZ;
@@ -439,7 +443,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
 
-                    float testNormal[3] = {normX, normY, normZ};
+                    float testNormal[3] = { normX, normY, normZ };
 
                     if (check_normal(testNormal, &o, &p, wf)) {
                     }
@@ -447,7 +451,7 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    
+
     if (!o.silent) print_success();
 
     free_fst_vars(&p);
