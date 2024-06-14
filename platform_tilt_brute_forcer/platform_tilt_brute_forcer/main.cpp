@@ -95,7 +95,7 @@ void print_help_text(struct SearchOptions* s, struct FSTOptions* o) {
     printf("         Path to the output file.\n");
     printf("             Default: %s\n\n", s->outFile.c_str());
     printf("    -m\n");
-    printf("         Output Level. The amount of detail provided in the output file.\n");
+    printf("         Output mode. The amount of detail provided in the output file.\n");
     printf("           0: Minimal output. Prints all normals with full solutions, along with number of full solutions found.\n");
     printf("           1: Minimal output with partial solutions. Prints all normals with 10k partial solutions or better, along with the latest stage with solutions.\n");
     printf("           2: Full output. Prints all normals with full solutions, along with full details of the setup.\n");
@@ -165,6 +165,9 @@ void print_help_text(struct SearchOptions* s, struct FSTOptions* o) {
     printf("         Maximum number of strain setups.\n");
     printf("             Default: %d\n\n", o->limits.MAX_STRAIN_SETUPS);
     printf("  Misc settings:\n");
+    printf("    -b\n");
+    printf("         Disable buffering on stdout and stderr.\n");
+    printf("             Default: off\n\n");
     printf("    -v\n");
     printf("         Verbose mode. Prints all parameters used in the brute forcer.\n");
     printf("             Default: off\n\n");
@@ -355,6 +358,10 @@ bool parse_inputs(int argc, char* argv[], struct SearchOptions* s, struct FSTOpt
             else if (!strcmp(argv[i], "-v")) {
                 s->verbose = true;
             }
+            else if (!strcmp(argv[i], "-b")) {
+                setbuf(stdout, NULL);
+                setbuf(stderr, NULL);
+            }
         }
     }
     catch (std::invalid_argument const& ex) {
@@ -452,6 +459,11 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    if (!o.silent) print_success();
+
+    free_fst_vars(&p);
+    wf.close();
+}
     if (!o.silent) print_success();
 
     free_fst_vars(&p);
