@@ -92,6 +92,8 @@ This program accepts the following options:
 </pre>
 #### Misc Settings ####
 <pre>
+-b:                                         Disable buffering on stdout and stderr.
+
 -v:                                         Verbose mode. Prints all parameters used in the brute forcer.
 
 -s:                                         Silent mode. Suppresses all print statements output by the brute forcer.
