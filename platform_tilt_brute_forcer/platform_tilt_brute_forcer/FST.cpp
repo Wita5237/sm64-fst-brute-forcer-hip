@@ -6736,7 +6736,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
         }
 
         if (squishCheck) {
-            fprintf(stderr, "Warning: Number of squish spots for this normal has been exceeded. No more squish spots for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+            fprintf(stderr, "Warning: Number of squish spots for this normal has been exceeded. No more squish spots for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
         }
     }
 
@@ -6781,7 +6781,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
                   
         if (countsCPU.nPlatSolutions > 0) {
             if (countsCPU.nPlatSolutions > o->limits.MAX_PLAT_SOLUTIONS) {
-                if (!o->silent) fprintf(stderr, "Warning: Number of platform tilt solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                if (!o->silent) fprintf(stderr, "Warning: Number of platform tilt solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                 countsCPU.nPlatSolutions = o->limits.MAX_PLAT_SOLUTIONS;
             }
 
@@ -6799,7 +6799,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 
         if (countsCPU.nUpwarpSolutions > 0) {
             if (countsCPU.nUpwarpSolutions > o->limits.MAX_UPWARP_SOLUTIONS) {
-                if (!o->silent) fprintf(stderr, "Warning: Number of upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                if (!o->silent) fprintf(stderr, "Warning: Number of upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                 countsCPU.nUpwarpSolutions = o->limits.MAX_UPWARP_SOLUTIONS;
             }
 
@@ -6850,7 +6850,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 
                 if (countsCPU.nSK6Solutions > 0) {
                     if (countsCPU.nSK6Solutions > o->limits.MAX_SK_PHASE_SIX) {
-                        if (!o->silent) fprintf(stderr, "Warning: Number of phase 6 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                        if (!o->silent) fprintf(stderr, "Warning: Number of phase 6 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nSK6Solutions = o->limits.MAX_SK_PHASE_SIX;
                     }
 
@@ -6868,7 +6868,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 
                 if (countsCPU.nSKUWSolutions > 0) {
                     if (countsCPU.nSKUWSolutions > o->limits.MAX_SK_UPWARP_SOLUTIONS) {
-                        if (!o->silent) fprintf(stderr, "Warning: Number of slide kick upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                        if (!o->silent) fprintf(stderr, "Warning: Number of slide kick upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nSKUWSolutions = o->limits.MAX_SK_UPWARP_SOLUTIONS;
                     }
 
@@ -6879,7 +6879,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
                     cudaMemcpyFromSymbol(&nStrainSetupsCPU, nStrainSetups, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
                     if (nStrainSetupsCPU > o->limits.MAX_STRAIN_SETUPS) {
-                        if (!o->silent) fprintf(stderr, "Warning: Number of strain setups for this normal has been exceeded. No more setups for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                        if (!o->silent) fprintf(stderr, "Warning: Number of strain setups for this normal has been exceeded. No more setups for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         nStrainSetupsCPU = o->limits.MAX_STRAIN_SETUPS;
                     }
 
@@ -6894,7 +6894,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 
                 if (countsCPU.nSpeedSolutions > 0) {
                     if (countsCPU.nSpeedSolutions > o->limits.MAX_SPEED_SOLUTIONS) {
-                        if (!o->silent) fprintf(stderr, "Warning: Number of speed solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                        if (!o->silent) fprintf(stderr, "Warning: Number of speed solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nSpeedSolutions = o->limits.MAX_SPEED_SOLUTIONS;
                     }
 
@@ -6911,7 +6911,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 
                 if (countsCPU.n10KSolutions > 0) {
                     if (countsCPU.n10KSolutions > o->limits.MAX_10K_SOLUTIONS) {
-                        if (!o->silent) fprintf(stderr, "Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                        if (!o->silent) fprintf(stderr, "Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.n10KSolutions = o->limits.MAX_10K_SOLUTIONS;
                     }
 
@@ -6940,7 +6940,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 
                 if (countsCPU.nSlideSolutions > 0) {
                     if (countsCPU.nSlideSolutions > o->limits.MAX_SLIDE_SOLUTIONS) {
-                        if (!o->silent) fprintf(stderr, "Warning: Number of slide solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                        if (!o->silent) fprintf(stderr, "Warning: Number of slide solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nSlideSolutions = o->limits.MAX_SLIDE_SOLUTIONS;
                     }
 
@@ -6960,7 +6960,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 
                 if (countsCPU.nBDSolutions > 0) {
                     if (countsCPU.nBDSolutions > o->limits.MAX_BD_SOLUTIONS) {
-                        if (!o->silent) fprintf(stderr, "Warning: Number of breakdance solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                        if (!o->silent) fprintf(stderr, "Warning: Number of breakdance solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nBDSolutions = o->limits.MAX_BD_SOLUTIONS;
                     }
 
@@ -6977,7 +6977,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 
                 if (countsCPU.nDouble10KSolutions > 0) {
                     if (countsCPU.nDouble10KSolutions > o->limits.MAX_DOUBLE_10K_SOLUTIONS) {
-                        if (!o->silent) fprintf(stderr, "Warning: Number of double 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                        if (!o->silent) fprintf(stderr, "Warning: Number of double 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nDouble10KSolutions = o->limits.MAX_DOUBLE_10K_SOLUTIONS;
                     }
 
@@ -6994,7 +6994,7 @@ bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, s
 
                 if (countsCPU.nBullyPushSolutions > 0) {
                     if (countsCPU.nBullyPushSolutions > o->limits.MAX_BULLY_PUSH_SOLUTIONS) {
-                        if (!o->silent) fprintf(stderr, "Warning: Number of bully push solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening.\n");
+                        if (!o->silent) fprintf(stderr, "Warning: Number of bully push solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nBullyPushSolutions = o->limits.MAX_BULLY_PUSH_SOLUTIONS;
                     }
 
