@@ -2404,12 +2404,14 @@ __global__ void find_sk_upwarp_solutions() {
                     float xVel = minPre10KSpeed * sinsG(sol2->f2Angle);
                     float zVel = minPre10KSpeed * cossG(sol2->f2Angle);
 
+                    const int minStrainPrecision = -6;
+
                     frexpf(xVel, &precision);
-                    float xVelRange = powf(2.0f, precision - 24);
+                    float xVelRange = powf(2.0f, max(minStrainPrecision, precision - 24));
                     int nXSpeedLevels = (int)ceilf(fabs(10.0f * cossG(sol2->f2Angle)) / xVelRange);
 
                     frexpf(zVel, &precision);
-                    float zVelRange = powf(2.0f, precision - 24);
+                    float zVelRange = powf(2.0f, max(minStrainPrecision, precision - 24));
                     int nZSpeedLevels = (int)ceilf(fabs(10.0f * -sinsG(sol2->f2Angle)) / zVelRange);
 
                     atomicMax(&maxSSpeedLevels, max(nXSpeedLevels, nZSpeedLevels));
