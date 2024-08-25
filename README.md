@@ -39,6 +39,8 @@ This program accepts the following options:
 </pre>
 #### Output Settings ####
 <pre>
+-l &lt;path&gt;:                                  Path to the log file.
+  
 -o &lt;path&gt;:                                  Path to the output file.
 
 -m:                                         Output mode. The amount of detail provided in the output file.
@@ -130,16 +132,22 @@ The brute forcer includes a basic API to run the program from external projects.
 #include <string>
 #include "FST.hpp"
   
+std::string outFile = "logFile.log"; // Path to log file
 std::string outFile = "outData.csv"; // Path to solution csv file
 std::ofstream wf; // Output stream for solution csv file
+std::ofstream logf; // Output stream for log file
 struct FSTData p; // Pointers to structures used by brute forcer
 struct FSTOptions o; // Options for the brute forcer
+
+// Open log file
+// You can skip this if you don't want to output to a log file
+logf.open(s.logFile);
 
 // Set any options you want to change
 o.nThreads = 128;
 
 // Allocate memory and initialise the brute forcer structures
-int error = initialise_fst_vars(&p, &o);
+int error = initialise_fst_vars(&p, &o, logf);
 
 // You may get errors if you don't have enough memory
 // Check output variable for no errors
@@ -152,13 +160,14 @@ if (error == 0) {
     float testNormal[3] = {0.1808f, 0.87768f, -0.396f};
   
     // Check if the normal has any solutions
-    if (check_normal(testNormal, &o, &p, wf)) {
+    if (check_normal(testNormal, &o, &p, wf, logf)) {
           // Do stuff with successful normals
     }
 
     // When you're done, release the memory assigned to the brute forcer
     free_fst_vars(&p);
     wf.close();
+    logf.close();
 } else {
       // Report errors
 }
