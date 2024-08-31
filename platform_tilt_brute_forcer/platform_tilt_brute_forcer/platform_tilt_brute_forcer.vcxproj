@@ -128,9 +128,10 @@
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;cudart.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CudaCompile>
-      <CodeGeneration>compute_53,sm_53</CodeGeneration>
+      <CodeGeneration>
+      </CodeGeneration>
       <GenerateRelocatableDeviceCode>false</GenerateRelocatableDeviceCode>
-      <AdditionalOptions>-fmad=false %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-fmad=false -arch=native %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -151,9 +152,11 @@
     <CudaCompile>
       <AdditionalCompilerOptions>
       </AdditionalCompilerOptions>
-      <MaxRegCount>64</MaxRegCount>
+      <MaxRegCount>0</MaxRegCount>
       <Include>$(CUDA_PATH)\include\</Include>
-      <AdditionalOptions>-fmad=false %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-fmad=false -arch=native %(AdditionalOptions)</AdditionalOptions>
+      <CodeGeneration>
+      </CodeGeneration>
     </CudaCompile>
     <CudaLink>
       <DebugInformationFormat>None</DebugInformationFormat>
