@@ -1,6 +1,5 @@
 # Add new source files here
 add_executable(fst-brute-forcer
-  "CMakeLists.txt"
   "main.cpp"
   "FST.cpp"
   "FST.hpp"
@@ -25,7 +24,7 @@ set_target_properties(fst-brute-forcer PROPERTIES
 
 set_source_files_properties(FST.cpp PROPERTIES LANGUAGE CUDA)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -maxrregcount=64 -fmad=false")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -fmad=false -arch=native")
 
 if (SUPPORTS_MARCH_NATIVE)
   if (SUPPORTS_FFP_CONTRACT)
