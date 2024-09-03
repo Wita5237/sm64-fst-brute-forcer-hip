@@ -24,7 +24,7 @@ struct GPULimits {
     int MAX_SK_PHASE_SIX = 200000;
 
     int MAX_SK_UPWARP_SOLUTIONS = 100000;
-    int MAX_SPEED_SOLUTIONS = 100000000;
+    int MAX_SPEED_SOLUTIONS = 10000000;
     int MAX_10K_SOLUTIONS = 500000;
     int MAX_SLIDE_SOLUTIONS = 2000000;
     int MAX_BD_SOLUTIONS = 50000;
@@ -100,6 +100,7 @@ struct SolCounts {
     int nBullyPushSolutions;
     int nSlideSolutions;
     int nBDSolutions;
+    int nFullSolutions;
 };
 
 struct FSTData {
@@ -317,10 +318,10 @@ int initialise_fst_vars(struct FSTData* p, struct FSTOptions* o, std::ofstream& 
 void copy_solution_counts_to_cpu(struct SolCounts* countsCPU);
 void copy_solutions_to_cpu(struct FSTData* p, struct SolStruct* solutionsCPU, struct SolCounts* countsCPU);
 void write_solution_file_header(int outputLevel, std::ofstream& wf);
-void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FSTData* p, struct SolCounts* counts, int floorIdx, std::ofstream& wf);
+void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FSTData* p, struct SolStruct* solutionsCPU, struct SolCounts* countsCPU, int floorIdx, std::ofstream& wf);
 void write_line_to_log_file(LogType type, std::string content, std::ofstream& logf);
-bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf);
-bool check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf, std::ofstream& logf);
+SolutionStage check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf);
+SolutionStage check_normal(float* startNormal, struct FSTOptions* o, struct FSTData* p, std::ofstream& wf, std::ofstream& logf);
 void free_fst_vars(struct FSTData* p);
 void free_solution_pointers_cpu(SolStruct* s);
 void free_solution_pointers_gpu(SolStruct* s);
