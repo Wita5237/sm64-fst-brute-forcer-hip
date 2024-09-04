@@ -554,13 +554,12 @@ int main(int argc, char* argv[]) {
     write_line_to_log_file(LOG_INFO, "Search Completed", logf);
 
     if (!o.silent) printf("\n");
-    if (!o.silent) printf("Search found %d normal%s with full solutions and %d normal%s with partial solutions.\n", fullSolutionCount, fullSolutionCount == 1 ? "" : "s", partialSolutionCount, partialSolutionCount == 1 ? "" : "s");
+    if (!o.silent) printf("Search found %d normal%s with full solutions and %d normal%s with partial solutions.\n\n", fullSolutionCount, fullSolutionCount == 1 ? "" : "s", partialSolutionCount, partialSolutionCount == 1 ? "" : "s");
 
     sprintf(logContent, "Search Found %d Normal%s with Full Solutions and %d Normal%s with Partial Solutions", fullSolutionCount, fullSolutionCount == 1 ? "" : "s", partialSolutionCount, partialSolutionCount == 1 ? "" : "s");
     write_line_to_log_file(LOG_INFO, logContent, logf);
 
     if (test_device()) {
-        if (!o.silent) printf("\n");
         if (!o.silent) print_success();
 
         write_line_to_log_file(LOG_INFO, "CUDA Device Test Successful", logf);
