@@ -43,6 +43,8 @@ This program accepts the following options:
   
 -o &lt;path&gt;:                                  Path to the output file.
 
+-c &lt;path&gt;:                                  Path to the checkpoint file.
+
 -m:                                         Output mode. The amount of detail provided in the output file.
                                               0: Minimal output. Prints all normals with full solutions, along with number of full solutions found.
                                               1: Minimal output with partial solutions. Prints all normals with 10k partial solutions or better, along with the latest stage with solutions.
@@ -81,6 +83,8 @@ This program accepts the following options:
 -ls &lt;n_solutions&gt;:                          Maximum number of speed solutions.
   
 -l10k &lt;n_solutions&gt;:                        Maximum number of 10k solutions.
+  
+-lsl &lt;n_solutions&gt;:                         Maximum number of slide solutions.
   
 -lbd &lt;n_solutions&gt;:                         Maximum number of breakdance solutions.
   
