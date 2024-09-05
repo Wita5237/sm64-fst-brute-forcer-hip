@@ -451,7 +451,7 @@ void print_help_text(struct SearchOptions* s, struct FSTOptions* o) {
     printf("    -l10k <n_solutions>\n");
     printf("         Maximum number of 10k solutions.\n");
     printf("             Default: %d\n\n", o->limits.MAX_10K_SOLUTIONS);
-    printf("    -l10k <n_solutions>\n");
+    printf("    -lsl <n_solutions>\n");
     printf("         Maximum number of slide solutions.\n");
     printf("             Default: %d\n\n", o->limits.MAX_SLIDE_SOLUTIONS);
     printf("    -lbd <n_solutions>\n");
