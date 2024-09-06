@@ -2,11 +2,6 @@
 
 #include <fstream>
 #include <iostream>
-#include <math.h>
-#include "cuda.h"
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-#include "device_atomic_functions.h"
 #include "vmath.hpp"
 
 struct GPULimits {
