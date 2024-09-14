@@ -868,15 +868,28 @@ int main(int argc, char* argv[]) {
 
                     FSTOutput output = check_normal(testNormal, &o, &p, wf, logf);
 
-                    if (output.flags & SW_FLAG_ALL) {
-                        c.warningNormalCount++;
-                    }
+                    if (output.cudaError == 0x0) {
+                        if (output.flags & SW_FLAG_ALL) {
+                            c.warningNormalCount++;
+                        }
 
-                    if (output.bestStage == STAGE_COMPLETE) {
-                        c.fullSolutionCount++;
+                        if (output.bestStage == STAGE_COMPLETE) {
+                            c.fullSolutionCount++;
+                        }
+                        else if (output.bestStage >= STAGE_TEN_K) {
+                            c.partialSolutionCount++;
+                        }
                     }
-                    else if (output.bestStage >= STAGE_TEN_K) {
-                        c.partialSolutionCount++;
+                    else {
+                        if (output.cudaError == 701) {
+                            if (!o.silent) fprintf(stderr, "Error: Too many CUDA threads requested for the number of registers on your device.\n");
+                            if (!o.silent) fprintf(stderr, "       Run this program with --help for details on how to change number of threads.\n");
+                        }
+                        else {
+                            if (!o.silent) fprintf(stderr, "Error: Normal failed with the following error code: %d.\n", output.cudaError);
+                        }
+
+                        return output.cudaError;
                     }
                 }
 

@@ -5725,6 +5725,8 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
     int nBlocks = ((2 * (maxF1PU / 4) + 1) * (2 * (maxF1PU / 4) + 1) + o->nThreads - 1) / o->nThreads;
 
     find_slide_kick_setupG<<<nBlocks, o->nThreads>>>(devFloorPoints, nPoints, yNormal, o->maxSpeed, maxF1PU, t);
+    output.cudaError = cudaGetLastError();
+    if (output.cudaError != 0x0) return;
 
     cudaMemcpyFromSymbol(&(countsCPU->nSK1Solutions), counts, sizeof(int), offsetof(struct SolCounts, nSK1Solutions), cudaMemcpyDeviceToHost);
 
@@ -5741,6 +5743,8 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
         nBlocks = (countsCPU->nSK1Solutions + o->nThreads - 1) / o->nThreads;
 
         find_slide_kick_setupG2<<<nBlocks, o->nThreads>>>(devFloorPoints, nPoints, yNormal, platformMinX, platformMaxX, platformMinZ, platformMaxZ, midPointX, midPointZ);
+        output.cudaError = cudaGetLastError();
+        if (output.cudaError != 0x0) return;
 
         cudaMemcpyFromSymbol(&(countsCPU->nSK2ASolutions), counts, sizeof(int), offsetof(struct SolCounts, nSK2ASolutions), cudaMemcpyDeviceToHost);
         cudaMemcpyFromSymbol(&(countsCPU->nSK2BSolutions), counts, sizeof(int), offsetof(struct SolCounts, nSK2BSolutions), cudaMemcpyDeviceToHost);
@@ -5761,6 +5765,8 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
         nBlocks = (countsCPU->nSK2ASolutions + o->nThreads - 1) / o->nThreads;
 
         find_slide_kick_setupG3a<<<nBlocks, o->nThreads>>>(platformMinZ, platformMaxZ);
+        output.cudaError = cudaGetLastError();
+        if (output.cudaError != 0x0) return;
     }
 
     if (countsCPU->nSK2BSolutions > 0) {
@@ -5776,6 +5782,8 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
         nBlocks = (countsCPU->nSK2BSolutions + o->nThreads - 1) / o->nThreads;
 
         find_slide_kick_setupG3b<<<nBlocks, o->nThreads>>>(platformMinX, platformMaxX);
+        output.cudaError = cudaGetLastError();
+        if (output.cudaError != 0x0) return;
     }
 
     if (countsCPU->nSK2CSolutions > 0) {
@@ -5791,6 +5799,8 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
         nBlocks = (countsCPU->nSK2CSolutions + o->nThreads - 1) / o->nThreads;
 
         find_slide_kick_setupG3c<<<nBlocks, o->nThreads>>>(platformMinX, platformMaxX, platformMinZ, platformMaxZ);
+        output.cudaError = cudaGetLastError();
+        if (output.cudaError != 0x0) return;
     }
 
     if (countsCPU->nSK2DSolutions > 0) {
@@ -5806,6 +5816,8 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
         nBlocks = (countsCPU->nSK2DSolutions + o->nThreads - 1) / o->nThreads;
 
         find_slide_kick_setupG3d<<<nBlocks, o->nThreads>>>(platformMinX, platformMaxX, platformMinZ, platformMaxZ);
+        output.cudaError = cudaGetLastError();
+        if (output.cudaError != 0x0) return;
     }
 
     cudaMemcpyFromSymbol(&(countsCPU->nSK3Solutions), counts, sizeof(int), offsetof(struct SolCounts, nSK3Solutions), cudaMemcpyDeviceToHost);
@@ -5823,6 +5835,8 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
         nBlocks = (countsCPU->nSK3Solutions + o->nThreads - 1) / o->nThreads;
 
         try_slide_kick_routeG<<<nBlocks, o->nThreads>>>(devFloorPoints, nPoints);
+        output.cudaError = cudaGetLastError();
+        if (output.cudaError != 0x0) return;
 
         cudaMemcpyFromSymbol(&(countsCPU->nSK4Solutions), counts, sizeof(int), offsetof(struct SolCounts, nSK4Solutions), cudaMemcpyDeviceToHost);
 
@@ -5841,6 +5855,8 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
         nBlocks = (countsCPU->nSK4Solutions + o->nThreads - 1) / o->nThreads;
 
         try_slide_kick_routeG2<<<nBlocks, o->nThreads>>>();
+        output.cudaError = cudaGetLastError();
+        if (output.cudaError != 0x0) return;
 
         cudaMemcpyFromSymbol(&(countsCPU->nSK5Solutions), counts, sizeof(int), offsetof(struct SolCounts, nSK5Solutions), cudaMemcpyDeviceToHost);
     }
@@ -5858,6 +5874,8 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
         nBlocks = (countsCPU->nSK5Solutions + o->nThreads - 1) / o->nThreads;
 
         try_stick_positionG<<<nBlocks, o->nThreads>>>();
+        output.cudaError = cudaGetLastError();
+        if (output.cudaError != 0x0) return;
     }
 }
 
@@ -6884,6 +6902,8 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
         long long int nBlocks = (nX * nZ + o->nThreads - 1) / o->nThreads;
 
         simulate_tilts<<<nBlocks, o->nThreads>>>(minX, o->deltaX, minZ, o->deltaZ, nX, nZ, platform.normal[0], platform.normal[1], platform.normal[2], o->maxFrames);
+        output.cudaError = cudaGetLastError();
+        if (output.cudaError != 0x0) return output;
 
         cudaMemcpyFromSymbol(&(countsCPU.nPlatSolutions), counts, sizeof(int), offsetof(struct SolCounts, nPlatSolutions), cudaMemcpyDeviceToHost);
                   
@@ -6907,6 +6927,8 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
             cudaMemcpyToSymbol(counts, &(countsCPU.nUpwarpSolutions), sizeof(int), offsetof(struct SolCounts, nUpwarpSolutions), cudaMemcpyHostToDevice);
 
             find_upwarp_solutions<<<nBlocks, o->nThreads>>>(1000000000.0f);
+            output.cudaError = cudaGetLastError();
+            if (output.cudaError != 0x0) return output;
 
             cudaMemcpyFromSymbol(&(countsCPU.nUpwarpSolutions), counts, sizeof(int), offsetof(struct SolCounts, nUpwarpSolutions), cudaMemcpyDeviceToHost);
         }
@@ -6989,6 +7011,8 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
 
                     reset_ranges<<<1, 1>>>();
                     find_sk_upwarp_solutions<<<nBlocks, o->nThreads>>>();
+                    output.cudaError = cudaGetLastError();
+                    if (output.cudaError != 0x0) return output;
 
                     cudaMemcpyFromSymbol(&(countsCPU.nSKUWSolutions), counts, sizeof(int), offsetof(struct SolCounts, nSKUWSolutions), cudaMemcpyDeviceToHost);
                 }
@@ -7008,6 +7032,8 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                     //if (!o->silent) printf("        # Slide Kick Upwarp Solutions: %d\n", countsCPU.nSKUWSolutions);
 
                     generate_strain_setups<<<1, 1>>>();
+                    output.cudaError = cudaGetLastError();
+                    if (output.cudaError != 0x0) return output;
 
                     cudaMemcpyFromSymbol(&nStrainSetupsCPU, nStrainSetups, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
@@ -7025,6 +7051,8 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                     cudaMemcpyToSymbol(counts, &(countsCPU.nSpeedSolutions), sizeof(int), offsetof(struct SolCounts, nSpeedSolutions), cudaMemcpyHostToDevice);
 
                     find_speed_solutions<<<nBlocks, o->nThreads>>>();
+                    output.cudaError = cudaGetLastError();
+                    if (output.cudaError != 0x0) return output;
 
                     cudaMemcpyFromSymbol(&(countsCPU.nSpeedSolutions), counts, sizeof(int), offsetof(struct SolCounts, nSpeedSolutions), cudaMemcpyDeviceToHost);
                 }
@@ -7048,6 +7076,8 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                     cudaMemcpyToSymbol(counts, &(countsCPU.n10KSolutions), sizeof(int), offsetof(struct SolCounts, n10KSolutions), cudaMemcpyHostToDevice);
 
                     test_speed_solution<<<nBlocks, o->nThreads>>>(p->devSquishEdges, sameNormal ? 4 : 3, p->host_norms[3 * x + 1], uphillAngle, o->maxSlidingSpeed, o->maxSlidingSpeedToPlatform);
+                    output.cudaError = cudaGetLastError();
+                    if (output.cudaError != 0x0) return output;
 
                     cudaMemcpyFromSymbol(&(countsCPU.n10KSolutions), counts, sizeof(int), offsetof(struct SolCounts, n10KSolutions), cudaMemcpyDeviceToHost);
                 }
@@ -7077,6 +7107,8 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                     cudaMemcpyToSymbol(maxAngleRange, &maxAngleRangeCPU, sizeof(int), 0, cudaMemcpyHostToDevice);
 
                     find_slide_solutions<<<nBlocks, o->nThreads>>>();
+                    output.cudaError = cudaGetLastError();
+                    if (output.cudaError != 0x0) return output;
 
                     cudaMemcpyFromSymbol(&maxAngleRangeCPU, maxAngleRange, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
@@ -7084,6 +7116,8 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
 
                     cudaMemcpyToSymbol(counts, &(countsCPU.nSlideSolutions), sizeof(int), offsetof(struct SolCounts, nSlideSolutions), cudaMemcpyHostToDevice);
                     test_slide_angle<<<nBlocks, o->nThreads>>>();
+                    output.cudaError = cudaGetLastError();
+                    if (output.cudaError != 0x0) return output;
                     cudaMemcpyFromSymbol(&(countsCPU.nSlideSolutions), counts, sizeof(int), offsetof(struct SolCounts, nSlideSolutions), cudaMemcpyDeviceToHost);
                 }
 
@@ -7109,6 +7143,8 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                     cudaMemcpyToSymbol(counts, &(countsCPU.nBDSolutions), sizeof(int), offsetof(struct SolCounts, nBDSolutions), cudaMemcpyHostToDevice);
 
                     find_breakdance_solutions<<<nBlocks, o->nThreads>>>();
+                    output.cudaError = cudaGetLastError();
+                    if (output.cudaError != 0x0) return output;
 
                     cudaMemcpyFromSymbol(&(countsCPU.nBDSolutions), counts, sizeof(int), offsetof(struct SolCounts, nBDSolutions), cudaMemcpyDeviceToHost);
                 }
@@ -7132,6 +7168,8 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                     cudaMemcpyToSymbol(counts, &(countsCPU.nDouble10KSolutions), sizeof(int), offsetof(struct SolCounts, nDouble10KSolutions), cudaMemcpyHostToDevice);
 
                     find_double_10k_solutions<<<nBlocks, o->nThreads>>>();
+                    output.cudaError = cudaGetLastError();
+                    if (output.cudaError != 0x0) return output;
 
                     cudaMemcpyFromSymbol(&(countsCPU.nDouble10KSolutions), counts, sizeof(int), offsetof(struct SolCounts, nDouble10KSolutions), cudaMemcpyDeviceToHost);
                 }
@@ -7155,6 +7193,8 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                     cudaMemcpyToSymbol(counts, &(countsCPU.nBullyPushSolutions), sizeof(int), offsetof(struct SolCounts, nBullyPushSolutions), cudaMemcpyHostToDevice);
 
                     find_bully_positions<<<nBlocks, o->nThreads>>>(uphillAngle, o->maxSlidingSpeed, o->maxSlidingSpeedToPlatform);
+                    output.cudaError = cudaGetLastError();
+                    if (output.cudaError != 0x0) return output;
 
                     cudaMemcpyFromSymbol(&(countsCPU.nBullyPushSolutions), counts, sizeof(int), offsetof(struct SolCounts, nBullyPushSolutions), cudaMemcpyDeviceToHost); 
                 }
