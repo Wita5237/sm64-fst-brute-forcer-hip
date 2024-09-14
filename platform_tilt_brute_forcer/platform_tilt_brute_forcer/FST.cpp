@@ -6068,7 +6068,6 @@ __device__ float find_position_boundary(float minValue, float maxValue, float ta
     }
 }
 
-
 __device__ float find_speed_boundary_a(float startPos, float targetPos, float yNormal, int dir) {
     float minVel = 0.0f;
     float maxVel = 2.0f * (targetPos - startPos) / yNormal;
@@ -6243,9 +6242,9 @@ __device__ void search_xVel(float zVel, float targetSpeed, float* targetPosition
 }
 
 __global__ void find_double_10k_solutions() {
-    const float minSpeedDelta = powf(2, -4);
+    const float minSpeedDelta = powf(2.0f, -4);
 
-    float minPlatformZ = fminf(fminf(fminf(squishTriangles[0][0][2], squishTriangles[0][2][2]), fminf(squishTriangles[1][0][2], squishTriangles[1][1][2])), fminf(fmaxf(startTriangles[0][0][2], startTriangles[0][2][2]), fminf(startTriangles[1][0][2], startTriangles[1][1][2])));
+    float minPlatformZ = fminf(fminf(fminf(squishTriangles[0][0][2], squishTriangles[0][2][2]), fminf(squishTriangles[1][0][2], squishTriangles[1][1][2])), fminf(fminf(startTriangles[0][0][2], startTriangles[0][2][2]), fminf(startTriangles[1][0][2], startTriangles[1][1][2])));
     float maxPlatformZ = fmaxf(fmaxf(fmaxf(squishTriangles[0][0][2], squishTriangles[0][2][2]), fmaxf(squishTriangles[1][0][2], squishTriangles[1][1][2])), fmaxf(fmaxf(startTriangles[0][0][2], startTriangles[0][2][2]), fmaxf(startTriangles[1][0][2], startTriangles[1][1][2])));
     minPlatformZ = (minPlatformZ > 0) ? minPlatformZ : nextafterf(minPlatformZ - 1.0f, INFINITY);
     maxPlatformZ = (maxPlatformZ > 0) ? nextafterf(maxPlatformZ + 1.0f, -INFINITY) : maxPlatformZ;
