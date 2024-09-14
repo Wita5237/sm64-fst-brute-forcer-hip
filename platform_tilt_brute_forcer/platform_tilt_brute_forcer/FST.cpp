@@ -6036,7 +6036,7 @@ __global__ void find_bully_positions(int uphillAngle, float maxSlidingSpeed, flo
     }
 }
 
-__device__ float find_speed_boundary(float minValue, float maxValue, float target, float yNormal, float vel, int dir) {
+__device__ float find_position_boundary(float minValue, float maxValue, float target, float yNormal, float vel, int dir) {
     while (nextafterf(minValue, INFINITY) < maxValue) {
         float midValue = fmaxf(nextafterf(minValue, INFINITY), (minValue + maxValue) / 2.0f);
 
@@ -6068,114 +6068,188 @@ __device__ float find_speed_boundary(float minValue, float maxValue, float targe
     }
 }
 
-__device__ bool search_xVel(float& xVel, float zVel, float targetSpeed, float* targetPosition, float yNormal, int idx) {
-    float xDir = sign(xVel);
 
-    float speed = sqrtf(xVel * xVel + zVel * zVel);
+__device__ float find_speed_boundary_a(float startPos, float targetPos, float yNormal, int dir) {
+    float minVel = 0.0f;
+    float maxVel = 2.0f * (targetPos - startPos) / yNormal;
 
-    float minXVel = xVel;
-    float maxXVel = xVel;
+    while (nextafterf(minVel, INFINITY) < maxVel) {
+        float midVel = fmaxf(nextafterf(minVel, INFINITY), (minVel + maxVel) / 2.0f);
 
-    float minSpeed = speed;
+        float pos = startPos;
 
-    if (xDir * minSpeed < xDir * targetSpeed) {
-        while (xDir * minSpeed < xDir * targetSpeed) {
-            minXVel = nextafterf(minXVel, INFINITY);
-            minSpeed = sqrtf(minXVel * minXVel + zVel * zVel);
+        for (int i = 0; i < 4; i++) {
+            pos = pos + yNormal * (midVel / 4.0f);
         }
+
+        if (pos < targetPos) {
+            minVel = midVel;
+        }
+        else if (pos > targetPos) {
+            maxVel = midVel;
+        }
+        else if (dir > 0) {
+            minVel = midVel;
+        }
+        else {
+            maxVel = midVel;
+        }
+    }
+
+    if (dir > 0) {
+        return minVel;
     }
     else {
-        while (xDir * minSpeed >= xDir * targetSpeed) {
-            minXVel = nextafterf(minXVel, -INFINITY);
-            minSpeed = sqrtf(minXVel * minXVel + zVel * zVel);
-        }
+        return maxVel;
+    }
+}
 
-        minXVel = nextafterf(minXVel, INFINITY);
+__device__ float find_speed_boundary_b(float targetSpeed, float zVel, int dir) {
+    float minXVel = 0.0f;
+    float maxXVel = 2.0f * targetSpeed;
+
+    while (nextafterf(minXVel, INFINITY) < maxXVel) {
+        float midXVel = fmaxf(nextafterf(minXVel, INFINITY), (minXVel + maxXVel) / 2.0f);
+
+        float speed = sqrtf(midXVel * midXVel + zVel * zVel);
+
+        if (speed < targetSpeed) {
+            minXVel = midXVel;
+        }
+        else if (speed > targetSpeed) {
+            maxXVel = midXVel;
+        }
+        else if (dir > 0) {
+            minXVel = midXVel;
+        }
+        else {
+            maxXVel = midXVel;
+        }
     }
 
-    float maxSpeed = speed;
-
-    if (xDir * maxSpeed > xDir * targetSpeed) {
-        while (xDir * maxSpeed > xDir * targetSpeed) {
-            maxXVel = nextafterf(maxXVel, -INFINITY);
-            maxSpeed = sqrtf(maxXVel * maxXVel + zVel * zVel);
-        }
+    if (dir > 0) {
+        return minXVel;
     }
     else {
-        while (xDir * maxSpeed <= xDir * targetSpeed) {
-            maxXVel = nextafterf(maxXVel, INFINITY);
-            maxSpeed = sqrtf(maxXVel * maxXVel + zVel * zVel);
-        }
+        return maxXVel;
+    }
+}
 
-        maxXVel = nextafterf(maxXVel, -INFINITY);
+__device__ void search_xVel(float zVel, float targetSpeed, float* targetPosition, float yNormal, int idx, const float minSpeedDelta) {
+    int ceilIdx = solutions.tenKSolutions[idx].squishCeiling;
+
+    float p[2][3];
+    float q[2][3];
+    int pIdx = 0;
+
+    for (int i = 0; i < 3; i++) {
+        if (squishCeilingTriangles[ceilIdx][i][0] != platform_pos[0] || squishCeilingTriangles[ceilIdx][i][1] != platform_pos[1] || startCeilingTriangles[ceilIdx][i][2] != platform_pos[2]) {
+            p[pIdx][0] = squishCeilingTriangles[ceilIdx][i][0];
+            p[pIdx][1] = squishCeilingTriangles[ceilIdx][i][1];
+            p[pIdx][2] = squishCeilingTriangles[ceilIdx][i][2];
+
+            q[pIdx][0] = startCeilingTriangles[ceilIdx][i][0];
+            q[pIdx][1] = startCeilingTriangles[ceilIdx][i][1];
+            q[pIdx][2] = startCeilingTriangles[ceilIdx][i][2];
+
+            pIdx++;
+        }
     }
 
-    bool foundSpeed = minXVel > maxXVel;
+    float z0 = nextafterf(targetPosition[2], -INFINITY) - yNormal * zVel;
+    float z1 = nextafterf(targetPosition[2], INFINITY) - yNormal * zVel;
 
-    for (float xVel1 = minXVel; xVel1 <= maxXVel; xVel1 = nextafterf(xVel1, INFINITY)) {
-        float minX = nextafterf(targetPosition[0], -INFINITY) - yNormal * xVel1;
-        float maxX = nextafterf(targetPosition[0], INFINITY) - yNormal * xVel1;
-        float minZ = nextafterf(targetPosition[2], -INFINITY) - yNormal * zVel;
-        float maxZ = nextafterf(targetPosition[2], INFINITY) - yNormal * zVel;
+    float px0 = p[0][0] + (p[1][0] - p[0][0]) * (z0 - p[0][2]) / (p[1][2] - p[0][2]);
+    float px1 = p[0][0] + (p[1][0] - p[0][0]) * (z1 - p[0][2]) / (p[1][2] - p[0][2]);
+    float qx0 = q[0][0] + (q[1][0] - q[0][0]) * (z0 - q[0][2]) / (q[1][2] - q[0][2]);
+    float qx1 = q[0][0] + (q[1][0] - q[0][0]) * (z1 - q[0][2]) / (q[1][2] - q[0][2]);
 
-        minX = find_speed_boundary(minX, maxX, targetPosition[0], yNormal, xVel1, -1);
-        maxX = find_speed_boundary(minX, maxX, targetPosition[0], yNormal, xVel1, 1);
-        minZ = find_speed_boundary(minZ, maxZ, targetPosition[2], yNormal, zVel, -1);
-        maxZ = find_speed_boundary(minZ, maxZ, targetPosition[2], yNormal, zVel, 1);
+    float minX = fminf(fminf(px0, px1), fminf(qx0, qx1));
+    float maxX = fmaxf(fmaxf(px0, px1), fmaxf(qx0, qx1));
+    minX = (minX > 0) ? ceilf(minX) : nextafterf(ceilf(minX) - 1.0f, INFINITY);
+    maxX = (maxX > 0) ? nextafterf(floorf(maxX) + 1.0f, -INFINITY) : floorf(maxX);
 
-        int minXI = (int)minX;
-        int maxXI = (int)maxX;
-        int minZI = (int)minZ;
-        int maxZI = (int)maxZ;
+    float lowerXVel = find_speed_boundary_a(maxX, targetPosition[0], yNormal, -1);
+    float upperXVel = find_speed_boundary_a(minX, targetPosition[0], yNormal, 1);
 
-        float minXF = INFINITY;
-        float maxXF = -INFINITY;
-        float minZF = INFINITY;
-        float maxZF = -INFINITY;
+    float vel1 = find_speed_boundary_b(targetSpeed, zVel, -1);
+    float vel2 = find_speed_boundary_b(targetSpeed, zVel, 1);
 
-        for (int x = minXI; x <= maxXI; x++) {
-            for (int z = minZI; z <= maxZI; z++) {
-                float squarePos[3] = {(float)x, 0.0f, (float)z};
-                float fHeight;
-                int fIdx1 = find_floor(squarePos, squishTriangles, squishNormals, &fHeight);
-                int fIdx2 = find_floor(squarePos, startTriangles, startNormals, &fHeight);
+    for (int xDir = -1; xDir <= 1; xDir += 2) {
+        float minXVel = fmaxf(lowerXVel, xDir > 0 ? vel1 : -vel2);
+        float maxXVel = fminf(upperXVel, xDir > 0 ? vel2 : -vel1);
 
-                if (fIdx1 == -1 && fIdx2 != -1) {
-                    minXF = fminf(minXF, (x < 0) ? nextafterf((float)(x - 1), INFINITY) : (float)x);
-                    maxXF = fmaxf(maxXF, (x > 0) ? nextafterf((float)(x + 1), -INFINITY) : (float)x);
-                    minZF = fminf(minZF, (z < 0) ? nextafterf((float)(z - 1), INFINITY) : (float)z);
-                    maxZF = fmaxf(maxZF, (z > 0) ? nextafterf((float)(z + 1), -INFINITY) : (float)z);
+        minXVel = (minSpeedDelta == 0) ? minXVel : ceilf(minXVel / minSpeedDelta) * minSpeedDelta;
+        maxXVel = (minSpeedDelta == 0) ? maxXVel : floorf(maxXVel / minSpeedDelta) * minSpeedDelta;
+
+        for (float xVel1 = minXVel; xVel1 <= maxXVel; xVel1 = fmaxf(xVel1 + minSpeedDelta, nextafterf(xVel1, INFINITY))) {
+            float minX = nextafterf(targetPosition[0], -INFINITY) - yNormal * xVel1;
+            float maxX = nextafterf(targetPosition[0], INFINITY) - yNormal * xVel1;
+            float minZ = nextafterf(targetPosition[2], -INFINITY) - yNormal * zVel;
+            float maxZ = nextafterf(targetPosition[2], INFINITY) - yNormal * zVel;
+
+            minX = find_position_boundary(minX, maxX, targetPosition[0], yNormal, xVel1, -1);
+            maxX = find_position_boundary(minX, maxX, targetPosition[0], yNormal, xVel1, 1);
+            minZ = find_position_boundary(minZ, maxZ, targetPosition[2], yNormal, zVel, -1);
+            maxZ = find_position_boundary(minZ, maxZ, targetPosition[2], yNormal, zVel, 1);
+
+            int minXI = (int)minX;
+            int maxXI = (int)maxX;
+            int minZI = (int)minZ;
+            int maxZI = (int)maxZ;
+
+            float minXF = INFINITY;
+            float maxXF = -INFINITY;
+            float minZF = INFINITY;
+            float maxZF = -INFINITY;
+
+            for (int x = minXI; x <= maxXI; x++) {
+                for (int z = minZI; z <= maxZI; z++) {
+                    float squarePos[3] = { (float)x, 0.0f, (float)z };
+                    float fHeight;
+                    int fIdx1 = find_floor(squarePos, squishTriangles, squishNormals, &fHeight);
+                    int fIdx2 = find_floor(squarePos, startTriangles, startNormals, &fHeight);
+
+                    if (fIdx1 == -1 && fIdx2 != -1) {
+                        minXF = fminf(minXF, (x < 0) ? nextafterf((float)(x - 1), INFINITY) : (float)x);
+                        maxXF = fmaxf(maxXF, (x > 0) ? nextafterf((float)(x + 1), -INFINITY) : (float)x);
+                        minZF = fminf(minZF, (z < 0) ? nextafterf((float)(z - 1), INFINITY) : (float)z);
+                        maxZF = fmaxf(maxZF, (z > 0) ? nextafterf((float)(z + 1), -INFINITY) : (float)z);
+                    }
+                }
+            }
+
+            minX = fmaxf(minX, minXF);
+            maxX = fminf(maxX, maxXF);
+            minZ = fmaxf(minZ, minZF);
+            maxZ = fminf(maxZ, maxZF);
+
+            if (minX <= maxX && minZ <= maxZ) {
+                int solIdx = atomicAdd(&(counts.nDouble10KSolutions), 1);
+
+                if (solIdx < limits.MAX_DOUBLE_10K_SOLUTIONS) {
+                    struct DoubleTenKSolution* solution = &(solutions.doubleTenKSolutions[solIdx]);
+                    solution->tenKSolutionIdx = idx;
+                    solution->post10KXVel = xVel1;
+                    solution->post10KZVel = zVel;
+                    solution->minStartX = minX;
+                    solution->maxStartX = maxX;
+                    solution->minStartZ = minZ;
+                    solution->maxStartZ = maxZ;
                 }
             }
         }
-
-        minX = fmaxf(minX, minXF);
-        maxX = fminf(maxX, maxXF);
-        minZ = fmaxf(minZ, minZF);
-        maxZ = fminf(maxZ, maxZF);
-
-        if (minX <= maxX && minZ <= maxZ) {
-            int solIdx = atomicAdd(&(counts.nDouble10KSolutions), 1);
-
-            if (solIdx < limits.MAX_DOUBLE_10K_SOLUTIONS) {
-                struct DoubleTenKSolution* solution = &(solutions.doubleTenKSolutions[solIdx]);
-                solution->tenKSolutionIdx = idx;
-                solution->post10KXVel = xVel1;
-                solution->post10KZVel = zVel;
-                solution->minStartX = minX;
-                solution->maxStartX = maxX;
-                solution->minStartZ = minZ;
-                solution->maxStartZ = maxZ;
-            }
-
-            xVel = xVel1;
-        }
     }
-
-    return foundSpeed;
 }
 
 __global__ void find_double_10k_solutions() {
+    const float minSpeedDelta = powf(2, -4);
+
+    float minPlatformZ = fminf(fminf(fminf(squishTriangles[0][0][2], squishTriangles[0][2][2]), fminf(squishTriangles[1][0][2], squishTriangles[1][1][2])), fminf(fmaxf(startTriangles[0][0][2], startTriangles[0][2][2]), fminf(startTriangles[1][0][2], startTriangles[1][1][2])));
+    float maxPlatformZ = fmaxf(fmaxf(fmaxf(squishTriangles[0][0][2], squishTriangles[0][2][2]), fmaxf(squishTriangles[1][0][2], squishTriangles[1][1][2])), fmaxf(fmaxf(startTriangles[0][0][2], startTriangles[0][2][2]), fmaxf(startTriangles[1][0][2], startTriangles[1][1][2])));
+    minPlatformZ = (minPlatformZ > 0) ? minPlatformZ : nextafterf(minPlatformZ - 1.0f, INFINITY);
+    maxPlatformZ = (maxPlatformZ > 0) ? nextafterf(maxPlatformZ + 1.0f, -INFINITY) : maxPlatformZ;
+
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx < min(counts.n10KSolutions, limits.MAX_10K_SOLUTIONS)) {
@@ -6192,21 +6266,14 @@ __global__ void find_double_10k_solutions() {
             double xDiff = tenKSol->frame1Position[0] - xPos;
             double zDiff = tenKSol->frame1Position[2] - zPos;
 
-            float xVel = xDiff / startNormals[floorIdx][1];
-            float zVel = zDiff / startNormals[floorIdx][1];
+            float minZVel = fmaxf(-tenKSol->departureSpeed, find_speed_boundary_a(maxPlatformZ, tenKSol->frame1Position[2], startNormals[floorIdx][1], -1));
+            float maxZVel = fminf(tenKSol->departureSpeed, find_speed_boundary_a(minPlatformZ, tenKSol->frame1Position[2], startNormals[floorIdx][1], 1));
 
-            bool searchLoop = true;
-            float xVel1 = xVel;
+            minZVel = (minSpeedDelta == 0) ? minZVel : ceilf(minZVel / minSpeedDelta) * minSpeedDelta;
+            maxZVel = (minSpeedDelta == 0) ? maxZVel : floorf(maxZVel / minSpeedDelta) * minSpeedDelta;
 
-            for (float zVel1 = zVel; searchLoop && abs(zVel1) <= tenKSol->departureSpeed; zVel1 = nextafterf(zVel1, -INFINITY)) {
-                searchLoop = search_xVel(xVel1, zVel1, tenKSol->departureSpeed, tenKSol->frame1Position, startNormals[floorIdx][1], idx);
-            }
-
-            searchLoop = true;
-            xVel1 = xVel;
-
-            for (float zVel1 = nextafterf(zVel, INFINITY); searchLoop && abs(zVel1) <= tenKSol->departureSpeed; zVel1 = nextafterf(zVel1, INFINITY)) {
-                searchLoop = search_xVel(xVel1, zVel1, tenKSol->departureSpeed, tenKSol->frame1Position, startNormals[floorIdx][1], idx);
+            for (float zVel1 = minZVel; zVel1 <= maxZVel; zVel1 = fmaxf(zVel1 + minSpeedDelta, nextafterf(zVel1, INFINITY))) {
+                search_xVel(zVel1, tenKSol->departureSpeed, tenKSol->frame1Position, startNormals[floorIdx][1], idx, minSpeedDelta);
             }
         }
     }
