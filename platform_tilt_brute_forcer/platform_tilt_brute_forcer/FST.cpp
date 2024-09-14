@@ -6087,8 +6087,8 @@ __device__ float find_position_boundary(float minValue, float maxValue, float ta
 }
 
 __device__ float find_speed_boundary_a(float startPos, float targetPos, float yNormal, int dir) {
-    float minVel = 0.0f;
-    float maxVel = 2.0f * (targetPos - startPos) / yNormal;
+    float minVel = (targetPos > startPos) ? 0.0f : 2.0f * (targetPos - startPos) / yNormal;
+    float maxVel = (targetPos > startPos) ? 2.0f * (targetPos - startPos) / yNormal : 0.0f;
 
     while (nextafterf(minVel, INFINITY) < maxVel) {
         float midVel = fmaxf(nextafterf(minVel, INFINITY), (minVel + maxVel) / 2.0f);
