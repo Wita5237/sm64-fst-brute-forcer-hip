@@ -4513,17 +4513,17 @@ __device__ void try_position(float* marioPos, float* normal, int maxFrames) {
                 break;
             }
 
-            if (f < 3) {
+            if (f > 0 && f < 4) {
                 if (floor_idx == -1) {
-                    landingNormalsY[f] = 1.0;
+                    landingNormalsY[f - 1] = 1.0;
                 }
                 else {
-                    landingNormalsY[f] = triangleNormals[floor_idx][1];
+                    landingNormalsY[f - 1] = triangleNormals[floor_idx][1];
                 }
 
-                landingPositions[f][0] = marioPos[0];
-                landingPositions[f][1] = marioPos[1];
-                landingPositions[f][2] = marioPos[2];
+                landingPositions[f - 1][0] = marioPos[0];
+                landingPositions[f - 1][1] = marioPos[1];
+                landingPositions[f - 1][2] = marioPos[2];
             }
 
             bool oldOnPlatform = onPlatform;
@@ -7112,13 +7112,15 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
 
                     cudaMemcpyFromSymbol(&maxAngleRangeCPU, maxAngleRange, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
-                    nBlocks = ((maxAngleRangeCPU * countsCPU.n10KSolutions) + o->nThreads - 1) / o->nThreads;
+                    if (maxAngleRangeCPU > 0) {
+                        nBlocks = ((maxAngleRangeCPU * countsCPU.n10KSolutions) + o->nThreads - 1) / o->nThreads;
 
-                    cudaMemcpyToSymbol(counts, &(countsCPU.nSlideSolutions), sizeof(int), offsetof(struct SolCounts, nSlideSolutions), cudaMemcpyHostToDevice);
-                    test_slide_angle<<<nBlocks, o->nThreads>>>();
-                    output.cudaError = cudaGetLastError();
-                    if (output.cudaError != 0x0) return output;
-                    cudaMemcpyFromSymbol(&(countsCPU.nSlideSolutions), counts, sizeof(int), offsetof(struct SolCounts, nSlideSolutions), cudaMemcpyDeviceToHost);
+                        cudaMemcpyToSymbol(counts, &(countsCPU.nSlideSolutions), sizeof(int), offsetof(struct SolCounts, nSlideSolutions), cudaMemcpyHostToDevice);
+                        test_slide_angle<<<nBlocks, o->nThreads>>>();
+                        output.cudaError = cudaGetLastError();
+                        if (output.cudaError != 0x0) return output;
+                        cudaMemcpyFromSymbol(&(countsCPU.nSlideSolutions), counts, sizeof(int), offsetof(struct SolCounts, nSlideSolutions), cudaMemcpyDeviceToHost);
+                    }
                 }
 
                 if (countsCPU.nSlideSolutions > 0) {
