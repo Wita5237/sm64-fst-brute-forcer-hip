@@ -2,6 +2,7 @@
 #include "Platform.hpp"
 #include "Surface.hpp"
 #include "Trig.hpp"
+#include "utils.hpp"
 #include <iomanip>
 #include <chrono>
 
@@ -5736,7 +5737,7 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
             if (!o->silent) fprintf(stderr, "Warning: Number of phase 1 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
             countsCPU->nSK1Solutions = o->limits.MAX_SK_PHASE_ONE;
             char logContent[200];
-            sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Phase 1 Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+            sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Phase 1 Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
             write_line_to_log_file(LOG_WARNING, logContent, logf);
         }
 
@@ -5758,7 +5759,7 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
             if (!o->silent) fprintf(stderr, "Warning: Number of phase 2a solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
             countsCPU->nSK2ASolutions = o->limits.MAX_SK_PHASE_TWO_A;
             char logContent[200];
-            sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Phase 2a Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+            sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Phase 2a Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
             write_line_to_log_file(LOG_WARNING, logContent, logf);
         }
 
@@ -5775,7 +5776,7 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
             if (!o->silent) fprintf(stderr, "Warning: Number of phase 2b solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
             countsCPU->nSK2BSolutions = o->limits.MAX_SK_PHASE_TWO_B;
             char logContent[200];
-            sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Phase 2b Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+            sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Phase 2b Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
             write_line_to_log_file(LOG_WARNING, logContent, logf);
         }
 
@@ -5792,7 +5793,7 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
             if (!o->silent) fprintf(stderr, "Warning: Number of phase 2c solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
             countsCPU->nSK2CSolutions = o->limits.MAX_SK_PHASE_TWO_C;
             char logContent[200];
-            sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Phase 2c Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+            sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Phase 2c Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
             write_line_to_log_file(LOG_WARNING, logContent, logf);
         }
 
@@ -5809,7 +5810,7 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
             if (!o->silent) fprintf(stderr, "Warning: Number of phase 2d solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
             countsCPU->nSK2DSolutions = o->limits.MAX_SK_PHASE_TWO_D;
             char logContent[200];
-            sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Phase 2d Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+            sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Phase 2d Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
             write_line_to_log_file(LOG_WARNING, logContent, logf);
         }
 
@@ -5828,7 +5829,7 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
             if (!o->silent) fprintf(stderr, "Warning: Number of phase 3 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
             countsCPU->nSK3Solutions = o->limits.MAX_SK_PHASE_THREE;
             char logContent[200];
-            sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Phase 3 Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+            sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Phase 3 Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
             write_line_to_log_file(LOG_WARNING, logContent, logf);
         }
 
@@ -5848,7 +5849,7 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
             if (!o->silent) fprintf(stderr, "Warning: Number of phase 4 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
             countsCPU->nSK4Solutions = o->limits.MAX_SK_PHASE_FOUR;
             char logContent[200];
-            sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Phase 4 Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+            sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Phase 4 Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
             write_line_to_log_file(LOG_WARNING, logContent, logf);
         }
 
@@ -5867,7 +5868,7 @@ void find_slide_kick_setup_triangle(float* startNormal, short* floorPoints, shor
             if (!o->silent) fprintf(stderr, "Warning: Number of phase 5 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
             countsCPU->nSK5Solutions = o->limits.MAX_SK_PHASE_FIVE;
             char logContent[200];
-            sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Phase 5 Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+            sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Phase 5 Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
             write_line_to_log_file(LOG_WARNING, logContent, logf);
         }
 
@@ -6576,12 +6577,12 @@ void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FS
 
     if (o->outputLevel == 0) {
         if (bestStage == STAGE_COMPLETE) {
-            wf << startNormal[0] << "," << startNormal[1] << "," << startNormal[2] << "," << countsCPU->nFullSolutions << endl;
+            wf << float2string_max(startNormal[0], 1) << "," << float2string_max(startNormal[1], 1) << "," << float2string_max(startNormal[2], 1) << "," << countsCPU->nFullSolutions << endl;
         }
     }
     else if (o->outputLevel == 1) {
         if (bestStage >= STAGE_TEN_K) {
-            wf << startNormal[0] << "," << startNormal[1] << "," << startNormal[2] << "," << bestStage << endl;
+            wf << float2string_max(startNormal[0], 1) << "," << float2string_max(startNormal[1], 1) << "," << float2string_max(startNormal[2], 1) << "," << bestStage << endl;
         }
     }
     else {
@@ -6658,7 +6659,7 @@ void write_solutions_to_file(float* startNormal, struct FSTOptions* o, struct FS
                 //if (!o->silent) printf("---------------------------------------\n    Post-Breakdance Camera Yaw: %d\n    Post-Breakdance Stick X: %d\n    Post-Breakdance Stick Y: %d\n    Landing Position: %.10g, %.10g, %.10g\n    Landing Speed: %.10g\n---------------------------------------\n\n\n", bdSol->cameraYaw, bdSol->stickX, bdSol->stickY, bdSol->landingPosition[0], bdSol->landingPosition[1], bdSol->landingPosition[2], bdSol->postSlideSpeed);
                 //if (!o->silent) printf("---------------------------------------\n    Squish Push Position Range: [%.10g, %.10g], [%.10g, %.10g]\n    Squish Push Q-steps: %d\n    Bully Position Range: [%.10g, %.10g], [%.10g, %.10g]\n    Bully Push Angle: %d\n    Max Bully Speed: %.10g\n    Min Sliding Spped: (x=%.10g, z=%.10g)\n---------------------------------------\n\n\n", bpSol->squishPushMinX, bpSol->squishPushMaxX, bpSol->squishPushMinZ, bpSol->squishPushMaxZ, bpSol->squishPushQF, bpSol->bullyMinX, bpSol->bullyMaxX, bpSol->bullyMinZ, bpSol->bullyMaxZ, bpSol->pushAngle, bpSol->maxSpeed, bpSol->minSlidingSpeedX, bpSol->minSlidingSpeedZ);
                 
-                wf << startNormal[0] << "," << startNormal[1] << "," << startNormal[2] << ",";
+                wf << float2string_max(startNormal[0], 1) << "," << float2string_max(startNormal[1], 1) << "," << float2string_max(startNormal[2], 1) << ",";
                 wf << doubleTenKSol->minStartX << "," << doubleTenKSol->maxStartX << ",";
                 wf << doubleTenKSol->minStartZ << "," << doubleTenKSol->maxStartZ << ",";
                 wf << tenKSol->frame1Position[0] << "," << tenKSol->frame1Position[1] << "," << tenKSol->frame1Position[2] << ",";
@@ -6727,10 +6728,10 @@ void write_solution_file_header(int outputLevel, std::ofstream& wf) {
     wf << "Start Normal X,Start Normal Y,Start Normal Z";
 
     if (outputLevel == 0) {
-        wf << ",Number of Solutions,";
+        wf << ",Number of Solutions";
     }
     else if (outputLevel == 1) {
-        wf << ",Latest Stage Reached,";
+        wf << ",Latest Stage Reached";
     }
     else if (outputLevel == 2) {
         wf << ",";
@@ -6860,7 +6861,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
             output.flags |= SW_FLAG_SQUISH_SPOT;
             fprintf(stderr, "Warning: Number of squish spots for this normal has been exceeded. No more squish spots for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
             char logContent[200];
-            sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Squish Spot Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+            sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Squish Spot Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
             write_line_to_log_file(LOG_WARNING, logContent, logf);
         }
     }
@@ -6915,7 +6916,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                 if (!o->silent) fprintf(stderr, "Warning: Number of platform tilt solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                 countsCPU.nPlatSolutions = o->limits.MAX_PLAT_SOLUTIONS;
                 char logContent[200];
-                sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Platform Tilt Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+                sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Platform Tilt Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
                 write_line_to_log_file(LOG_WARNING, logContent, logf);
             }
 
@@ -6941,7 +6942,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                 if (!o->silent) fprintf(stderr, "Warning: Number of upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                 countsCPU.nUpwarpSolutions = o->limits.MAX_UPWARP_SOLUTIONS;
                 char logContent[200];
-                sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Upwarp Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+                sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Upwarp Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
                 write_line_to_log_file(LOG_WARNING, logContent, logf);
             }
 
@@ -6999,7 +7000,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                         if (!o->silent) fprintf(stderr, "Warning: Number of phase 6 solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nSK6Solutions = o->limits.MAX_SK_PHASE_SIX;
                         char logContent[200];
-                        sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Phase 6 Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+                        sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Phase 6 Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
                         write_line_to_log_file(LOG_WARNING, logContent, logf);
                     }
 
@@ -7025,7 +7026,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                         if (!o->silent) fprintf(stderr, "Warning: Number of slide kick upwarp solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nSKUWSolutions = o->limits.MAX_SK_UPWARP_SOLUTIONS;
                         char logContent[200];
-                        sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Slide Kick Upwarp Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+                        sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Slide Kick Upwarp Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
                         write_line_to_log_file(LOG_WARNING, logContent, logf);
                     }
 
@@ -7042,7 +7043,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                         if (!o->silent) fprintf(stderr, "Warning: Number of strain setups for this normal has been exceeded. No more setups for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         nStrainSetupsCPU = o->limits.MAX_STRAIN_SETUPS;
                         char logContent[200];
-                        sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Strain Setup Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+                        sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Strain Setup Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
                         write_line_to_log_file(LOG_WARNING, logContent, logf);
                     }
 
@@ -7065,7 +7066,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                         if (!o->silent) fprintf(stderr, "Warning: Number of speed solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nSpeedSolutions = o->limits.MAX_SPEED_SOLUTIONS;
                         char logContent[200];
-                        sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Speed Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+                        sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Speed Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
                         write_line_to_log_file(LOG_WARNING, logContent, logf);
                     }
 
@@ -7090,7 +7091,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                         if (!o->silent) fprintf(stderr, "Warning: Number of 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.n10KSolutions = o->limits.MAX_10K_SOLUTIONS;
                         char logContent[200];
-                        sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - 10K Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+                        sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - 10K Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
                         write_line_to_log_file(LOG_WARNING, logContent, logf);
                     }
 
@@ -7131,7 +7132,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                         if (!o->silent) fprintf(stderr, "Warning: Number of slide solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nSlideSolutions = o->limits.MAX_SLIDE_SOLUTIONS;
                         char logContent[200];
-                        sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Slide Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+                        sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Slide Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
                         write_line_to_log_file(LOG_WARNING, logContent, logf);
                     }
 
@@ -7159,7 +7160,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                         if (!o->silent) fprintf(stderr, "Warning: Number of breakdance solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nBDSolutions = o->limits.MAX_BD_SOLUTIONS;
                         char logContent[200];
-                        sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Breakdance Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+                        sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Breakdance Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
                         write_line_to_log_file(LOG_WARNING, logContent, logf);
                     }
 
@@ -7184,7 +7185,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                         if (!o->silent) fprintf(stderr, "Warning: Number of double 10K solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nDouble10KSolutions = o->limits.MAX_DOUBLE_10K_SOLUTIONS;
                         char logContent[200];
-                        sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Double 10K Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+                        sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Double 10K Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
                         write_line_to_log_file(LOG_WARNING, logContent, logf);
                     }
 
@@ -7209,7 +7210,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                         if (!o->silent) fprintf(stderr, "Warning: Number of bully push solutions for this normal has been exceeded. No more solutions for this normal will be recorded. Increase the internal maximum to prevent this from happening. (Normal: %.10g, %.10g, %.10g)\n", startNormal[0], startNormal[1], startNormal[2]);
                         countsCPU.nBullyPushSolutions = o->limits.MAX_BULLY_PUSH_SOLUTIONS;
                         char logContent[200];
-                        sprintf(logContent, "(%.10g, %.10g, %.10g) (%.10g, %.10g, %.10g) - Bully Push Solution Maximum Exceeded", startNormal[0], startNormal[1], startNormal[2], o->platformPos[0], o->platformPos[1], o->platformPos[2]);
+                        sprintf(logContent, "(%s, %s, %s) (%.10g, %.10g, %.10g) - Bully Push Solution Maximum Exceeded", float2string_max(startNormal[0], 1), float2string_max(startNormal[1], 1), float2string_max(startNormal[2], 1), o->platformPos[0], o->platformPos[1], o->platformPos[2]);
                         write_line_to_log_file(LOG_WARNING, logContent, logf);
                     }
 

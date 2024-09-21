@@ -11,6 +11,8 @@ add_executable(fst-brute-forcer
   "Trig.hpp"
   "vmath.cpp"
   "vmath.hpp"
+  "utils.cpp"
+  "utils.hpp"
 )
 
 set_target_properties(fst-brute-forcer PROPERTIES
