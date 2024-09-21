@@ -322,17 +322,17 @@ void write_options_to_log_file(struct SearchOptions* s, struct FSTOptions* o, st
     write_line_to_log_file(LOG_INFO, logContent, logf);
     sprintf(logContent, "Option - Off_Platform_Frames = %d", o->nPUFrames);
     write_line_to_log_file(LOG_INFO, logContent, logf);
-    sprintf(logContent, "Option - X_Normal_Range = [%s, %s]", float2string_max(s->minNX, 1), float2string_max(s->maxNX, 1));
+    sprintf(logContent, "Option - X_Normal_Range = [%s, %s]", float2string_max(s->minNX, 1).c_str(), float2string_max(s->maxNX, 1).c_str());
     write_line_to_log_file(LOG_INFO, logContent, logf);
     if (s->zMode) {
-        sprintf(logContent, "Option - Z_Normal_Range = [%s, %s]", float2string_max(s->minNXZ, 1), float2string_max(s->maxNXZ, 1));
+        sprintf(logContent, "Option - Z_Normal_Range = [%s, %s]", float2string_max(s->minNXZ, 1).c_str(), float2string_max(s->maxNXZ, 1).c_str());
         write_line_to_log_file(LOG_INFO, logContent, logf);
     }
     else {
-        sprintf(logContent, "Option - XZ_Sum_Range = [%s, %s]", float2string_max(s->minNXZ, 1), float2string_max(s->maxNXZ, 1));
+        sprintf(logContent, "Option - XZ_Sum_Range = [%s, %s]", float2string_max(s->minNXZ, 1).c_str(), float2string_max(s->maxNXZ, 1).c_str());
         write_line_to_log_file(LOG_INFO, logContent, logf);
     }
-    sprintf(logContent, "Option - Y_Normal_Range = [%s, %s]", float2string_max(s->minNY, 1), float2string_max(s->maxNY, 1));
+    sprintf(logContent, "Option - Y_Normal_Range = [%s, %s]", float2string_max(s->minNY, 1).c_str(), float2string_max(s->maxNY, 1).c_str());
     write_line_to_log_file(LOG_INFO, logContent, logf);
     sprintf(logContent, "Option - X_Normal_Samples = %d", s->nSamplesNX);
     write_line_to_log_file(LOG_INFO, logContent, logf);
@@ -817,7 +817,7 @@ int main(int argc, char* argv[]) {
 
     for (int j = c.startXZ; j < s.nSamplesNXZ; j++) {
         c.startXZ = j;
-        sprintf(logContent, "Searching - %s = %s (%d/%d)", s.zMode ? "Z" : "XZ", float2string_max(s.minNXZ + j * deltaNXZ, 1), j + 1, s.nSamplesNXZ);
+        sprintf(logContent, "Searching - %s = %s (%d/%d)", s.zMode ? "Z" : "XZ", float2string_max(s.minNXZ + j * deltaNXZ, 1).c_str(), j + 1, s.nSamplesNXZ);
         write_line_to_log_file(LOG_INFO, logContent, logf);
 
         for (int h = c.startY; h < s.nSamplesNY; h++) {
@@ -890,7 +890,7 @@ int main(int argc, char* argv[]) {
                         }
                         else {
                             if (!o.silent) fprintf(stderr, "Error: Normal (%.10g, %.10g, %.10g) failed with the following error code: %d.\n", testNormal[0], testNormal[1], testNormal[2], output.cudaError);
-                            sprintf(logContent, "Normal (%s, %s, %s) failed with error code %d", float2string_max(testNormal[0], 1), float2string_max(testNormal[1], 1), float2string_max(testNormal[2], 1), output.cudaError);
+                            sprintf(logContent, "Normal (%s, %s, %s) failed with error code %d", float2string_max(testNormal[0], 1).c_str(), float2string_max(testNormal[1], 1).c_str(), float2string_max(testNormal[2], 1).c_str(), output.cudaError);
                             write_line_to_log_file(LOG_ERROR, logContent, logf);
                         }
 
