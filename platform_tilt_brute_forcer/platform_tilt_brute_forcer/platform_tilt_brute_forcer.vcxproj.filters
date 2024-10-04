@@ -50,15 +50,13 @@
     <ClInclude Include="FST.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="utils.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="FST.cpp">
       <Filter>Source Files</Filter>
     </CudaCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="utils.hpp">
-      <Filter>Header Files</Filter>
-    </None>
   </ItemGroup>
 </Project>

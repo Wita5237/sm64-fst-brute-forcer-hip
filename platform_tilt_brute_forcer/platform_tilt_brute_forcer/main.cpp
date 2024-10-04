@@ -28,7 +28,7 @@ struct SearchOptions {
     std::string outFile = "outData.csv";
     std::string logFile = "";
     std::string checkpointFile = "";
-
+    
     float minNX = 0.1808f;
     float maxNX = 0.1808f;
     float minNY = 0.87752f;
@@ -814,7 +814,7 @@ int main(int argc, char* argv[]) {
     const float deltaNXZ = (s.nSamplesNXZ > 1) ? (s.maxNXZ - s.minNXZ) / (s.nSamplesNXZ - 1) : 0;
 
     char logContent[200];
-
+    
     for (int j = c.startXZ; j < s.nSamplesNXZ; j++) {
         c.startXZ = j;
         sprintf(logContent, "Searching - %s = %s (%d/%d)", s.zMode ? "Z" : "XZ", float2string_max(s.minNXZ + j * deltaNXZ, 1).c_str(), j + 1, s.nSamplesNXZ);
