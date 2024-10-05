@@ -4965,6 +4965,10 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
         double minF2Dist = INFINITY;
         double maxF2Dist = -INFINITY;
 
+        //const float cameraFocusSpeed = 0.8f;
+        const int nDiveFrames = 5;
+        const float cameraFocusSpeed = 0.8f - 0.73f * powf(0.95f, nDiveFrames - 1);
+
         for (int i = 0; i < nPoints; i++) {
             for (int j = 0; j < 4; j++) {
                 double PX = 65536.0 * sol1->x1 + pyramidFloorPoints[3 * i];
@@ -5157,8 +5161,8 @@ __global__ void try_slide_kick_routeG(short* pyramidFloorPoints, const int nPoin
                         cameraFocus[1] /= nPoints;
                         cameraFocus[2] /= nPoints;
 
-                        cameraFocus[0] += 0.8 * 65536.0 * sol1->x1;
-                        cameraFocus[2] += 0.8 * 65536.0 * sol1->z1;
+                        cameraFocus[0] += cameraFocusSpeed * 65536.0 * sol1->x1;
+                        cameraFocus[2] += cameraFocusSpeed * 65536.0 * sol1->z1;
 
                         float distToCamera = sqrtf(cameraFocus[0] * cameraFocus[0] + cameraFocus[2] * cameraFocus[2] - 1073741824.0f);
                         float cameraPosition1[3];
