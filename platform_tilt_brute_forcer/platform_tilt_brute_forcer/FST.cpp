@@ -2733,14 +2733,14 @@ __device__ void platform_logic(float* platform_normal, float* mario_pos, short(&
 }
 
 __global__ void find_breakdance_solutions() {
-    long long int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    long long int idx = ((long long int)blockIdx.x * (long long int)blockDim.x) + threadIdx.x;
     int stickIdx = idx % nUniqueSticks;
     int x = uniqueSticks[stickIdx][0];
     int y = uniqueSticks[stickIdx][1];
-    idx = idx / nUniqueSticks;
+    int slideIdx = idx / nUniqueSticks;
 
-    if (idx < min(counts.nSlideSolutions, limits.MAX_SLIDE_SOLUTIONS)) {
-        struct SlideSolution* slideSol = &(solutions.slideSolutions[idx]);
+    if (slideIdx < min(counts.nSlideSolutions, limits.MAX_SLIDE_SOLUTIONS)) {
+        struct SlideSolution* slideSol = &(solutions.slideSolutions[slideIdx]);
         struct TenKSolution* tenKSol = &(solutions.tenKSolutions[slideSol->tenKSolutionIdx]);
         
         SurfaceG* floor;
@@ -2961,7 +2961,7 @@ __global__ void find_breakdance_solutions() {
 
                         if (solIdx < limits.MAX_BD_SOLUTIONS) {
                             BDSolution* solution = &(solutions.bdSolutions[solIdx]);
-                            solution->slideSolutionIdx = idx;
+                            solution->slideSolutionIdx = slideIdx;
                             solution->cameraYaw = cameraYaw;
                             solution->stickX = rawX;
                             solution->stickY = rawY;
@@ -7253,7 +7253,7 @@ FSTOutput check_normal(float* startNormal, struct FSTOptions* o, struct FSTData*
                     int nUniqueSticksCPU;
                     cudaMemcpyFromSymbol(&nUniqueSticksCPU, nUniqueSticks, sizeof(int), 0, cudaMemcpyDeviceToHost);
 
-                    nBlocks = (nUniqueSticksCPU * (long long int)countsCPU.nSlideSolutions + o->nThreads - 1) / o->nThreads;
+                    nBlocks = ((long long int)nUniqueSticksCPU * (long long int)countsCPU.nSlideSolutions + o->nThreads - 1) / o->nThreads;
 
                     cudaMemcpyToSymbol(counts, &(countsCPU.nBDSolutions), sizeof(int), offsetof(struct SolCounts, nBDSolutions), cudaMemcpyHostToDevice);
 
