@@ -123,6 +123,8 @@ To maximise throughput, this program has been written in CUDA to allow for proce
 
 In addition, to run the program you will need a computer with CUDA compatible GPU. A GPU with compute capability 5.2 or higher and at least 4GB of RAM is recommended. Lower powered GPUs may still be able to run this program, but some tweaking of the build configuration may be necessary.
 
+For hip windows, you need visual studio and the HIP sdk.
+
 ## Including this in your own projects ##
 The brute forcer includes a basic API to run the program from external projects. The code snippet below shows an example of how this works:
 
