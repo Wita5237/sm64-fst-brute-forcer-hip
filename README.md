@@ -1,3 +1,14 @@
+# Building for hip 
+to build this code for hip on windows, open PS in ROCm\<version>\bin and type the following commands:
+  for each source file:
+    ./clang++ -c --offload-arch=<arch> -xhip <path-to-directory>\<source-name> -o <path-to-directory>\<source-name>.o --rocm-path="C:\Program Files\AMD\ROCm\<version>" -I "C:\Program Files\Microsoft Visual Studio\<version>\Community\VC\Tools\MSVC\<version>\include" -I "C:\Program Files (x86)\Windows Kits\10\Include\<version>\ucrt"  
+  to link:
+  ./clang++ --hip-link --offload-arch=<arch> <source-files> -o <path-to-source-files>\FSTHIP.exe
+
+refer to https://llvm.org/docs/AMDGPUUsage.html for which arch to use.
+
+
+
 # BitFS Final Speed Transfer Brute Forcer
 A GPU-based brute forcing tool to search for working setups for the FST step of the BitFS 0xA TAS. This version of the brute forcer searches for slide-kick 10k PU routes. Full solutions are output into a CSV file (see -o in Options for more details).
 
